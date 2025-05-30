@@ -37,11 +37,3 @@ BM_ApplyBookUpdate        200 us          200 us         3405
 BM_BestBid               8.44 ns         8.44 ns     82694003
 BM_BestAsk               7.74 ns         7.74 ns     82792804
 ```
-
----
-
-## Summary
-
-- `WindowedOrderBook` shows dramatically better performance for `BM_ApplyBookUpdate` — over **20x faster** than `FullOrderBook`.
-- Both order books show comparable performance on `BM_BestBid` and `BM_BestAsk`.
-- These results validate the design goal of `WindowedOrderBook` as a fast and cache-efficient structure for latency-sensitive trading systems.
