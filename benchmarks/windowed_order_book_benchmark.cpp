@@ -38,7 +38,7 @@ static void BM_ApplyBookUpdate(benchmark::State &state) {
     snapshot.type = BookUpdateType::DELTA;
     snapshot.timestamp = std::chrono::system_clock::now();
 
-    for (int i = 0; i < 150; ++i) {
+    for (int i = 0; i < 10000; ++i) {
       double price = priceDist(rng);
       double qty = qtyDist(rng);
       snapshot.bids.push_back({price, qty});
