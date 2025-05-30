@@ -19,21 +19,23 @@ All benchmarks were run on:
 ## FullOrderBook
 
 ```
+-------------------------------------------------------------
 Benchmark                   Time             CPU   Iterations
 -------------------------------------------------------------
-BM_ApplyBookUpdate        286 us          286 us         3239
-BM_BestBid               40.3 ns         40.3 ns     17439755
-BM_BestAsk               39.8 ns         39.8 ns     17684283
+BM_ApplyBookUpdate        319 us          319 us         2045
+BM_BestBid               7.96 ns         7.96 ns     87824155
+BM_BestAsk               8.29 ns         8.29 ns     83782336
 ```
 
 ## WindowedOrderBook
 
 ```
+-------------------------------------------------------------
 Benchmark                   Time             CPU   Iterations
 -------------------------------------------------------------
-BM_ApplyBookUpdate       11.6 us         11.6 us        60322
-BM_BestBid               38.4 ns         38.4 ns     13120482
-BM_BestAsk               38.5 ns         38.5 ns     18101878
+BM_ApplyBookUpdate        200 us          200 us         3405
+BM_BestBid               8.44 ns         8.44 ns     82694003
+BM_BestAsk               7.74 ns         7.74 ns     82792804
 ```
 
 ---
