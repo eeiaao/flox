@@ -38,3 +38,4 @@ public:
 
 - Implementations must ensure thread safety if used in concurrent environments
 - Used directly by strategies and execution components
+- Implementations should inline performance-critical methods for optimal performance.
