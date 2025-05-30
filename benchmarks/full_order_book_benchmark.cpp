@@ -19,8 +19,10 @@
 using namespace flox;
 
 static void BM_ApplyBookUpdate(benchmark::State &state) {
+  constexpr double tickSize = 0.1;
+
   FullOrderBookFactory factory;
-  auto *book = factory.create(FullOrderBookConfig{});
+  auto *book = factory.create(FullOrderBookConfig{0.1});
 
   std::mt19937 rng(42);
   std::uniform_real_distribution<> priceDist(19900.0, 20100.0);
@@ -46,8 +48,10 @@ static void BM_ApplyBookUpdate(benchmark::State &state) {
 BENCHMARK(BM_ApplyBookUpdate)->Unit(benchmark::kMicrosecond);
 
 static void BM_BestBid(benchmark::State &state) {
+  constexpr double tickSize = 0.1;
+
   FullOrderBookFactory factory;
-  auto *book = factory.create(FullOrderBookConfig{});
+  auto *book = factory.create(FullOrderBookConfig{0.1});
 
   BookUpdateFactory bookUpdateFactory;
   auto snapshot = bookUpdateFactory.create();
@@ -55,7 +59,6 @@ static void BM_BestBid(benchmark::State &state) {
   snapshot.type = BookUpdateType::DELTA;
   snapshot.timestamp = std::chrono::system_clock::now();
 
-  constexpr double tickSize = 0.1;
   for (int i = 0; i < 100000; ++i) {
     snapshot.bids.push_back({20000.0 - i * tickSize, 1.0});
   }
@@ -69,8 +72,10 @@ static void BM_BestBid(benchmark::State &state) {
 BENCHMARK(BM_BestBid)->Unit(benchmark::kNanosecond);
 
 static void BM_BestAsk(benchmark::State &state) {
+  constexpr double tickSize = 0.1;
+
   FullOrderBookFactory factory;
-  auto *book = factory.create(FullOrderBookConfig{});
+  auto *book = factory.create(FullOrderBookConfig{0.1});
 
   BookUpdateFactory bookUpdateFactory;
   auto snapshot = bookUpdateFactory.create();
@@ -78,7 +83,6 @@ static void BM_BestAsk(benchmark::State &state) {
   snapshot.type = BookUpdateType::DELTA;
   snapshot.timestamp = std::chrono::system_clock::now();
 
-  constexpr double tickSize = 0.1;
   for (int i = 0; i < 100000; ++i) {
     snapshot.asks.push_back({20000.0 + i * tickSize, 1.0});
   }

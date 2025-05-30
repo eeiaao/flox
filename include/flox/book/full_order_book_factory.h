@@ -14,12 +14,18 @@
 
 namespace flox {
 
-struct FullOrderBookConfig : public IOrderBookConfig {};
+struct FullOrderBookConfig : public IOrderBookConfig {
+  double tickSize = 0.0;
+
+  FullOrderBookConfig(double tickSize) : tickSize(tickSize) {}
+};
 
 class FullOrderBookFactory : public IOrderBookFactory {
 public:
-  IOrderBook *create(const IOrderBookConfig &) override {
-    auto book = std::make_unique<FullOrderBook>();
+  IOrderBook *create(const IOrderBookConfig &config) override {
+    const auto *fullOrderBookConfig =
+        static_cast<const FullOrderBookConfig *>(&config);
+    auto book = std::make_unique<FullOrderBook>(fullOrderBookConfig->tickSize);
     IOrderBook *ptr = book.get();
     _owned.emplace_back(std::move(book));
     return ptr;

@@ -16,7 +16,7 @@ using namespace flox;
 
 class FullOrderBookTest : public ::testing::Test {
 protected:
-  FullOrderBook book;
+  FullOrderBook book{0.1};
   BookUpdateFactory factory;
 
   BookUpdate makeSnapshot(const std::vector<BookLevel> &bids,
@@ -60,7 +60,7 @@ TEST_F(FullOrderBookTest, AppliesDeltaCorrectly) {
   EXPECT_EQ(book.bestAsk(), 101.0);
 
   EXPECT_DOUBLE_EQ(book.bidAtPrice(99.0), 1.5);
-  EXPECT_DOUBLE_EQ(book.bidAtPrice(100.0), 0.0); // удалён
+  EXPECT_DOUBLE_EQ(book.bidAtPrice(100.0), 0.0);
   EXPECT_DOUBLE_EQ(book.askAtPrice(101.0), 3.0);
 }
 
