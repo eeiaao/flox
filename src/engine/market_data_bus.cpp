@@ -9,115 +9,214 @@
 
 #include "flox/engine/market_data_bus.h"
 
+#include <atomic>
+#include <mutex>
+#include <thread>
+#include <unordered_map>
+#include <utility>
+#include <vector>
+
+#include "flox/engine/events/market_data_event.h"
+#include "flox/util/spsc_queue.h"
+
+#ifdef USE_SYNC_MARKET_BUS
+#include "flox/engine/tick_guard.h"
+#include <condition_variable>
+#endif
+
 namespace flox {
 
-MarketDataBus::SubscriptionHandle
-MarketDataBus::subscribeToCandles(SymbolId symbol, CandleCallback cb) {
-  std::scoped_lock lock(_mutex);
-  auto &router = _routers[symbol];
-  router.candleSubs.emplace_back(std::move(cb));
-  return {symbol, SubscriptionType::Candle, router.candleSubs.size() - 1};
-}
+#ifdef USE_SYNC_MARKET_BUS
 
-MarketDataBus::SubscriptionHandle
-MarketDataBus::subscribeToTrades(SymbolId symbol, TradeCallback cb) {
-  std::scoped_lock lock(_mutex);
-  auto &router = _routers[symbol];
-  router.tradeSubs.emplace_back(std::move(cb));
-  return {symbol, SubscriptionType::Trade, router.tradeSubs.size() - 1};
-}
+class MarketDataBus::Impl {
+public:
+  static constexpr size_t QueueSize = 4096;
+  using Queue = MarketDataBus::Queue;
 
-MarketDataBus::SubscriptionHandle
-MarketDataBus::subscribeToBookUpdates(SymbolId symbol, BookUpdateCallback cb) {
-  std::scoped_lock lock(_mutex);
-  auto &router = _routers[symbol];
-  router.bookSubs.emplace_back(std::move(cb));
-  return {symbol, SubscriptionType::BookUpdate, router.bookSubs.size() - 1};
-}
+  std::mutex _mutex;
 
-void MarketDataBus::unsubscribe(const SubscriptionHandle &handle) {
-  std::scoped_lock lock(_mutex);
-  auto it = _routers.find(handle.symbol);
-  if (it == _routers.end())
-    return;
+  struct Entry {
+    std::shared_ptr<IMarketDataSubscriber> subscriber;
+    std::unique_ptr<Queue> queue;
+    std::thread thread;
+  };
 
-  auto &router = it->second;
-  switch (handle.type) {
-  case SubscriptionType::Candle:
-    if (handle.index < router.candleSubs.size()) {
-      router.candleSubs[handle.index] = std::nullopt;
-    }
-    break;
-  case SubscriptionType::Trade:
-    if (handle.index < router.tradeSubs.size()) {
-      router.tradeSubs[handle.index] = std::nullopt;
-    }
-    break;
-  case SubscriptionType::BookUpdate:
-    if (handle.index < router.bookSubs.size()) {
-      router.bookSubs[handle.index] = std::nullopt;
-    }
-    break;
+  std::unordered_map<SubscriberId, Entry> _subscribers;
+
+  std::atomic<bool> _running{false};
+  std::atomic<size_t> _activeSubscribers{0};
+  std::condition_variable _cv;
+  std::mutex _mutexReady;
+
+  void subscribe(SubscriberId id, std::shared_ptr<IMarketDataSubscriber> sub) {
+    auto queue = std::make_unique<Queue>();
+    Entry entry;
+    entry.subscriber = std::move(sub);
+    entry.queue = std::move(queue);
+    _subscribers.emplace(id, std::move(entry));
   }
-}
 
-void MarketDataBus::onCandle(SymbolId symbol, const Candle &candle) {
-  std::vector<CandleCallback> subs;
-  {
-    std::scoped_lock lock(_mutex);
-    auto it = _routers.find(symbol);
-    if (it == _routers.end())
+  Queue *getQueue(SubscriberId id) {
+    auto it = _subscribers.find(id);
+    return (it != _subscribers.end()) ? it->second.queue.get() : nullptr;
+  }
+
+  void start() {
+    if (_running.exchange(true))
       return;
-    for (const auto &cb : it->second.candleSubs) {
-      if (cb)
-        subs.push_back(*cb);
+
+    _activeSubscribers = _subscribers.size();
+
+    for (auto &[id, entry] : _subscribers) {
+      auto &queue = entry.queue;
+      auto &sub = entry.subscriber;
+
+      entry.thread = std::thread([this, &queue = *queue, &sub] {
+        {
+          std::lock_guard<std::mutex> lk(_mutexReady);
+          if (--_activeSubscribers == 0)
+            _cv.notify_one();
+        }
+
+        while (_running.load(std::memory_order_acquire)) {
+          auto opt = queue.try_pop_ref();
+          if (opt) {
+            auto &[handle, barrier] = opt->get();
+            TickGuard guard(*barrier);
+            handle->dispatchTo(*sub);
+          } else {
+            std::this_thread::yield();
+          }
+        }
+
+        while (queue.try_pop_ref()) {
+        }
+      });
     }
+
+    std::unique_lock<std::mutex> lk(_mutexReady);
+    _cv.wait(lk, [&] { return _activeSubscribers == 0; });
   }
 
-  for (const auto &cb : subs)
-    cb(symbol, candle);
-}
-
-void MarketDataBus::onTrade(const Trade &trade) {
-  std::vector<TradeCallback> subs;
-  {
-    std::scoped_lock lock(_mutex);
-    auto it = _routers.find(trade.symbol);
-    if (it == _routers.end())
+  void stop() {
+    if (!_running.exchange(false))
       return;
-    for (const auto &cb : it->second.tradeSubs) {
-      if (cb)
-        subs.push_back(*cb);
+
+    for (auto &[_, entry] : _subscribers) {
+      if (entry.thread.joinable())
+        entry.thread.join();
+      while (entry.queue->try_pop_ref()) {
+      }
+    }
+
+    _subscribers.clear();
+  }
+
+  void publish(EventHandle<IMarketDataEvent> event) {
+    TickBarrier barrier(_subscribers.size());
+
+    for (auto &[_, entry] : _subscribers) {
+      entry.queue->emplace(QueueItem{event->wrap(), &barrier});
+    }
+
+    barrier.wait();
+  }
+};
+
+#else
+
+class MarketDataBus::Impl {
+public:
+  using Queue = MarketDataBus::Queue;
+
+  struct SubscriberEntry {
+    SubscriberMode mode;
+    std::shared_ptr<IMarketDataSubscriber> subscriber;
+    std::unique_ptr<Queue> queue;
+    std::unique_ptr<std::atomic<bool>> running;
+    std::thread thread;
+  };
+
+  std::mutex _mutex;
+  std::unordered_map<SubscriberId, SubscriberEntry> _subscribers;
+
+  ~Impl() { stop(); }
+
+  void subscribe(SubscriberId id, SubscriberMode mode,
+                 std::shared_ptr<IMarketDataSubscriber> subscriber) {
+    SubscriberEntry entry;
+    entry.mode = mode;
+    entry.subscriber = std::move(subscriber);
+
+    if (mode == SubscriberMode::PULL) {
+      entry.queue = std::make_unique<Queue>();
+      entry.running = std::make_unique<std::atomic<bool>>(true);
+    }
+
+    std::lock_guard<std::mutex> lock(_mutex);
+    _subscribers.emplace(id, std::move(entry));
+  }
+
+  Queue *getQueue(SubscriberId id) {
+    std::lock_guard<std::mutex> lock(_mutex);
+    auto it = _subscribers.find(id);
+    if (it != _subscribers.end() && it->second.mode == SubscriberMode::PULL) {
+      return it->second.queue.get();
+    }
+    return nullptr;
+  }
+
+  void publish(EventHandle<IMarketDataEvent> event) {
+    std::lock_guard<std::mutex> lock(_mutex);
+    for (auto &[id, sub] : _subscribers) {
+      if (sub.mode == SubscriberMode::PUSH && sub.subscriber) {
+        event->dispatchTo(*sub.subscriber);
+      } else if (sub.mode == SubscriberMode::PULL && sub.queue) {
+        sub.queue->emplace(event->wrap());
+      }
     }
   }
 
-  for (const auto &cb : subs)
-    cb(trade);
-}
+  void start() {}
 
-void MarketDataBus::onBookUpdate(const BookUpdate &update) {
-  std::vector<BookUpdateCallback> subs;
-  {
-    std::scoped_lock lock(_mutex);
-    auto it = _routers.find(update.symbol);
-    if (it == _routers.end())
-      return;
-    for (const auto &cb : it->second.bookSubs) {
-      if (cb)
-        subs.push_back(*cb);
+  void stop() {
+    std::lock_guard<std::mutex> lock(_mutex);
+    for (auto &[_, sub] : _subscribers) {
+      if (sub.running)
+        sub.running->store(false);
+      if (sub.thread.joinable())
+        sub.thread.join();
     }
+    _subscribers.clear();
   }
+};
 
-  for (const auto &cb : subs)
-    cb(update);
+#endif
+
+MarketDataBus::MarketDataBus() : _impl(std::make_unique<Impl>()) {}
+MarketDataBus::~MarketDataBus() = default;
+
+void MarketDataBus::subscribe(
+    std::shared_ptr<IMarketDataSubscriber> subscriber) {
+  auto id = subscriber->id();
+  [[maybe_unused]] auto mode = subscriber->mode();
+
+#ifdef USE_SYNC_MARKET_BUS
+  _impl->subscribe(id, std::move(subscriber));
+#else
+  _impl->subscribe(id, mode, std::move(subscriber));
+#endif
 }
 
-void MarketDataBus::clear() {
-  std::scoped_lock lock(_mutex);
-  _routers.clear();
+MarketDataBus::Queue *MarketDataBus::getQueue(SubscriberId id) {
+  return _impl->getQueue(id);
 }
 
-void MarketDataBus::start() {}
-void MarketDataBus::stop() {}
+void MarketDataBus::publish(EventHandle<IMarketDataEvent> event) {
+  _impl->publish(std::move(event));
+}
+
+void MarketDataBus::start() { _impl->start(); }
+void MarketDataBus::stop() { _impl->stop(); }
 
 } // namespace flox

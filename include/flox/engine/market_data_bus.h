@@ -9,63 +9,48 @@
 
 #pragma once
 
-#include "flox/book/book_update.h"
-#include "flox/book/candle.h"
-#include "flox/book/trade.h"
+#include <memory>
+
 #include "flox/common.h"
-#include "flox/engine/subsystem.h"
-#include <functional>
-#include <mutex>
-#include <optional>
-#include <unordered_map>
-#include <vector>
+#include "flox/engine/abstract_market_data_subscriber.h"
+#include "flox/engine/events/market_data_event.h"
 
 namespace flox {
 
-class MarketDataBus : public ISubsystem {
+class MarketDataBus {
 public:
-  using CandleCallback = std::function<void(SymbolId, const Candle &)>;
-  using TradeCallback = std::function<void(const Trade &)>;
-  using BookUpdateCallback = std::function<void(const BookUpdate &)>;
+  static constexpr size_t QueueSize = 4096;
+#ifdef USE_SYNC_MARKET_BUS
+  using QueueItem = std::pair<EventHandle<IMarketDataEvent>, TickBarrier *>;
+#else
+  using QueueItem = EventHandle<IMarketDataEvent>;
+#endif
 
-  enum class SubscriptionType { Candle, Trade, BookUpdate };
+  using Queue = SPSCQueue<QueueItem, QueueSize>;
 
-  struct SubscriptionHandle {
-    SymbolId symbol;
-    SubscriptionType type;
-    size_t index;
+  MarketDataBus();
+  ~MarketDataBus();
 
-    bool operator==(const SubscriptionHandle &other) const {
-      return symbol == other.symbol && type == other.type &&
-             index == other.index;
-    }
-  };
+  void subscribe(std::shared_ptr<IMarketDataSubscriber> subscriber);
 
-  SubscriptionHandle subscribeToCandles(SymbolId symbol, CandleCallback cb);
-  SubscriptionHandle subscribeToTrades(SymbolId symbol, TradeCallback cb);
-  SubscriptionHandle subscribeToBookUpdates(SymbolId symbol,
-                                            BookUpdateCallback cb);
+  Queue *getQueue(SubscriberId id);
 
-  void unsubscribe(const SubscriptionHandle &handle);
+  void start();
+  void stop();
 
-  void onCandle(SymbolId symbol, const Candle &candle);
-  void onTrade(const Trade &trade);
-  void onBookUpdate(const BookUpdate &update);
-
-  void clear();
-
-  void start() override;
-  void stop() override;
+  template <typename T>
+  void publish(EventHandle<T> event)
+    requires std::is_base_of_v<IMarketDataEvent, T>
+  {
+    publish(event.template upcast<IMarketDataEvent>());
+  }
 
 private:
-  struct Router {
-    std::vector<std::optional<CandleCallback>> candleSubs;
-    std::vector<std::optional<TradeCallback>> tradeSubs;
-    std::vector<std::optional<BookUpdateCallback>> bookSubs;
-  };
+  void publish(EventHandle<IMarketDataEvent> event);
 
-  std::unordered_map<SymbolId, Router> _routers;
-  std::mutex _mutex;
+private:
+  class Impl;
+  std::unique_ptr<Impl> _impl;
 };
 
 } // namespace flox

@@ -9,19 +9,14 @@
 
 #pragma once
 
-#include <chrono>
-#include <string>
-
-#include "flox/common.h"
-
 namespace flox {
 
-struct Trade {
-  SymbolId symbol;
-  double price;
-  double quantity;
-  bool isBuy;
-  std::chrono::system_clock::time_point timestamp;
+class IMarketDataEvent;
+
+class IEventPool {
+public:
+  virtual ~IEventPool() = default;
+  virtual void release(IMarketDataEvent *event) = 0;
 };
 
 } // namespace flox

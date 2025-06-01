@@ -11,7 +11,7 @@
 
 #include "flox/book/abstract_order_book.h"
 #include "flox/book/book_side.h"
-#include "flox/book/book_update.h"
+#include "flox/engine/events/book_update_event.h"
 
 #include <algorithm>
 #include <cmath>
@@ -36,7 +36,7 @@ public:
         _bids(_windowSize, BookSide::Side::Bid, mem),
         _asks(_windowSize, BookSide::Side::Ask, mem) {}
 
-  void applyBookUpdate(const BookUpdate &update) override {
+  void applyBookUpdate(const BookUpdateEvent &update) override {
     std::scoped_lock lock(_mutex);
 
     double minPrice = std::numeric_limits<double>::max();

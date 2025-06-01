@@ -7,11 +7,11 @@
  * license information.
  */
 
-#include "flox/book/book_update.h"
-#include "flox/book/book_update_factory.h"
-#include "flox/book/trade.h"
 #include "flox/connector/connector_manager.h"
 #include "flox/connector/exchange_connector.h"
+#include "flox/engine/events/book_update_event.h"
+#include "flox/engine/events/trade_event.h"
+#include "flox/engine/market_data_event_pool.h"
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -38,16 +38,18 @@ public:
 
   void triggerTestData() {
     if (_bookCb && _tradeCb) {
-      BookUpdateFactory factory;
-      auto bu = factory.create();
-      bu.symbol = 42;
+      EventPool<BookUpdateEvent, 3> bookUpdatePool;
+      EventPool<TradeEvent, 3> tradePool;
 
-      Trade tr;
-      tr.symbol = 42;
-      tr.price = 3.14;
+      auto bu = bookUpdatePool.acquire();
+      bu->symbol = 42;
 
-      _bookCb(bu);
-      _tradeCb(tr);
+      auto tr = tradePool.acquire();
+      tr->symbol = 42;
+      tr->price = 3.14;
+
+      _bookCb(bu.get());
+      _tradeCb(tr.get());
     }
   }
 };
@@ -72,13 +74,14 @@ TEST(ConnectorManagerTest, RegisterAndStartAll) {
   bool tradeCalled = false;
 
   manager.startAll(
-      [&](const BookUpdate &bu) {
-        EXPECT_EQ(bu.symbol, 42);
+      [&](BookUpdateEvent *bu) {
+        ASSERT_NE(bu, nullptr);
+        EXPECT_EQ(bu->symbol, 42);
         bookUpdateCalled = true;
       },
-      [&](const Trade &tr) {
-        EXPECT_EQ(tr.symbol, 42);
-        EXPECT_DOUBLE_EQ(tr.price, 3.14);
+      [&](TradeEvent *tr) {
+        EXPECT_EQ(tr->symbol, 42);
+        EXPECT_DOUBLE_EQ(tr->price, 3.14);
         tradeCalled = true;
       });
 

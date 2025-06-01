@@ -10,9 +10,10 @@
 #pragma once
 
 #include "flox/book/candle.h"
-#include "flox/book/trade.h"
 #include "flox/common.h"
-#include "flox/engine/engine.h"
+#include "flox/engine/abstract_market_data_subscriber.h"
+#include "flox/engine/events/market_data_event.h"
+#include "flox/engine/events/trade_event.h"
 #include "flox/engine/subsystem.h"
 
 #include <chrono>
@@ -22,7 +23,7 @@
 
 namespace flox {
 
-class CandleAggregator : public ISubsystem {
+class CandleAggregator : public ISubsystem, public IMarketDataSubscriber {
 public:
   using CandleCallback = std::function<void(SymbolId, const Candle &)>;
 
@@ -31,9 +32,15 @@ public:
   void start() override;
   void stop() override;
 
-  void onTrade(const Trade &trade);
+  void onMarketData(const IMarketDataEvent &event) override;
+  SubscriberId id() const override {
+    return reinterpret_cast<SubscriberId>(this);
+  }
+  SubscriberMode mode() const override { return SubscriberMode::PUSH; }
 
 private:
+  void onTrade(TradeEvent *trade);
+
   struct PartialCandle {
     Candle candle;
     bool initialized = false;

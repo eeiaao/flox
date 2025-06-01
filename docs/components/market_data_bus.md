@@ -1,66 +1,42 @@
-# MarketDataBus
+# Market Data Bus
 
-The `MarketDataBus` is a publish-subscribe router for market data in the Flox engine.  
-It allows multiple components to independently subscribe to updates for candles, trades, or order books.
+The `MarketDataBus` is a high-performance event distribution system used to fan out market data (e.g. book updates, trades) to multiple subscribers.
 
 ## Purpose
 
-To decouple market data producers (e.g., connectors) from consumers (e.g., strategies, aggregators), while supporting symbol-specific subscriptions.
+To asynchronously or synchronously deliver events to strategies, aggregators, and books in an efficient, non-blocking, and allocation-free manner.
 
-## Class Definition
+---
+
+## Interface Summary
 
 ```cpp
-class MarketDataBus : public ISubsystem {
+class MarketDataBus {
 public:
-  using CandleCallback = std::function<void(SymbolId, const Candle &)>;
-  using TradeCallback = std::function<void(const Trade &)>;
-  using BookUpdateCallback = std::function<void(const BookUpdate &)>;
+  void subscribe(std::shared_ptr<IMarketDataSubscriber> subscriber);
+  SPSCQueue<EventHandle<IMarketDataEvent>>* getQueue(SubscriberId id);
+  void start();
+  void stop();
 
-  enum class SubscriptionType { Candle, Trade, BookUpdate };
-
-  struct SubscriptionHandle {
-    SymbolId symbol;
-    SubscriptionType type;
-    size_t index;
-    bool operator==(const SubscriptionHandle &other) const;
-  };
-
-  SubscriptionHandle subscribeToCandles(SymbolId symbol, CandleCallback cb);
-  SubscriptionHandle subscribeToTrades(SymbolId symbol, TradeCallback cb);
-  SubscriptionHandle subscribeToBookUpdates(SymbolId symbol, BookUpdateCallback cb);
-
-  void unsubscribe(const SubscriptionHandle &handle);
-
-  void onCandle(SymbolId symbol, const Candle &candle);
-  void onTrade(const Trade &trade);
-  void onBookUpdate(const BookUpdate &update);
-
-  void clear();
-  void start() override;
-  void stop() override;
+  template <typename T>
+  void publish(EventHandle<T> event);
 };
 ```
 
 ## Responsibilities
 
-- Manages multiple subscribers per symbol and event type
-- Emits incoming data to appropriate callbacks
-- Supports unsubscribe via `SubscriptionHandle`
-- Thread-safe via internal mutex
+- Maintain a dedicated `SPSCQueue` for each subscriber
+- Deliver events with zero heap allocation
+- Track subscribers by `SubscriberId`
+- Use `EventHandle` to manage lifecycle of dispatched events
 
-## Internal Design
+## Modes
 
-- Uses a `Router` struct to hold subscriber lists per symbol
-- Callbacks are stored in `std::vector<std::optional<...>>` for efficient access and removal
-- Synchronization is handled with `std::mutex`
-
-## Use Cases
-
-- Strategies subscribing to specific symbols
-- Centralized data distribution for logging, analytics, or aggregation
-- Decoupling modules with dynamic subscription capabilities
+- **Asynchronous (default)**: Fan-out using lock-free queues
+- **Synchronous (`USE_SYNC_MARKET_BUS`)**: Waits for all subscribers to complete tick processing via `TickBarrier`
 
 ## Notes
 
-- Subscriptions are retained until explicitly unsubscribed or `clear()` is called
-- Subscribers must avoid holding long locks or throwing exceptions inside callbacks
+- Internally implemented using a `MarketDataBus::Impl` with per-subscriber queue maps
+- Compatible with both `PUSH` and `PULL` subscriber modes
+- Central to all real-time data distribution in the engine

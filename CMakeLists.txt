@@ -11,9 +11,19 @@ file(GLOB_RECURSE SRC_FILES
     src/**/*.cpp
 )
 
-add_library(${PROJECT_NAME} STATIC ${SRC_FILES})
+set(FLOX ${PROJECT_NAME})
+set(FLOX_SYNC ${PROJECT_NAME}_sync)
 
-target_compile_options(${PROJECT_NAME} PRIVATE
+add_library(${FLOX} STATIC ${SRC_FILES})
+add_library(flox::${FLOX} ALIAS ${FLOX})
+target_compile_options(${FLOX} PRIVATE
+  $<$<CONFIG:Release>:-O3 -march=native -flto -funroll-loops>
+)
+
+add_library(${FLOX_SYNC} STATIC ${SRC_FILES})
+add_library(flox::${FLOX_SYNC} ALIAS ${FLOX_SYNC})
+target_compile_definitions(${FLOX_SYNC} PRIVATE USE_SYNC_MARKET_BUS)
+target_compile_options(${FLOX_SYNC} PRIVATE
   $<$<CONFIG:Release>:-O3 -march=native -flto -funroll-loops>
 )
 

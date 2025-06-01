@@ -8,7 +8,8 @@
  */
 
 #include "flox/aggregator/candle_aggregator.h"
-#include "flox/book/trade.h"
+#include "flox/engine/events/trade_event.h"
+#include "flox/engine/market_data_event_pool.h"
 
 #include <gtest/gtest.h>
 
@@ -23,29 +24,35 @@ std::chrono::system_clock::time_point ts(int seconds) {
   return std::chrono::system_clock::time_point(std::chrono::seconds(seconds));
 }
 
+using TradePool = EventPool<TradeEvent, 15>;
+
+EventHandle<TradeEvent> makeTrade(TradePool &pool, SymbolId symbol,
+                                  double price, double qty, int sec) {
+  auto handle = pool.acquire();
+  handle->symbol = symbol;
+  handle->price = price;
+  handle->quantity = qty;
+  handle->isBuy = true;
+  handle->timestamp = ts(sec);
+  return handle;
+}
+
 } // namespace
 
-// Verifies basic candle aggregation: open, high, low, close, volume, and flush
-// on interval change
 TEST(CandleAggregatorTest, AggregatesTradesIntoCandles) {
   std::vector<Candle> result;
   CandleAggregator aggregator(
       INTERVAL, [&](SymbolId, const Candle &c) { result.push_back(c); });
 
+  EventPool<TradeEvent, 15> pool;
   aggregator.start();
 
-  aggregator.onTrade(
-      Trade{.symbol = SYMBOL, .price = 100, .quantity = 1, .timestamp = ts(0)});
-  aggregator.onTrade(Trade{
-      .symbol = SYMBOL, .price = 105, .quantity = 2, .timestamp = ts(10)});
-  aggregator.onTrade(
-      Trade{.symbol = SYMBOL, .price = 99, .quantity = 3, .timestamp = ts(20)});
-  aggregator.onTrade(Trade{
-      .symbol = SYMBOL, .price = 101, .quantity = 1, .timestamp = ts(30)});
-  aggregator.onTrade(Trade{.symbol = SYMBOL,
-                           .price = 102,
-                           .quantity = 2,
-                           .timestamp = ts(65)}); // triggers flush
+  aggregator.onMarketData(*makeTrade(pool, SYMBOL, 100, 1, 0));
+  aggregator.onMarketData(*makeTrade(pool, SYMBOL, 105, 2, 10));
+  aggregator.onMarketData(*makeTrade(pool, SYMBOL, 99, 3, 20));
+  aggregator.onMarketData(*makeTrade(pool, SYMBOL, 101, 1, 30));
+  aggregator.onMarketData(
+      *makeTrade(pool, SYMBOL, 102, 2, 65)); // triggers flush
 
   ASSERT_EQ(result.size(), 1);
   EXPECT_DOUBLE_EQ(result[0].open, 100);
@@ -57,18 +64,16 @@ TEST(CandleAggregatorTest, AggregatesTradesIntoCandles) {
   EXPECT_EQ(result[0].endTime, ts(60));
 }
 
-// Ensures the final candle is emitted on stop() if it's still open
 TEST(CandleAggregatorTest, FlushesFinalCandleOnStop) {
   std::vector<Candle> result;
   CandleAggregator aggregator(
       INTERVAL, [&](SymbolId, const Candle &c) { result.push_back(c); });
 
+  EventPool<TradeEvent, 15> pool;
   aggregator.start();
 
-  aggregator.onTrade(
-      Trade{.symbol = SYMBOL, .price = 100, .quantity = 1, .timestamp = ts(0)});
-  aggregator.onTrade(Trade{
-      .symbol = SYMBOL, .price = 105, .quantity = 1, .timestamp = ts(30)});
+  aggregator.onMarketData(*makeTrade(pool, SYMBOL, 100, 1, 0));
+  aggregator.onMarketData(*makeTrade(pool, SYMBOL, 105, 1, 30));
 
   aggregator.stop(); // flush remaining
 
@@ -80,21 +85,16 @@ TEST(CandleAggregatorTest, FlushesFinalCandleOnStop) {
   EXPECT_DOUBLE_EQ(result[0].volume, 2);
 }
 
-// Ensures a new candle is started after a gap (timestamp exceeds current
-// interval)
 TEST(CandleAggregatorTest, StartsNewCandleAfterGap) {
   std::vector<Candle> result;
   CandleAggregator aggregator(
       INTERVAL, [&](SymbolId, const Candle &c) { result.push_back(c); });
 
+  TradePool pool;
   aggregator.start();
 
-  aggregator.onTrade(
-      Trade{.symbol = SYMBOL, .price = 110, .quantity = 1, .timestamp = ts(0)});
-  aggregator.onTrade(Trade{.symbol = SYMBOL,
-                           .price = 120,
-                           .quantity = 2,
-                           .timestamp = ts(130)}); // gap → flush
+  aggregator.onMarketData(*makeTrade(pool, SYMBOL, 110, 1, 0));
+  aggregator.onMarketData(*makeTrade(pool, SYMBOL, 120, 2, 130)); // gap → flush
 
   ASSERT_EQ(result.size(), 1);
   EXPECT_EQ(result[0].startTime, ts(0));
@@ -102,16 +102,14 @@ TEST(CandleAggregatorTest, StartsNewCandleAfterGap) {
   EXPECT_DOUBLE_EQ(result[0].close, 110);
 }
 
-// Tests a candle that consists of a single trade (OHLC must all equal that
-// price)
 TEST(CandleAggregatorTest, SingleTradeCandle) {
   std::vector<Candle> result;
   CandleAggregator aggregator(
       INTERVAL, [&](SymbolId, const Candle &c) { result.push_back(c); });
 
+  TradePool pool;
   aggregator.start();
-  aggregator.onTrade(
-      Trade{.symbol = SYMBOL, .price = 123, .quantity = 1, .timestamp = ts(5)});
+  aggregator.onMarketData(*makeTrade(pool, SYMBOL, 123, 1, 5));
   aggregator.stop(); // flush
 
   ASSERT_EQ(result.size(), 1);
@@ -123,24 +121,19 @@ TEST(CandleAggregatorTest, SingleTradeCandle) {
   EXPECT_DOUBLE_EQ(candle.volume, 1);
 }
 
-// Checks that trades from different symbols are aggregated into separate
-// candles
 TEST(CandleAggregatorTest, MultipleSymbolsAreAggregatedSeparately) {
   std::vector<std::pair<SymbolId, Candle>> result;
   CandleAggregator aggregator(INTERVAL, [&](SymbolId symbol, const Candle &c) {
     result.emplace_back(symbol, c);
   });
 
+  TradePool pool;
   aggregator.start();
 
-  aggregator.onTrade(
-      Trade{.symbol = 1, .price = 10, .quantity = 1, .timestamp = ts(0)});
-  aggregator.onTrade(
-      Trade{.symbol = 2, .price = 20, .quantity = 2, .timestamp = ts(10)});
-  aggregator.onTrade(
-      Trade{.symbol = 1, .price = 12, .quantity = 1, .timestamp = ts(30)});
-  aggregator.onTrade(
-      Trade{.symbol = 2, .price = 18, .quantity = 1, .timestamp = ts(40)});
+  aggregator.onMarketData(*makeTrade(pool, 1, 10, 1, 0));
+  aggregator.onMarketData(*makeTrade(pool, 2, 20, 2, 10));
+  aggregator.onMarketData(*makeTrade(pool, 1, 12, 1, 30));
+  aggregator.onMarketData(*makeTrade(pool, 2, 18, 1, 40));
 
   aggregator.stop(); // flush all
 
@@ -158,18 +151,16 @@ TEST(CandleAggregatorTest, MultipleSymbolsAreAggregatedSeparately) {
   EXPECT_DOUBLE_EQ(it2->second.volume, 3);
 }
 
-// Verifies that calling start() clears any previous internal state and candles
 TEST(CandleAggregatorTest, DoubleStartClearsOldState) {
   std::vector<Candle> result;
   CandleAggregator aggregator(
       INTERVAL, [&](SymbolId, const Candle &c) { result.push_back(c); });
 
+  TradePool pool;
   aggregator.start();
-  aggregator.onTrade(
-      Trade{.symbol = SYMBOL, .price = 100, .quantity = 1, .timestamp = ts(0)});
+  aggregator.onMarketData(*makeTrade(pool, SYMBOL, 100, 1, 0));
   aggregator.start(); // clears previous state
-  aggregator.onTrade(Trade{
-      .symbol = SYMBOL, .price = 105, .quantity = 2, .timestamp = ts(65)});
+  aggregator.onMarketData(*makeTrade(pool, SYMBOL, 105, 2, 65));
   aggregator.stop();
 
   ASSERT_EQ(result.size(), 1);

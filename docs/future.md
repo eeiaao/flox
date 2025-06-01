@@ -19,6 +19,9 @@ This roadmap outlines upcoming improvements and tooling for the Flox HFT Engine.
   - Order simulation and execution environment.
   - Strategy performance statistics and visualization.
 
+### 3. Integrated JS engine
+- To allow writing strategies using JavaScript
+
 ## Long-Term Goals
 
 - Keep the engine modular and extensible.

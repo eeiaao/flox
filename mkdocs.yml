@@ -1,4 +1,5 @@
 site_name: FLOX
+
 theme:
   name: material
   palette:
@@ -23,6 +24,7 @@ nav:
       - Core Interfaces:
           - Subsystem: components/subsystem.md
           - Strategy: components/abstract_strategy.md
+          - Engine: components/abstract_engine.md
           - EngineBuilder: components/abstract_engine_builder.md
           - OrderExecutor: components/abstract_executor.md
           - OrderExecutionListener: components/abstract_execution_listener.md
@@ -34,24 +36,29 @@ nav:
       - Market Data Interfaces:
           - OrderBook: components/abstract_order_book.md
           - ExchangeConnector: components/exchange_connector.md
+          - AbstractMarketDataSubscriber: components/abstract_market_data_subscriber.md
   - Implementation Layer:
       - Market Infrastructure:
           - FullOrderBook: components/full_order_book.md
           - WindowedOrderBook: components/windowed_order_book.md
           - BookSide: components/book_side.md
-          - BookUpdate: components/book_update.md
+          - BookUpdate: components/book_update_event.md
           - Candle: components/candle.md
-          - Trade: components/trade.md
+          - Trade: components/trade_event.md
           - CandleAggregator: components/candle_aggregator.md
           - MarketDataBus: components/market_data_bus.md
+          - MarketDataEvent: components/market_data_event.md
+          - MarketDataEventPool: components/market_event_pool.md
+          - TickBarrier: components/tick_barrier.md
+          - TickGuard: components/tick_guard.md
+          - SPSCQueue: components/spsc_queue.md
+          - RefCountable: components/ref_countable.md
       - Execution and Routing:
           - ExecutionTrackerAdapter: components/execution_tracker_adapter.md
           - MultiExecutionListener: components/multi_execution_listener.md
-          - OrderRouter: components/order_router.md
-          - Order: components/order.md
           - KillSwitch: components/abstract_killswitch.md
           - PositionManager: components/position_manager.md
-          - StrategyManager: components/strategy_manager.md
+          - Order: components/order.md
       - Configuration and State:
           - SymbolRegistry: components/symbol_registry.md
           - EngineConfig: components/engine_config.md

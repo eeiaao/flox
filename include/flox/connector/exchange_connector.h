@@ -9,8 +9,8 @@
 
 #pragma once
 
-#include "flox/book/book_update.h"
-#include "flox/book/trade.h"
+#include "flox/engine/events/book_update_event.h"
+#include "flox/engine/events/trade_event.h"
 
 #include <functional>
 #include <string>
@@ -21,8 +21,8 @@ class ExchangeConnector {
 public:
   virtual ~ExchangeConnector() = default;
 
-  using BookUpdateCallback = std::function<void(const BookUpdate &)>;
-  using TradeCallback = std::function<void(const Trade &)>;
+  using BookUpdateCallback = std::function<void(BookUpdateEvent *)>;
+  using TradeCallback = std::function<void(TradeEvent *)>;
 
   virtual void start() = 0;
   virtual void stop() = 0;
@@ -36,12 +36,12 @@ public:
   }
 
 protected:
-  void emitBookUpdate(const BookUpdate &bu) {
+  void emitBookUpdate(BookUpdateEvent *bu) {
     if (_onBookUpdate)
       _onBookUpdate(bu);
   }
 
-  void emitTrade(const Trade &t) {
+  void emitTrade(TradeEvent *t) {
     if (_onTrade)
       _onTrade(t);
   }

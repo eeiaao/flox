@@ -11,6 +11,8 @@
 
 #include <chrono>
 
+namespace flox {
+
 struct Candle {
   double open = 0.0;
   double high = 0.0;
@@ -19,4 +21,12 @@ struct Candle {
   double volume = 0.0;
   std::chrono::system_clock::time_point startTime;
   std::chrono::system_clock::time_point endTime;
+
+  Candle() = default;
+
+  Candle(std::chrono::system_clock::time_point ts, double price, double qty)
+      : open(price), high(price), low(price), close(price), volume(qty),
+        startTime(ts), endTime(ts) {}
 };
+
+} // namespace flox

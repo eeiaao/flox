@@ -9,7 +9,7 @@
 
 #pragma once
 
-#include "flox/book/book_update.h"
+#include "flox/engine/events/book_update_event.h"
 
 namespace flox {
 
@@ -17,7 +17,7 @@ class IOrderBook {
 public:
   virtual ~IOrderBook() = default;
 
-  virtual void applyBookUpdate(const BookUpdate &update) = 0;
+  virtual void applyBookUpdate(const BookUpdateEvent &update) = 0;
   virtual std::optional<double> bestBid() const = 0;
   virtual std::optional<double> bestAsk() const = 0;
 

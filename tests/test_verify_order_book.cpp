@@ -7,170 +7,142 @@
  * license information.
  */
 
-#include "flox/book/book_update.h"
-#include "flox/book/book_update_factory.h"
 #include "flox/book/windowed_order_book.h"
 #include "flox/book/windowed_order_book_factory.h"
+#include "flox/engine/market_data_event_pool.h"
 
-#include <cmath>
 #include <gtest/gtest.h>
+#include <vector>
 
 using namespace flox;
 
-TEST(OrderBookTest, SnapshotFitsInWindow) {
-  constexpr double tickSize = 1.0;
-  constexpr double deviation = 100.0; // window = 200 ticks
+class WindowedOrderBookTestFixture : public ::testing::Test {
+protected:
+  static constexpr double TickSize = 1.0;
+  static constexpr double Deviation = 5.0;
+  static constexpr size_t PoolCapacity = 63;
 
-  WindowedOrderBookFactory orderBookFactory;
-  BookUpdateFactory bookUpdateFactory;
+  using BookUpdatePool = EventPool<BookUpdateEvent, PoolCapacity>;
 
-  auto book =
-      orderBookFactory.create(WindowedOrderBookConfig{tickSize, deviation});
+  void SetUp() override {
+    _book = _factory.create(WindowedOrderBookConfig{TickSize, Deviation});
+  }
 
-  auto snapshot = bookUpdateFactory.create();
-  snapshot.type = BookUpdateType::SNAPSHOT;
-  snapshot.bids = {{100.0, 5.0}, {99.0, 3.0}};
-  snapshot.asks = {{101.0, 2.0}, {102.0, 4.0}};
+  BookUpdateEvent *acquireSnapshot() {
+    auto handle = _pool.acquire();
+    EXPECT_TRUE(handle);
+    handle->type = BookUpdateType::SNAPSHOT;
+    _handles.emplace_back(std::move(handle));
+    return _handles.back().get();
+  }
 
-  book->applyBookUpdate(snapshot);
+  BookUpdateEvent *acquireDelta() {
+    auto handle = _pool.acquire();
+    EXPECT_TRUE(handle);
+    handle->type = BookUpdateType::DELTA;
+    _handles.emplace_back(std::move(handle));
+    return _handles.back().get();
+  }
 
-  EXPECT_DOUBLE_EQ(book->bidAtPrice(100.0), 5.0);
-  EXPECT_DOUBLE_EQ(book->bidAtPrice(99.0), 3.0);
-  EXPECT_DOUBLE_EQ(book->askAtPrice(101.0), 2.0);
-  EXPECT_DOUBLE_EQ(book->askAtPrice(102.0), 4.0);
+  IOrderBook *_book;
+  WindowedOrderBookFactory _factory;
+  BookUpdatePool _pool;
+  std::vector<EventHandle<BookUpdateEvent>> _handles;
+};
+
+TEST_F(WindowedOrderBookTestFixture, SnapshotFitsInWindow) {
+  auto snapshot = acquireSnapshot();
+  snapshot->bids = {{100.0, 5.0}, {99.0, 3.0}};
+  snapshot->asks = {{101.0, 2.0}, {102.0, 4.0}};
+  _book->applyBookUpdate(*snapshot);
+
+  EXPECT_DOUBLE_EQ(_book->bidAtPrice(100.0), 5.0);
+  EXPECT_DOUBLE_EQ(_book->bidAtPrice(99.0), 3.0);
+  EXPECT_DOUBLE_EQ(_book->askAtPrice(101.0), 2.0);
+  EXPECT_DOUBLE_EQ(_book->askAtPrice(102.0), 4.0);
 }
 
-TEST(OrderBookTest, SnapshotPartiallyOutsideWindow) {
-  constexpr double tickSize = 1.0;
-  constexpr double deviation = 5.0; // window = 10 ticks
-
-  WindowedOrderBookFactory orderBookFactory;
-  BookUpdateFactory bookUpdateFactory;
-
-  auto book =
-      orderBookFactory.create(WindowedOrderBookConfig{tickSize, deviation});
-
-  auto snapshot = bookUpdateFactory.create();
-  snapshot.type = BookUpdateType::SNAPSHOT;
+TEST_F(WindowedOrderBookTestFixture, SnapshotPartiallyOutsideWindow) {
+  auto snapshot = acquireSnapshot();
+  for (double p = 200.0; p <= 210.0; ++p)
+    snapshot->bids.push_back({p, 1.0});
+  for (double p = 211.0; p <= 220.0; ++p)
+    snapshot->asks.push_back({p, 1.0});
+  _book->applyBookUpdate(*snapshot);
 
   for (double p = 200.0; p <= 210.0; ++p)
-    snapshot.bids.push_back({p, 1.0});
+    EXPECT_GE(_book->bidAtPrice(p), 0.0);
   for (double p = 211.0; p <= 220.0; ++p)
-    snapshot.asks.push_back({p, 1.0});
-
-  book->applyBookUpdate(snapshot);
-
-  for (double p = 200.0; p <= 210.0; ++p)
-    EXPECT_GE(book->bidAtPrice(p), 0.0);
-  for (double p = 211.0; p <= 220.0; ++p)
-    EXPECT_GE(book->askAtPrice(p), 0.0);
+    EXPECT_GE(_book->askAtPrice(p), 0.0);
 }
 
-TEST(OrderBookTest, DeltaWithinWindow) {
-  constexpr double tickSize = 1.0;
-  constexpr double deviation = 5.0;
+TEST_F(WindowedOrderBookTestFixture, DeltaWithinWindow) {
+  auto snapshot = acquireSnapshot();
+  snapshot->bids = {{100.0, 1.0}};
+  snapshot->asks = {{101.0, 1.0}};
+  _book->applyBookUpdate(*snapshot);
 
-  WindowedOrderBookFactory orderBookFactory;
-  BookUpdateFactory bookUpdateFactory;
-  auto book =
-      orderBookFactory.create(WindowedOrderBookConfig{tickSize, deviation});
+  auto delta = acquireDelta();
+  delta->bids = {{99.0, 2.0}};
+  delta->asks = {{102.0, 2.5}};
+  _book->applyBookUpdate(*delta);
 
-  auto snapshot = bookUpdateFactory.create();
-  snapshot.type = BookUpdateType::SNAPSHOT;
-  snapshot.bids = {{100.0, 1.0}};
-  snapshot.asks = {{101.0, 1.0}};
-  book->applyBookUpdate(snapshot);
-
-  auto delta = bookUpdateFactory.create();
-  delta.type = BookUpdateType::DELTA;
-  delta.bids = {{99.0, 2.0}};
-  delta.asks = {{102.0, 2.5}};
-  book->applyBookUpdate(delta);
-
-  EXPECT_DOUBLE_EQ(book->bidAtPrice(99.0), 2.0);
-  EXPECT_DOUBLE_EQ(book->bidAtPrice(100.0), 1.0);
-  EXPECT_DOUBLE_EQ(book->askAtPrice(101.0), 1.0);
-  EXPECT_DOUBLE_EQ(book->askAtPrice(102.0), 2.5);
+  EXPECT_DOUBLE_EQ(_book->bidAtPrice(99.0), 2.0);
+  EXPECT_DOUBLE_EQ(_book->bidAtPrice(100.0), 1.0);
+  EXPECT_DOUBLE_EQ(_book->askAtPrice(101.0), 1.0);
+  EXPECT_DOUBLE_EQ(_book->askAtPrice(102.0), 2.5);
 }
 
-TEST(OrderBookTest, DeltaAtWindowEdge) {
-  constexpr double tickSize = 1.0;
-  constexpr double deviation = 5.0;
+TEST_F(WindowedOrderBookTestFixture, DeltaAtWindowEdge) {
+  auto snapshot = acquireSnapshot();
+  snapshot->bids = {{100.0, 1.0}};
+  snapshot->asks = {{101.0, 1.0}};
+  _book->applyBookUpdate(*snapshot);
 
-  WindowedOrderBookFactory orderBookFactory;
-  BookUpdateFactory bookUpdateFactory;
-  auto book =
-      orderBookFactory.create(WindowedOrderBookConfig{tickSize, deviation});
+  double base = std::round((100.5 - 5.0) / TickSize) * TickSize;
 
-  auto snapshot = bookUpdateFactory.create();
-  snapshot.type = BookUpdateType::SNAPSHOT;
-  snapshot.bids = {{100.0, 1.0}};
-  snapshot.asks = {{101.0, 1.0}};
-  book->applyBookUpdate(snapshot);
+  auto delta = acquireDelta();
+  delta->bids = {{base, 3.0}};
+  delta->asks = {{base + 9.0 * TickSize, 3.0}};
+  _book->applyBookUpdate(*delta);
 
-  double base = std::round((100.5 - 5.0) / tickSize) * tickSize;
-
-  auto delta = bookUpdateFactory.create();
-  delta.type = BookUpdateType::DELTA;
-  delta.bids = {{base, 3.0}};
-  delta.asks = {{base + 9.0 * tickSize, 3.0}};
-  book->applyBookUpdate(delta);
-
-  EXPECT_DOUBLE_EQ(book->bidAtPrice(100.0), 1.0);
-  EXPECT_DOUBLE_EQ(book->askAtPrice(101.0), 1.0);
-  EXPECT_DOUBLE_EQ(book->bidAtPrice(base), 3.0);
-  EXPECT_DOUBLE_EQ(book->askAtPrice(base + 9.0), 3.0);
+  EXPECT_DOUBLE_EQ(_book->bidAtPrice(100.0), 1.0);
+  EXPECT_DOUBLE_EQ(_book->askAtPrice(101.0), 1.0);
+  EXPECT_DOUBLE_EQ(_book->bidAtPrice(base), 3.0);
+  EXPECT_DOUBLE_EQ(_book->askAtPrice(base + 9.0), 3.0);
 }
 
-TEST(OrderBookTest, DeltaOutsideWindowIsIgnored) {
-  constexpr double tickSize = 1.0;
-  constexpr double deviation = 5.0;
+TEST_F(WindowedOrderBookTestFixture, DeltaOutsideWindowIsIgnored) {
+  auto snapshot = acquireSnapshot();
+  snapshot->bids = {{100.0, 1.0}};
+  snapshot->asks = {{101.0, 1.0}};
+  _book->applyBookUpdate(*snapshot);
 
-  WindowedOrderBookFactory orderBookFactory;
-  BookUpdateFactory bookUpdateFactory;
-  auto book =
-      orderBookFactory.create(WindowedOrderBookConfig{tickSize, deviation});
+  auto delta = acquireDelta();
+  delta->bids = {{80.0, 10.0}};
+  delta->asks = {{120.0, 10.0}};
+  _book->applyBookUpdate(*delta);
 
-  auto snapshot = bookUpdateFactory.create();
-  snapshot.type = BookUpdateType::SNAPSHOT;
-  snapshot.bids = {{100.0, 1.0}};
-  snapshot.asks = {{101.0, 1.0}};
-  book->applyBookUpdate(snapshot);
-
-  auto delta = bookUpdateFactory.create();
-  delta.type = BookUpdateType::DELTA;
-  delta.bids = {{80.0, 10.0}};
-  delta.asks = {{120.0, 10.0}};
-  book->applyBookUpdate(delta);
-
-  EXPECT_DOUBLE_EQ(book->bidAtPrice(100.0), 1.0);
-  EXPECT_DOUBLE_EQ(book->askAtPrice(101.0), 1.0);
-  EXPECT_DOUBLE_EQ(book->bidAtPrice(80.0), 0.0);
-  EXPECT_DOUBLE_EQ(book->askAtPrice(120.0), 0.0);
+  EXPECT_DOUBLE_EQ(_book->bidAtPrice(100.0), 1.0);
+  EXPECT_DOUBLE_EQ(_book->askAtPrice(101.0), 1.0);
+  EXPECT_DOUBLE_EQ(_book->bidAtPrice(80.0), 0.0);
+  EXPECT_DOUBLE_EQ(_book->askAtPrice(120.0), 0.0);
 }
 
-TEST(OrderBookTest, ShiftWindowCleansOldLevels) {
-  constexpr double tickSize = 1.0;
-  constexpr double deviation = 5.0;
-  WindowedOrderBookFactory factory;
-  BookUpdateFactory updateFactory;
-  auto book = factory.create(WindowedOrderBookConfig{tickSize, deviation});
+TEST_F(WindowedOrderBookTestFixture, ShiftWindowCleansOldLevels) {
+  auto snapshot1 = acquireSnapshot();
+  snapshot1->bids = {{100.0, 5.0}, {101.0, 6.0}};
+  snapshot1->asks = {{102.0, 7.0}, {103.0, 8.0}};
+  _book->applyBookUpdate(*snapshot1);
 
-  auto snapshot1 = updateFactory.create();
-  snapshot1.type = BookUpdateType::SNAPSHOT;
-  snapshot1.bids = {{100.0, 5.0}, {101.0, 6.0}};
-  snapshot1.asks = {{102.0, 7.0}, {103.0, 8.0}};
-  book->applyBookUpdate(snapshot1);
-
-  auto snapshot2 = updateFactory.create();
-  snapshot2.type = BookUpdateType::SNAPSHOT;
-  snapshot2.bids = {{199.0, 1.0}};
-  snapshot2.asks = {{201.0, 1.0}};
-  book->applyBookUpdate(snapshot2);
+  auto snapshot2 = acquireSnapshot();
+  snapshot2->bids = {{199.0, 1.0}};
+  snapshot2->asks = {{201.0, 1.0}};
+  _book->applyBookUpdate(*snapshot2);
 
   for (double p = 190.0; p <= 210.0; ++p) {
-    double bid = book->bidAtPrice(p);
-    double ask = book->askAtPrice(p);
+    double bid = _book->bidAtPrice(p);
+    double ask = _book->askAtPrice(p);
     if (bid > 0.0)
       EXPECT_GE(p, 190.0) << "Unexpected old bid at " << p;
     if (ask > 0.0)
@@ -178,51 +150,33 @@ TEST(OrderBookTest, ShiftWindowCleansOldLevels) {
   }
 }
 
-TEST(OrderBookTest, MultipleExtremeDeltasAreHandledCorrectly) {
-  constexpr double tickSize = 1.0;
-  constexpr double deviation = 10.0; // 20 levels
-  WindowedOrderBookFactory orderBookFactory;
-  BookUpdateFactory bookUpdateFactory;
-  auto book =
-      orderBookFactory.create(WindowedOrderBookConfig{tickSize, deviation});
+TEST_F(WindowedOrderBookTestFixture, MultipleExtremeDeltasAreHandledCorrectly) {
+  auto snapshot = acquireSnapshot();
+  snapshot->bids = {{100.0, 5.0}};
+  snapshot->asks = {{101.0, 5.0}};
+  _book->applyBookUpdate(*snapshot);
 
-  // Initial snapshot
-  auto snapshot = bookUpdateFactory.create();
-  snapshot.type = BookUpdateType::SNAPSHOT;
-  snapshot.bids = {{100.0, 5.0}};
-  snapshot.asks = {{101.0, 5.0}};
-  book->applyBookUpdate(snapshot);
+  auto d1 = acquireDelta();
+  d1->bids = {{99.0, 2.0}, {98.0, 1.0}};
+  d1->asks = {{102.0, 3.0}, {103.0, 4.0}};
+  _book->applyBookUpdate(*d1);
 
-  // First delta: add levels near best
-  auto d1 = bookUpdateFactory.create();
-  d1.type = BookUpdateType::DELTA;
-  d1.bids = {{99.0, 2.0}, {98.0, 1.0}};
-  d1.asks = {{102.0, 3.0}, {103.0, 4.0}};
-  book->applyBookUpdate(d1);
+  auto d2 = acquireDelta();
+  d2->bids = {{100.0, 6.0}, {98.0, 0.0}};
+  d2->asks = {{101.0, 7.0}, {102.0, 0.0}};
+  _book->applyBookUpdate(*d2);
 
-  // Second delta: overwrite existing levels
-  auto d2 = bookUpdateFactory.create();
-  d2.type = BookUpdateType::DELTA;
-  d2.bids = {{100.0, 6.0}, {98.0, 0.0}};  // remove 98
-  d2.asks = {{101.0, 7.0}, {102.0, 0.0}}; // remove 102
-  book->applyBookUpdate(d2);
+  auto d3 = acquireDelta();
+  d3->bids = {{80.0, 10.0}};
+  d3->asks = {{120.0, 10.0}};
+  _book->applyBookUpdate(*d3);
 
-  // Third delta: apply levels definitely outside the window
-  auto d3 = bookUpdateFactory.create();
-  d3.type = BookUpdateType::DELTA;
-  d3.bids = {{80.0, 10.0}};  // well below basePrice
-  d3.asks = {{120.0, 10.0}}; // well above window
-  book->applyBookUpdate(d3);
-
-  // Final state checks
-  EXPECT_DOUBLE_EQ(book->bidAtPrice(100.0), 6.0); // updated
-  EXPECT_DOUBLE_EQ(book->bidAtPrice(99.0), 2.0);  // added
-  EXPECT_DOUBLE_EQ(book->bidAtPrice(98.0), 0.0);  // removed
-
-  EXPECT_DOUBLE_EQ(book->askAtPrice(101.0), 7.0); // updated
-  EXPECT_DOUBLE_EQ(book->askAtPrice(102.0), 0.0); // removed
-  EXPECT_DOUBLE_EQ(book->askAtPrice(103.0), 4.0); // still present
-
-  EXPECT_DOUBLE_EQ(book->bidAtPrice(80.0), 0.0);  // ignored
-  EXPECT_DOUBLE_EQ(book->askAtPrice(120.0), 0.0); // ignored
+  EXPECT_DOUBLE_EQ(_book->bidAtPrice(100.0), 6.0);
+  EXPECT_DOUBLE_EQ(_book->bidAtPrice(99.0), 2.0);
+  EXPECT_DOUBLE_EQ(_book->bidAtPrice(98.0), 0.0);
+  EXPECT_DOUBLE_EQ(_book->askAtPrice(101.0), 7.0);
+  EXPECT_DOUBLE_EQ(_book->askAtPrice(102.0), 0.0);
+  EXPECT_DOUBLE_EQ(_book->askAtPrice(103.0), 4.0);
+  EXPECT_DOUBLE_EQ(_book->bidAtPrice(80.0), 0.0);
+  EXPECT_DOUBLE_EQ(_book->askAtPrice(120.0), 0.0);
 }

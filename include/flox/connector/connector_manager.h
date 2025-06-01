@@ -25,13 +25,13 @@ public:
     connectors[id] = connector;
   }
 
-  void startAll(std::function<void(const BookUpdate &)> onBookUpdate,
-                std::function<void(const Trade &)> onTrade) {
+  void startAll(std::function<void(BookUpdateEvent *)> onBookUpdate,
+                std::function<void(TradeEvent *)> onTrade) {
     for (auto &[symbol, connector] : connectors) {
       std::cout << "[ConnectorManager] starting: " << symbol << std::endl;
       connector->setCallbacks(
-          [onBookUpdate](const BookUpdate &update) { onBookUpdate(update); },
-          [onTrade](const Trade &trade) { onTrade(trade); });
+          [onBookUpdate](BookUpdateEvent *update) { onBookUpdate(update); },
+          [onTrade](TradeEvent *trade) { onTrade(trade); });
       connector->start();
     }
   }

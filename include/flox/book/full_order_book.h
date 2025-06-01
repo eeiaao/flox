@@ -1,7 +1,16 @@
+/*
+ * Flox Engine
+ * Developed by Evgenii Makarov (https://github.com/eeiaao)
+ *
+ * Copyright (c) 2025 Evgenii Makarov
+ * Licensed under the MIT License. See LICENSE file in the project root for full
+ * license information.
+ */
+
 #pragma once
 
 #include "flox/book/abstract_order_book.h"
-#include "flox/book/book_update.h"
+#include "flox/engine/events/book_update_event.h"
 #include <cmath>
 #include <mutex>
 #include <optional>
@@ -15,7 +24,7 @@ public:
       : _tickSize(tickSize), _minBidIndex(0), _maxBidIndex(0),
         _minAskIndex(SIZE_MAX), _maxAskIndex(0) {}
 
-  void applyBookUpdate(const BookUpdate &update) override {
+  void applyBookUpdate(const BookUpdateEvent &update) override {
     std::scoped_lock lock(_mutex);
 
     if (update.type == BookUpdateType::SNAPSHOT) {

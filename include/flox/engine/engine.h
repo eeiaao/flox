@@ -7,14 +7,12 @@
  * license information.
  */
 
-// engine.h
 #pragma once
 
 #include "flox/connector/exchange_connector.h"
+#include "flox/engine/abstract_engine.h"
 #include "flox/engine/engine_config.h"
-#include "flox/engine/order_router.h"
 #include "flox/engine/subsystem.h"
-#include "flox/execution/abstract_executor.h"
 
 #include <map>
 #include <memory>
@@ -31,14 +29,14 @@ struct ExchangeInstance {
   std::shared_ptr<ExchangeConnector> connector;
 };
 
-class Engine {
+class Engine : public IEngine {
 public:
   Engine(const EngineConfig &config,
          std::vector<std::unique_ptr<ISubsystem>> subsystems,
          std::vector<std::shared_ptr<ExchangeConnector>> connectors);
 
-  void start();
-  void stop();
+  void start() override;
+  void stop() override;
 
 private:
   EngineConfig _config;

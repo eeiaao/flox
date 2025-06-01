@@ -7,192 +7,122 @@
  * license information.
  */
 
-#include "flox/book/book_update.h"
-#include "flox/book/book_update_factory.h"
-#include "flox/book/candle.h"
-#include "flox/book/trade.h"
-#include "flox/common.h"
-#include "flox/engine/market_data_bus.h"
-
+#include <atomic>
+#include <chrono>
 #include <gtest/gtest.h>
-#include <string>
+#include <memory>
 #include <thread>
+#include <vector>
+
+#include "flox/engine/abstract_market_data_subscriber.h"
+#include "flox/engine/events/book_update_event.h"
+#include "flox/engine/market_data_bus.h"
+#include "flox/engine/market_data_event_pool.h"
 
 using namespace flox;
 
-constexpr SymbolId SYMBOL = 1;
+namespace {
 
-// Verifies that candle subscribers are notified with correct symbol and price
-TEST(MarketDataBus, CandleCallbackIsCalled) {
-  MarketDataBus bus;
-  bool called = false;
+using BookUpdatePool = EventPool<BookUpdateEvent, 63>;
 
-  bus.subscribeToCandles(SYMBOL, [&](SymbolId symbol, const Candle &candle) {
-    called = true;
-    EXPECT_EQ(symbol, SYMBOL);
-    EXPECT_DOUBLE_EQ(candle.close, 6.66);
-  });
+class TestSubscriber : public IMarketDataSubscriber {
+public:
+  explicit TestSubscriber(SubscriberId id, std::atomic<int> &counter)
+      : _id(id), _counter(counter) {}
 
-  Candle candle;
-  candle.close = 6.66;
-  bus.onCandle(SYMBOL, candle);
-
-  EXPECT_TRUE(called);
-}
-
-// Verifies that trade subscribers receive trade data correctly
-TEST(MarketDataBus, TradeCallbackIsCalled) {
-  MarketDataBus bus;
-  bool called = false;
-
-  bus.subscribeToTrades(SYMBOL, [&](const Trade &trade) {
-    called = true;
-    EXPECT_EQ(trade.symbol, SYMBOL);
-    EXPECT_DOUBLE_EQ(trade.price, 5.55);
-  });
-
-  Trade trade;
-  trade.symbol = SYMBOL;
-  trade.price = 5.55;
-  bus.onTrade(trade);
-
-  EXPECT_TRUE(called);
-}
-
-// Verifies that book update subscribers are called with correct update type
-TEST(MarketDataBus, BookUpdateCallbackIsCalled) {
-  MarketDataBus bus;
-  bool called = false;
-
-  bus.subscribeToBookUpdates(SYMBOL, [&](const BookUpdate &update) {
-    called = true;
-    EXPECT_EQ(update.symbol, SYMBOL);
-    EXPECT_EQ(update.type, BookUpdateType::DELTA);
-  });
-
-  BookUpdateFactory factory;
-  auto update = factory.create();
-  update.type = BookUpdateType::DELTA;
-  update.symbol = SYMBOL;
-  bus.onBookUpdate(update);
-
-  EXPECT_TRUE(called);
-}
-
-// Verifies that all subscribers are called (not just the first one)
-TEST(MarketDataBus, MultipleSubscribersAreCalled) {
-  MarketDataBus bus;
-  int candleCount = 0;
-  int tradeCount = 0;
-  int bookCount = 0;
-
-  bus.subscribeToCandles(SYMBOL,
-                         [&](SymbolId, const Candle &) { ++candleCount; });
-  bus.subscribeToCandles(SYMBOL,
-                         [&](SymbolId, const Candle &) { ++candleCount; });
-
-  bus.subscribeToTrades(SYMBOL, [&](const Trade &) { ++tradeCount; });
-  bus.subscribeToTrades(SYMBOL, [&](const Trade &) { ++tradeCount; });
-
-  bus.subscribeToBookUpdates(SYMBOL, [&](const BookUpdate &) { ++bookCount; });
-  bus.subscribeToBookUpdates(SYMBOL, [&](const BookUpdate &) { ++bookCount; });
-
-  BookUpdateFactory factory;
-  auto update = factory.create();
-  update.symbol = SYMBOL;
-
-  bus.onCandle(SYMBOL, Candle{});
-  bus.onTrade(Trade{.symbol = SYMBOL});
-  bus.onBookUpdate(update);
-
-  EXPECT_EQ(candleCount, 2);
-  EXPECT_EQ(tradeCount, 2);
-  EXPECT_EQ(bookCount, 2);
-}
-
-// Verifies concurrent subscription and publishing does not crash and all
-// callbacks are called
-TEST(MarketDataBus, ConcurrentSubscriptionAndPublish) {
-  MarketDataBus bus;
-
-  std::atomic<int> candleCount{0};
-  std::atomic<int> tradeCount{0};
-  std::atomic<int> bookCount{0};
-
-  constexpr int numSubscribers = 10;
-  constexpr int numPublishers = 10;
-  constexpr int numEventsPerPublisher = 100;
-
-  // Spawn subscriber threads
-  std::vector<std::thread> subscriberThreads;
-  for (int i = 0; i < numSubscribers; ++i) {
-    subscriberThreads.emplace_back([&]() {
-      bus.subscribeToCandles(SYMBOL, [&](SymbolId, const Candle &) {
-        candleCount.fetch_add(1, std::memory_order_relaxed);
-      });
-      bus.subscribeToTrades(SYMBOL, [&](const Trade &) {
-        tradeCount.fetch_add(1, std::memory_order_relaxed);
-      });
-      bus.subscribeToBookUpdates(SYMBOL, [&](const BookUpdate &) {
-        bookCount.fetch_add(1, std::memory_order_relaxed);
-      });
-    });
+  void onMarketData(const IMarketDataEvent &event) override {
+    if (event.eventType() == MarketDataEventType::BOOK) {
+      const auto &update = static_cast<const BookUpdateEvent &>(event);
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
+      ++_counter;
+      _lastPrice.store(update.bids.empty() ? -1.0 : update.bids[0].price);
+    }
   }
 
-  for (auto &t : subscriberThreads)
-    t.join();
+  SubscriberId id() const override { return _id; }
+  SubscriberMode mode() const override { return SubscriberMode::PUSH; }
 
-  // Spawn publisher threads
-  std::vector<std::thread> publisherThreads;
-  for (int i = 0; i < numPublishers; ++i) {
-    publisherThreads.emplace_back([&]() {
-      BookUpdateFactory factory;
-      for (int j = 0; j < numEventsPerPublisher; ++j) {
-        bus.onCandle(SYMBOL, Candle{});
-        bus.onTrade(Trade{.symbol = SYMBOL});
-        bus.onBookUpdate(factory.create());
-      }
-    });
+  double lastPrice() const { return _lastPrice.load(); }
+
+private:
+  SubscriberId _id;
+  std::atomic<int> &_counter;
+  std::atomic<double> _lastPrice{-1.0};
+};
+
+TEST(MarketDataBusTest, SingleSubscriberReceivesUpdates) {
+  MarketDataBus bus;
+  std::atomic<int> receivedCount{0};
+
+  auto subscriber = std::make_shared<TestSubscriber>(1, receivedCount);
+  bus.subscribe(subscriber);
+
+  BookUpdatePool pool;
+  for (int i = 0; i < 10; ++i) {
+    auto update = pool.acquire();
+    ASSERT_NE(update.get(), nullptr);
+    update->type = BookUpdateType::SNAPSHOT;
+    update->bids.emplace_back(100.0 + 1, 1.0);
+    bus.publish(std::move(update));
   }
 
-  for (auto &t : publisherThreads)
-    t.join();
+  std::this_thread::sleep_for(std::chrono::milliseconds(50));
+  bus.stop();
 
-  int expectedCallbacks =
-      numSubscribers * numPublishers * numEventsPerPublisher;
-
-  EXPECT_EQ(candleCount.load(), expectedCallbacks);
-  EXPECT_EQ(tradeCount.load(), expectedCallbacks);
-  EXPECT_EQ(bookCount.load(), expectedCallbacks);
+  EXPECT_GE(receivedCount, 10);
+  EXPECT_NE(subscriber->lastPrice(), -1.0);
+  EXPECT_EQ(pool.inUse(), 0);
 }
 
-// Verifies that unsubscribe disables a specific callback
-TEST(MarketDataBus, UnsubscribeDisablesCallback) {
+TEST(MarketDataBusTest, MultipleSubscribersReceiveAll) {
   MarketDataBus bus;
-  bool called = false;
+  std::atomic<int> received1{0};
+  std::atomic<int> received2{0};
 
-  auto handle =
-      bus.subscribeToTrades(SYMBOL, [&](const Trade &) { called = true; });
+  auto sub1 = std::make_shared<TestSubscriber>(1, received1);
+  auto sub2 = std::make_shared<TestSubscriber>(2, received2);
 
-  bus.unsubscribe(handle);
-  bus.onTrade(Trade{.symbol = SYMBOL});
+  bus.subscribe(sub1);
+  bus.subscribe(sub2);
 
-  EXPECT_FALSE(called);
+  BookUpdatePool pool;
+  for (int i = 0; i < 20; ++i) {
+    auto update = pool.acquire();
+    ASSERT_NE(update.get(), nullptr);
+    update->type = BookUpdateType::SNAPSHOT;
+    update->bids.emplace_back(200.0 + i, 1.0);
+    bus.publish(std::move(update));
+  }
+
+  std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  bus.stop();
+
+  EXPECT_GE(received1, 20);
+  EXPECT_GE(received2, 20);
+  EXPECT_NE(sub1->lastPrice(), -1.0);
+  EXPECT_NE(sub2->lastPrice(), -1.0);
+  EXPECT_EQ(pool.inUse(), 0);
 }
 
-// Verifies that a callback can be re-subscribed after being unsubscribed
-TEST(MarketDataBus, ReSubscribeAfterUnsubscribe) {
+TEST(MarketDataBusTest, GracefulStopDoesNotLeak) {
   MarketDataBus bus;
-  bool called = false;
+  std::atomic<int> count{0};
+  bus.subscribe(std::make_shared<TestSubscriber>(1, count));
 
-  auto handle =
-      bus.subscribeToTrades(SYMBOL, [&](const Trade &) { called = true; });
+  BookUpdatePool pool;
+  for (int i = 0; i < 5; ++i) {
+    auto update = pool.acquire();
+    ASSERT_NE(update.get(), nullptr);
+    update->type = BookUpdateType::SNAPSHOT;
+    update->bids.emplace_back(300.0 + i, 1.0);
+    bus.publish(std::move(update));
+  }
 
-  bus.unsubscribe(handle);
+  std::this_thread::sleep_for(std::chrono::milliseconds(30));
+  bus.stop();
 
-  handle = bus.subscribeToTrades(SYMBOL, [&](const Trade &) { called = true; });
-
-  bus.onTrade(Trade{.symbol = SYMBOL});
-
-  EXPECT_TRUE(called);
+  EXPECT_GE(count.load(), 5);
+  EXPECT_EQ(pool.inUse(), 0);
 }
+
+} // namespace

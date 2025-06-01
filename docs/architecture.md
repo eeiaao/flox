@@ -2,135 +2,199 @@
 
 Flox is a modular framework for building low-latency execution systems. Its design emphasizes **separation of concerns**, **predictable performance**, and **composability**.
 
-The architecture is split into two conceptual layers:
-
 ---
 
-## 1. Abstract Layer
+## Layers of the Architecture
 
-This layer defines **pure interfaces** (no logic, no state). It captures the essential contracts of the system:
+### 1. Abstract Layer
+
+Defines **pure interfaces** with no internal state. These are the contracts your system is built upon:
 
 - `IStrategy`: strategy logic
 - `IOrderExecutor`: order submission
-- `IOrderExecutionListener`: receives fills
-- `IRiskManager`, `IOrderValidator`, `IPositionManager`
-- `IOrderBook`, `ExchangeConnector`
+- `IOrderExecutionListener`: execution events
+- `IRiskManager`, `IOrderValidator`, `IPositionManager`: trade controls and state
+- `IOrderBook`, `ExchangeConnector`: market structure
 - `ISubsystem`: unified lifecycle interface
+- `IMarketDataSubscriber`: receives events via data bus
 
-### Why this matters
+#### Why it matters
 
-- Enables mocking, backtesting, and simulation
-- Decouples business logic from transport and persistence
-- Makes performance and implementation decisions orthogonal to correctness
-
----
-
-## 2. Implementation Layer
-
-This layer contains **stateful, optimized implementations** of the abstract interfaces. These are designed for:
-
-- **Speed** (SIMD, cache locality, ring buffers)
-- **Control** (manual memory management, preallocated arenas)
-- **Isolation** (components don't share global state)
-
-### Notable modules
-
-- `WindowedOrderBook` — fast, centered price-level view
-- `MarketDataBus` — efficient symbol-specific fan-out
-- `CandleAggregator` — low-overhead OHLC aggregation
-- `SymbolIdOrderRouter` — routing updates to N orderbooks
-- `MultiExecutionListener` — multicast execution notification
-- `EngineConfig` — static system configuration
+- Enables simulation, replay, and mocking
+- Decouples logic from implementation
+- Ensures correctness can be validated independently of performance
 
 ---
 
-## Lifecycle Design
+### 2. Implementation Layer
 
-Every runtime component inherits or is wrapped in `ISubsystem`, exposing `start()` and `stop()`.
+- `Engine` — core coordinator implementing `IEngine`
+- `FullOrderBook` — full-depth order storage for all price levels and quantities
+- `WindowedOrderBook` — tick-centric view with center/tick size logic
+- `BookUpdateEvent`, `TradeEvent` — pooled and reusable market data events
+- `EventPool` + `EventHandle` — zero-allocation event lifecycle manager
+- `MarketDataBus` — fan-out with lock-free queues (SPSCQueue)
+- `SPSCQueue` — bounded ring buffer for 1:1 messaging
+- `RefCountable` — atomic reference counting for pooled objects
+- `SymbolRegistry` — maps strings to `SymbolId`
+- `CandleAggregator` — rolling OHLC aggregator
+- `SimulatedOrderExecutor` — fake execution for backtest/demo
+- `PositionManager` — tracks open positions
+- `ImpulseBreakoutStrategy` — sample real strategy with parameterization
+- `StrategyManager` — manages multiple strategies, dispatches events
+- `Subsystem<T>` — wraps non-subsystem modules for uniform lifecycle
+
+#### Features
+
+- **Speed**: memory locality, `std::pmr`, lock-free queues
+- **Control**: minimal allocations, deterministic fan-out
+- **Modularity**: no global state, explicit composition
+
+---
+
+## Strategy Execution: PUSH and PULL Modes
+
+Strategies implement `IMarketDataSubscriber` and can operate in two modes:
+
+### PUSH Mode (default)
+
+The bus actively delivers events to the strategy.
+
+```cpp
+class MyPushStrategy : public IStrategy {
+public:
+  void onBookUpdate(BookUpdateEvent *event) override { /* handle event */ }
+};
+```
+
+The engine subscribes the strategy via:
+
+```cpp
+marketDataBus->subscribe(strategy);
+```
+
+### PULL Mode
+
+The strategy explicitly pulls from its queue (used in polling setups or backtests):
+
+```cpp
+class MyPullStrategy : public IMarketDataPullSubscriber {
+public:
+  void readLoop(SPSCQueue<EventHandle<IMarketDataEvent>> &queue) override {
+    EventHandle<IMarketDataEvent> event;
+    while (queue.pop(event)) {
+      event->dispatchTo(*this);
+    }
+  }
+};
+```
+
+---
+
+## Market Data Fan-Out: MarketDataBus
+
+The `MarketDataBus` delivers `EventHandle<T>` to each subscriber via dedicated lock-free queues.
+
+### Event publishing:
+
+```cpp
+bus->publish(std::move(bookUpdate));
+```
+
+### Fan-out process
+
+- Each subscriber has a queue (`SPSCQueue`)
+- `EventHandle<T>` wraps and manages event lifecycle
+- Events are dispatched via `dispatchTo(...)`, ensuring type safety and reuse
+
+### Subscribing:
+
+```cpp
+bus->subscribe(myStrategy);
+```
+
+In sync mode, subscribers are coordinated via `TickBarrier` and `TickGuard`.
+
+---
+
+## Lifecycle and Subsystems
+
+Each runtime component (strategy, book, sink) is a `ISubsystem` or wrapped in `Subsystem<T>`.  
+They expose `start()` and `stop()` for controlled startup/shutdown.
 
 This enables:
 
-- Safe startup/shutdown sequences
-- Controlled test environments
-- Runtime orchestration (e.g., benchmarking, simulation, replay)
+- Replay testing
+- Safe teardown
+- Deterministic benchmarking
 
 ---
 
-## Design Philosophy
+## Memory and Performance
 
-### Minimal assumptions
+Flox emphasizes **allocation-free execution paths**:
 
-Flox does not force any specific strategy architecture, market model, or execution venue. It gives you tools to build your own.
+- `BookUpdateEvent` and `TradeEvent` come from pooled memory
+- `EventHandle<T>` ensures safe scoped lifecycle
+- `SPSCQueue` supports lock-free delivery
+- `std::pmr::vector` is used for zero-allocation order book updates
 
-- You decide how orders are placed (through `IOrderExecutor`)
-- You define what a “strategy” means (extend `IStrategy`)
-- You handle execution routing and risk management
+---
 
-### Memory control
+## Symbol-Centric Design
 
-Where performance is key, Flox gives full control over memory allocation using `std::pmr`. Examples:
+Every operation is indexed by `SymbolId` — a compact `uint32_t` mapped from `exchange:symbol`:
 
-- `BookSide` uses ring buffers in arena-allocated memory
-- `BookUpdate`/`Trade` objects avoid heap allocations
-- `ArenaResource` supports preallocated bounded pools
-
-### Symbol-centric architecture
-
-All real-time operations are indexed by `SymbolId` — a compact, uint32_t identifier mapped from exchange:symbol strings.
-
-This allows:
-
-- High-speed routing and lookup
-- Minimal memory usage
-- Avoidance of string comparisons or allocations in hot paths
+- No string hashing or comparison in hot paths
+- Fast per-symbol routing, filtering, fan-out
+- Compatible with routing layers (`SymbolIdOrderRouter`, etc.)
 
 ---
 
 ## Intended Use
 
-Flox is not a turnkey system — it’s an **infrastructure layer**. You use it to build:
+Flox is **not a complete trading engine**. It is a **toolbox** for building:
 
-- Real-time execution engines
-- Live market data processors
-- Strategy sandboxes
-- Replay/backtest frameworks
-- Low-latency signal routers
+- Real-time trading systems
+- Simulators and backtesters
+- Distributed signal routers
+- Custom HFT infrastructure
 
-It is ideal for C++ teams who need:
-- Deterministic performance
-- Modular structure
-- Precise lifecycle management
-- Full control over execution and memory
+Perfect for C++ teams needing:
+
+- Predictable latency
+- Fine-grained memory control
+- Composable systems
 
 ---
 
-## Integration Example
+## Example Integration
 
 ```cpp
-auto bus = std::make_shared<MarketDataBus>();
-auto book = std::make_unique<WindowedOrderBook>(0.01, 1.0, arena);
-auto router = std::make_shared<SymbolIdOrderRouter>(registry, bookFactory);
 auto strategy = std::make_shared<MyStrategy>();
+marketDataBus->subscribe(strategy);
 
-strategy->setOrderExecutor(executor);
-strategy->setPositionManager(positionManager);
+marketDataBus->publish(std::move(bookUpdate));
+```
 
-bus->subscribeToCandles(symbolId, [&](SymbolId s, const Candle &c) {
-    strategy->onCandle(s, c);
-});
+In pull-mode:
 
-router->route(update); // updates books
+```cpp
+auto *queue = marketDataBus->getQueue(strategy->id());
+while (queue->pop(event)) {
+  event->dispatchTo(*strategy);
+}
 ```
 
 ---
 
 ## Summary
 
-Flox is modular by design. Its architecture enables:
+Flox is:
 
-- Safe extension and testing
-- Deterministic low-latency behavior
-- Fine-grained system composition
-- Clear boundary between abstract logic and optimized runtime
+- **Modular** — you compose what you need
+- **Predictable** — designed for deterministic latency
+- **Safe** — pooled events, scoped handles, lifecycle management
+- **Flexible** — works in simulation, backtest, or live modes
 
-Use it as a foundation — not a framework. You own the rules, Flox handles the wires.
+You define your logic — Flox moves the data.

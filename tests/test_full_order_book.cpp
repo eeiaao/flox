@@ -7,8 +7,9 @@
  * license information.
  */
 
-#include "flox/book/book_update_factory.h"
 #include "flox/book/full_order_book.h"
+#include "flox/engine/events/book_update_event.h"
+#include "flox/engine/market_data_event_pool.h"
 
 #include <gtest/gtest.h>
 
@@ -17,23 +18,25 @@ using namespace flox;
 class FullOrderBookTest : public ::testing::Test {
 protected:
   FullOrderBook book{0.1};
-  BookUpdateFactory factory;
+  using BookUpdatePool = EventPool<BookUpdateEvent, 63>;
+  BookUpdatePool pool;
 
-  BookUpdate makeSnapshot(const std::vector<BookLevel> &bids,
-                          const std::vector<BookLevel> &asks) {
-    BookUpdate u = factory.create();
-    u.type = BookUpdateType::SNAPSHOT;
-    u.bids.assign(bids.begin(), bids.end());
-    u.asks.assign(asks.begin(), asks.end());
+  EventHandle<BookUpdateEvent>
+  makeSnapshot(const std::vector<BookLevel> &bids,
+               const std::vector<BookLevel> &asks) {
+    auto u = pool.acquire();
+    u->type = BookUpdateType::SNAPSHOT;
+    u->bids.assign(bids.begin(), bids.end());
+    u->asks.assign(asks.begin(), asks.end());
     return u;
   }
 
-  BookUpdate makeDelta(const std::vector<BookLevel> &bids,
-                       const std::vector<BookLevel> &asks) {
-    BookUpdate u = factory.create();
-    u.type = BookUpdateType::DELTA;
-    u.bids.assign(bids.begin(), bids.end());
-    u.asks.assign(asks.begin(), asks.end());
+  EventHandle<BookUpdateEvent> makeDelta(const std::vector<BookLevel> &bids,
+                                         const std::vector<BookLevel> &asks) {
+    auto u = pool.acquire();
+    u->type = BookUpdateType::DELTA;
+    u->bids.assign(bids.begin(), bids.end());
+    u->asks.assign(asks.begin(), asks.end());
     return u;
   }
 };
@@ -41,7 +44,7 @@ protected:
 TEST_F(FullOrderBookTest, AppliesSnapshotCorrectly) {
   auto update =
       makeSnapshot({{100.0, 2.0}, {99.0, 1.0}}, {{101.0, 1.5}, {102.0, 3.0}});
-  book.applyBookUpdate(update);
+  book.applyBookUpdate(*update);
 
   EXPECT_EQ(book.bestBid(), 100.0);
   EXPECT_EQ(book.bestAsk(), 101.0);
@@ -53,8 +56,11 @@ TEST_F(FullOrderBookTest, AppliesSnapshotCorrectly) {
 }
 
 TEST_F(FullOrderBookTest, AppliesDeltaCorrectly) {
-  book.applyBookUpdate(makeSnapshot({{100.0, 1.0}}, {{101.0, 2.0}}));
-  book.applyBookUpdate(makeDelta({{100.0, 0.0}, {99.0, 1.5}}, {{101.0, 3.0}}));
+  auto snap = makeSnapshot({{100.0, 1.0}}, {{101.0, 2.0}});
+  book.applyBookUpdate(*snap);
+
+  auto delta = makeDelta({{100.0, 0.0}, {99.0, 1.5}}, {{101.0, 3.0}});
+  book.applyBookUpdate(*delta);
 
   EXPECT_EQ(book.bestBid(), 99.0);
   EXPECT_EQ(book.bestAsk(), 101.0);

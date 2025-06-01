@@ -9,8 +9,7 @@
 
 #pragma once
 
-#include "flox/engine/engine.h"
-#include "flox/engine/engine_config.h"
+#include "flox/engine/abstract_engine.h"
 
 #include <memory>
 
@@ -20,7 +19,7 @@ class IEngineBuilder {
 public:
   virtual ~IEngineBuilder() = default;
 
-  virtual std::unique_ptr<Engine> build() = 0;
+  virtual std::unique_ptr<IEngine> build() = 0;
 };
 
 } // namespace flox

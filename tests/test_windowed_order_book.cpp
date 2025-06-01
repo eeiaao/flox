@@ -7,10 +7,10 @@
  * license information.
  */
 
-#include "flox/book/book_update.h"
-#include "flox/book/book_update_factory.h"
 #include "flox/book/windowed_order_book.h"
 #include "flox/book/windowed_order_book_factory.h"
+#include "flox/engine/events/book_update_event.h"
+#include "flox/engine/market_data_event_pool.h"
 
 #include <gtest/gtest.h>
 
@@ -25,14 +25,14 @@ TEST(WindowedOrderBookTest, ApplySnapshot) {
   auto book =
       factory.create(WindowedOrderBookConfig{tickSize, expectedDeviation});
 
-  BookUpdateFactory bookUpdateFactory;
-  auto snapshot = bookUpdateFactory.create();
-  snapshot.type = BookUpdateType::SNAPSHOT;
-  snapshot.bids = {{20000, 5}, {19990, 3}};
-  snapshot.asks = {{20010, 2}, {20020, 4}};
-  snapshot.timestamp = std::chrono::system_clock::now();
+  EventPool<BookUpdateEvent, 3> bookUpdatePool;
+  auto snapshot = bookUpdatePool.acquire();
+  snapshot->type = BookUpdateType::SNAPSHOT;
+  snapshot->bids = {{20000, 5}, {19990, 3}};
+  snapshot->asks = {{20010, 2}, {20020, 4}};
+  snapshot->timestamp = std::chrono::system_clock::now();
 
-  book->applyBookUpdate(snapshot);
+  book->applyBookUpdate(*snapshot);
 
   auto bid = book->bestBid();
   auto ask = book->bestAsk();
@@ -53,21 +53,21 @@ TEST(WindowedOrderBookTest, ApplyDelta) {
   auto book =
       factory.create(WindowedOrderBookConfig{tickSize, expectedDeviation});
 
-  BookUpdateFactory bookUpdateFactory;
-  auto snapshot = bookUpdateFactory.create();
+  EventPool<BookUpdateEvent, 3> bookUpdatePool;
+  auto snapshot = bookUpdatePool.acquire();
 
-  snapshot.type = BookUpdateType::SNAPSHOT;
-  snapshot.bids = {{1500, 1}};
-  snapshot.asks = {{1505, 1}};
-  snapshot.timestamp = std::chrono::system_clock::now();
-  book->applyBookUpdate(snapshot);
+  snapshot->type = BookUpdateType::SNAPSHOT;
+  snapshot->bids = {{1500, 1}};
+  snapshot->asks = {{1505, 1}};
+  snapshot->timestamp = std::chrono::system_clock::now();
+  book->applyBookUpdate(*snapshot);
 
-  auto delta = bookUpdateFactory.create();
-  delta.type = BookUpdateType::DELTA;
-  delta.bids = {{1500, 0}, {1495, 2}};
-  delta.asks = {{1505, 3}};
-  delta.timestamp = std::chrono::system_clock::now();
-  book->applyBookUpdate(delta);
+  auto delta = bookUpdatePool.acquire();
+  delta->type = BookUpdateType::DELTA;
+  delta->bids = {{1500, 0}, {1495, 2}};
+  delta->asks = {{1505, 3}};
+  delta->timestamp = std::chrono::system_clock::now();
+  book->applyBookUpdate(*delta);
 
   EXPECT_DOUBLE_EQ(*book->bestBid(), 1495);
   EXPECT_DOUBLE_EQ(*book->bestAsk(), 1505);
@@ -85,21 +85,20 @@ TEST(WindowedOrderBookTest, SnapshotRemovesStaleLevels) {
   auto book =
       factory.create(WindowedOrderBookConfig{tickSize, expectedDeviation});
 
-  BookUpdateFactory bookUpdateFactory;
-  auto snap1 = bookUpdateFactory.create();
-
-  snap1.type = BookUpdateType::SNAPSHOT;
-  snap1.bids = {{20000, 5}, {19990, 3}},
-  snap1.timestamp = std::chrono::system_clock::now();
-  book->applyBookUpdate(snap1);
+  EventPool<BookUpdateEvent, 3> bookUpdatePool;
+  auto snap1 = bookUpdatePool.acquire();
+  snap1->type = BookUpdateType::SNAPSHOT;
+  snap1->bids = {{20000, 5}, {19990, 3}},
+  snap1->timestamp = std::chrono::system_clock::now();
+  book->applyBookUpdate(*snap1);
 
   EXPECT_DOUBLE_EQ(*book->bestBid(), 20000);
 
-  auto snap2 = bookUpdateFactory.create();
-  snap2.type = BookUpdateType::SNAPSHOT;
-  snap2.bids = {{19990, 7}}; // 20000 missing
-  snap2.timestamp = std::chrono::system_clock::now();
-  book->applyBookUpdate(snap2);
+  auto snap2 = bookUpdatePool.acquire();
+  snap2->type = BookUpdateType::SNAPSHOT;
+  snap2->bids = {{19990, 7}}; // 20000 missing
+  snap2->timestamp = std::chrono::system_clock::now();
+  book->applyBookUpdate(*snap2);
 
   EXPECT_DOUBLE_EQ(*book->bestBid(), 19990);
 }
@@ -134,18 +133,18 @@ TEST(WindowedOrderBookTest, BestBidAskEmptyAfterErase) {
   auto book =
       factory.create(WindowedOrderBookConfig{tickSize, expectedDeviation});
 
-  BookUpdateFactory f;
-  auto snap = f.create();
-  snap.type = BookUpdateType::SNAPSHOT;
-  snap.bids = {{100, 1}};
-  snap.asks = {{101, 1}};
-  book->applyBookUpdate(snap);
+  EventPool<BookUpdateEvent, 3> bookUpdatePool;
+  auto snap = bookUpdatePool.acquire();
+  snap->type = BookUpdateType::SNAPSHOT;
+  snap->bids = {{100, 1}};
+  snap->asks = {{101, 1}};
+  book->applyBookUpdate(*snap);
 
-  auto delta = f.create();
-  delta.type = BookUpdateType::DELTA;
-  delta.bids = {{100, 0}};
-  delta.asks = {{101, 0}};
-  book->applyBookUpdate(delta);
+  auto delta = bookUpdatePool.acquire();
+  delta->type = BookUpdateType::DELTA;
+  delta->bids = {{100, 0}};
+  delta->asks = {{101, 0}};
+  book->applyBookUpdate(*delta);
 
   EXPECT_FALSE(book->bestBid().has_value());
   EXPECT_FALSE(book->bestAsk().has_value());
@@ -165,16 +164,16 @@ TEST(WindowedOrderBookTest, DeltaAddsNewLevel) {
 
   auto windowedOrderBook = dynamic_cast<WindowedOrderBook *>(book);
 
-  BookUpdateFactory f;
-  auto snap = f.create();
-  snap.type = BookUpdateType::SNAPSHOT;
-  snap.bids = {{100.0, 1}};
-  book->applyBookUpdate(snap);
+  EventPool<BookUpdateEvent, 3> bookUpdatePool;
+  auto snap = bookUpdatePool.acquire();
+  snap->type = BookUpdateType::SNAPSHOT;
+  snap->bids = {{100.0, 1}};
+  book->applyBookUpdate(*snap);
 
-  auto delta = f.create();
-  delta.type = BookUpdateType::DELTA;
-  delta.bids = {{99.9, 2}};
-  book->applyBookUpdate(delta);
+  auto delta = bookUpdatePool.acquire();
+  delta->type = BookUpdateType::DELTA;
+  delta->bids = {{99.9, 2}};
+  book->applyBookUpdate(*delta);
 
   EXPECT_DOUBLE_EQ(*book->bestBid(), 100.0);
   EXPECT_DOUBLE_EQ(windowedOrderBook->getBidQuantity(99.9), 2.0);
@@ -192,16 +191,16 @@ TEST(WindowedOrderBookTest, DeltaRemovesLevel) {
   auto book =
       factory.create(WindowedOrderBookConfig{tickSize, expectedDeviation});
 
-  BookUpdateFactory f;
-  auto snap = f.create();
-  snap.type = BookUpdateType::SNAPSHOT;
-  snap.bids = {{100.0, 1}, {99.9, 2}};
-  book->applyBookUpdate(snap);
+  EventPool<BookUpdateEvent, 3> bookUpdatePool;
+  auto snap = bookUpdatePool.acquire();
+  snap->type = BookUpdateType::SNAPSHOT;
+  snap->bids = {{100.0, 1}, {99.9, 2}};
+  book->applyBookUpdate(*snap);
 
-  auto delta = f.create();
-  delta.type = BookUpdateType::DELTA;
-  delta.bids = {{100.0, 0}};
-  book->applyBookUpdate(delta);
+  auto delta = bookUpdatePool.acquire();
+  delta->type = BookUpdateType::DELTA;
+  delta->bids = {{100.0, 0}};
+  book->applyBookUpdate(*delta);
 
   EXPECT_DOUBLE_EQ(*book->bestBid(), 99.9);
 }
@@ -220,16 +219,16 @@ TEST(WindowedOrderBookTest, DeltaModifiesLevel) {
 
   auto windowedOrderBook = dynamic_cast<WindowedOrderBook *>(book);
 
-  BookUpdateFactory f;
-  auto snap = f.create();
-  snap.type = BookUpdateType::SNAPSHOT;
-  snap.bids = {{100.0, 1}};
-  book->applyBookUpdate(snap);
+  EventPool<BookUpdateEvent, 3> bookUpdatePool;
+  auto snap = bookUpdatePool.acquire();
+  snap->type = BookUpdateType::SNAPSHOT;
+  snap->bids = {{100.0, 1}};
+  book->applyBookUpdate(*snap);
 
-  auto delta = f.create();
-  delta.type = BookUpdateType::DELTA;
-  delta.bids = {{100.0, 5}};
-  book->applyBookUpdate(delta);
+  auto delta = bookUpdatePool.acquire();
+  delta->type = BookUpdateType::DELTA;
+  delta->bids = {{100.0, 5}};
+  book->applyBookUpdate(*delta);
 
   EXPECT_DOUBLE_EQ(windowedOrderBook->getBidQuantity(100.0), 5.0);
 }
@@ -247,16 +246,16 @@ TEST(WindowedOrderBookTest, DeltaIsPartialUpdate) {
   auto book =
       factory.create(WindowedOrderBookConfig{tickSize, expectedDeviation});
 
-  BookUpdateFactory f;
-  auto snap = f.create();
-  snap.type = BookUpdateType::SNAPSHOT;
-  snap.bids = {{100.0, 1}, {99.9, 2}};
-  book->applyBookUpdate(snap);
+  EventPool<BookUpdateEvent, 3> bookUpdatePool;
+  auto snap = bookUpdatePool.acquire();
+  snap->type = BookUpdateType::SNAPSHOT;
+  snap->bids = {{100.0, 1}, {99.9, 2}};
+  book->applyBookUpdate(*snap);
 
-  auto delta = f.create();
-  delta.type = BookUpdateType::DELTA;
-  delta.bids = {{100.0, 3}};
-  book->applyBookUpdate(delta);
+  auto delta = bookUpdatePool.acquire();
+  delta->type = BookUpdateType::DELTA;
+  delta->bids = {{100.0, 3}};
+  book->applyBookUpdate(*delta);
 
   auto windowedOrderBook = dynamic_cast<WindowedOrderBook *>(book);
 

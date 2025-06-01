@@ -1,28 +1,40 @@
 # Strategy Interface
 
-The `IStrategy` interface defines the base structure for implementing trading strategies in Flox.  
-It provides lifecycle hooks and market event handlers, and grants access to execution, risk, and position services.
+The `IStrategy` interface defines the base class for implementing trading strategies in Flox.  
+It combines market data subscription, lifecycle management, and dependency injection for execution, risk, and validation.
 
 ## Purpose
 
-To create modular, pluggable strategies that react to market data and can submit orders through controlled interfaces.
+To allow developers to create modular strategies that respond to market data and place orders via injected subsystems.
+
+---
 
 ## Interface Definition
 
 ```cpp
-class IStrategy {
+class IStrategy : public IMarketDataSubscriber {
 public:
   virtual ~IStrategy() = default;
 
+  // Lifecycle
   virtual void onStart();
   virtual void onStop();
 
+  // Market data events
   virtual void onCandle(SymbolId symbol, const Candle &candle);
-  virtual void onTrade(const Trade &trade);
-  virtual void onBookUpdate(const BookUpdate &bookUpdate);
+  virtual void onTrade(TradeEvent *trade);
+  virtual void onBookUpdate(BookUpdateEvent *bookUpdate);
 
-  void setPositionManager(IPositionManager *manager);
+  // Dispatcher
+  void onMarketData(const IMarketDataEvent &event) override;
+
+  // Subscription identity
+  SubscriberId id() const override;
+  SubscriberMode mode() const override;
+
+  // Dependency injection
   void setRiskManager(IRiskManager *manager);
+  void setPositionManager(IPositionManager *manager);
   void setOrderExecutor(IOrderExecutor *executor);
   void setOrderValidator(IOrderValidator *validator);
 
@@ -36,13 +48,39 @@ protected:
 
 ## Responsibilities
 
-- Reacts to market data via `onCandle`, `onTrade`, and `onBookUpdate`
-- Optionally implements `onStart` / `onStop` for initialization/teardown
-- May use `IOrderExecutor` to place orders and `IRiskManager`/`IOrderValidator` to enforce logic
-- Has access to current position via `IPositionManager`
+- Implements `IMarketDataSubscriber` with internal dispatching to typed events
+- Owns a unique `SubscriberId` for queue-based delivery
+- Reacts to market data with event handlers (`onTrade`, `onBookUpdate`, `onCandle`)
+- Lifecycle hooks (`onStart`, `onStop`) are optional
 
 ## Notes
 
-- All dependencies are injected via `setX()` methods
-- Strategies are typically managed by `StrategyManager`
-- Designed for subclassing: each concrete strategy inherits from `IStrategy`
+- Subscribes in `PUSH` mode to `MarketDataBus`
+- Uses `EventHandle` dispatch flow for safe memory reuse
+- All dependencies are injected via setter methods
+- Order flow can be guarded by validator and risk manager before execution
+
+## Dispatch Logic
+
+```cpp
+void onMarketData(const IMarketDataEvent &event) override {
+  switch (event.eventType()) {
+    case MarketDataEventType::TRADE:
+      onTrade(static_cast<TradeEvent *>(...));
+      break;
+    case MarketDataEventType::BOOK:
+      onBookUpdate(static_cast<BookUpdateEvent *>(...));
+      break;
+    default:
+      break;
+  }
+}
+```
+
+## Example Order Submission
+
+```cpp
+if (GetOrderValidator() && !GetOrderValidator()->validate(order, reason)) return;
+if (GetRiskManager() && !GetRiskManager()->allow(order)) return;
+GetOrderExecutor()->submitOrder(order);
+```

@@ -1,11 +1,17 @@
 # Writing Strategies
 
-Strategies in Flox are implemented by subclassing `IStrategy`, which provides a unified interface for receiving market data and submitting orders.
+Strategies in Flox are implemented by subclassing `IStrategy`, which defines a uniform interface for receiving market data and submitting orders.
 
-## Strategy Interface
+## Purpose
+
+To encapsulate trading logic that reacts to real-time market data and interacts with execution, risk, position tracking, and validation systems.
+
+---
+
+## Interface Summary
 
 ```cpp
-class IStrategy {
+class IStrategy : public IMarketDataSubscriber {
 public:
   virtual ~IStrategy() = default;
 
@@ -13,63 +19,75 @@ public:
   virtual void onStop();
 
   virtual void onCandle(SymbolId symbol, const Candle &candle);
-  virtual void onTrade(const Trade &trade);
-  virtual void onBookUpdate(const BookUpdate &bookUpdate);
+  virtual void onTrade(TradeEvent *trade);
+  virtual void onBookUpdate(BookUpdateEvent *bookUpdate);
 
   void setPositionManager(IPositionManager *manager);
   void setRiskManager(IRiskManager *manager);
   void setOrderExecutor(IOrderExecutor *executor);
   void setOrderValidator(IOrderValidator *validator);
+
+protected:
+  IRiskManager *GetRiskManager();
+  IPositionManager *GetPositionManager();
+  IOrderExecutor *GetOrderExecutor();
+  IOrderValidator *GetOrderValidator();
 };
 ```
 
-### Core Methods
+## Core Methods
 
-- `onStart() / onStop()` — lifecycle hooks when engine starts or stops.
-- `onCandle(...)` — receives completed candles.
-- `onTrade(...)` — receives trade data.
-- `onBookUpdate(...)` — receives order book updates.
+- `onStart()` / `onStop()` — called at engine startup and shutdown
+- `onBookUpdate(...)` — receives `BookUpdateEvent*` from `MarketDataBus`
+- `onTrade(...)` — receives `TradeEvent*`
+- `onCandle(...)` — receives completed candles per symbol
 
-These callbacks are called by the engine for each symbol the strategy is subscribed to.
+## Subscribing to Market Data
 
-## Optional Components
+Each strategy is automatically subscribed to `MarketDataBus` via `subscribe()`.  
+Events are dispatched through `onMarketData(...)`, which routes them internally to `onBookUpdate(...)`, `onTrade(...)`, etc.
 
-The strategy can interact with other engine components using these setters:
+## Order Submission
 
-- `setOrderExecutor(...)` — required to place orders.
-- `setRiskManager(...)` — optional; if used, `allow(order)` will be checked before submission.
-- `setPositionManager(...)` — optional; provides position tracking.
-- `setOrderValidator(...)` — optional; if set, `validate(order, reason)` is called before submission.
-
-## Submitting Orders
-
-If a strategy wants to submit an order:
+Strategies place orders by combining risk check, validation, and execution:
 
 ```cpp
-if (_riskManager->allow(order) && _validator->validate(order, reason)) {
-    _executor->submitOrder(order);
-}
+if (GetOrderValidator() && !GetOrderValidator()->validate(order, reason)) return;
+if (GetRiskManager() && !GetRiskManager()->allow(order)) return;
+GetOrderExecutor()->submitOrder(order);
 ```
 
-This ensures only valid and approved orders are sent to the market.
+This guarantees only validated and permitted orders reach the market.
+
+## Dependency Injection
+
+Use the provided setters to connect your strategy with engine components:
+
+- `setOrderExecutor()` — required to send orders
+- `setRiskManager()` — optional safeguard
+- `setPositionManager()` — optional state tracking
+- `setOrderValidator()` — optional pre-check logic
 
 ## Best Practices
 
-- Avoid heavy computations in market data callbacks.
-- Keep internal state clean and minimal.
-- Use position manager for stateful strategies only if needed.
+- Keep callbacks (`onTrade`, `onBookUpdate`) fast and non-blocking
+- Avoid allocations and blocking I/O
+- Prefer stateless or short-term state tracking
+- Use `PositionManager` only when necessary
+- Use pooled `EventHandle` safely by not storing raw pointers long-term
 
 ## Example
 
 ```cpp
 class MyStrategy : public IStrategy {
 public:
-  void onBookUpdate(const BookUpdate &update) override {
-    // Trading logic
-    Order o = {...};
-    if (GetOrderValidator() && !GetOrderValidator()->validate(o, _reason)) return;
-    if (GetRiskManager() && !GetRiskManager()->allow(o)) return;
-    GetOrderExecutor()->submitOrder(o);
+  void onBookUpdate(BookUpdateEvent *update) override {
+    Order order = {/* ... */};
+    if (GetOrderValidator() && !GetOrderValidator()->validate(order, _reason)) return;
+    if (GetRiskManager() && !GetRiskManager()->allow(order)) return;
+    GetOrderExecutor()->submitOrder(order);
   }
 };
 ```
+
+Use factory classes to load strategies dynamically from configuration and assign them to symbols.

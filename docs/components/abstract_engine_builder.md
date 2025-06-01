@@ -1,39 +1,28 @@
-# IEngineBuilder
+# Abstract Engine Builder
 
-`IEngineBuilder` is the interface for building the Flox trading engine.  
-It provides a flexible and modular way to configure and assemble the engine's core components.
+The `IEngineBuilder` interface defines the contract for constructing the Flox engine and its subsystems.
 
 ## Purpose
 
-To decouple engine construction logic from the `Engine` class itself, enabling different configurations (e.g., simulation, production, testing).
+To allow flexible configuration and construction of an `IEngine` instance with all required subsystems and strategies.
 
-## Interface
+## Interface Definition
 
 ```cpp
 class IEngineBuilder {
 public:
   virtual ~IEngineBuilder() = default;
-  virtual std::unique_ptr<Engine> build() = 0;
+
+  virtual std::unique_ptr<IEngine> build() = 0;
 };
 ```
 
 ## Responsibilities
 
-- Construct and return a fully initialized instance of `Engine`
-- Encapsulate the setup of subsystems, strategies, and connectors
-
-## Example Usage
-
-```cpp
-DemoEngineBuilder builder(config);
-auto engine = builder.build();
-engine->start();
-```
+- Encapsulate the logic of creating and wiring together all engine components
+- Provide a customizable way to build different configurations of the engine
 
 ## Notes
 
-Implementations are expected to handle:
-- Registering symbols
-- Creating and wiring up subsystems
-- Loading strategy configurations
-- Attaching connectors
+- Typically used in main application code to construct the runtime engine
+- Ensures separation of construction and runtime execution phases
