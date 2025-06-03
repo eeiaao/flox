@@ -19,8 +19,8 @@ namespace flox {
 
 struct TradeEvent : public IMarketDataEvent {
   SymbolId symbol;
-  double price;
-  double quantity;
+  Price price;
+  Quantity quantity;
   bool isBuy;
   std::chrono::system_clock::time_point timestamp;
 

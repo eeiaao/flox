@@ -43,7 +43,9 @@ void CandleAggregator::onTrade(TradeEvent *trade) {
       partial.candle.endTime = partial.candle.startTime + _interval;
       _callback(trade->symbol, partial.candle);
     }
-    partial.candle = Candle(ts, trade->price, trade->quantity);
+    partial.candle = Candle(ts, trade->price,
+                            Volume::fromDouble(trade->price.toDouble() *
+                                               trade->quantity.toDouble()));
     partial.candle.endTime = ts + _interval;
     partial.initialized = true;
     return;
@@ -53,7 +55,8 @@ void CandleAggregator::onTrade(TradeEvent *trade) {
   c.high = std::max(c.high, trade->price);
   c.low = std::min(c.low, trade->price);
   c.close = trade->price;
-  c.volume += trade->quantity;
+  c.volume +=
+      Volume::fromDouble(trade->price.toDouble() * trade->quantity.toDouble());
   c.endTime = partial.candle.startTime + _interval;
 }
 

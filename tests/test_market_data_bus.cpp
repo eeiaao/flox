@@ -14,6 +14,7 @@
 #include <thread>
 #include <vector>
 
+#include "flox/common.h"
 #include "flox/engine/abstract_market_data_subscriber.h"
 #include "flox/engine/events/book_update_event.h"
 #include "flox/engine/market_data_bus.h"
@@ -35,19 +36,22 @@ public:
       const auto &update = static_cast<const BookUpdateEvent &>(event);
       std::this_thread::sleep_for(std::chrono::milliseconds(1));
       ++_counter;
-      _lastPrice.store(update.bids.empty() ? -1.0 : update.bids[0].price);
+      _lastPrice.store(update.bids.empty() ? Price::fromRaw(-1).raw()
+                                           : update.bids[0].price.raw());
     }
   }
 
   SubscriberId id() const override { return _id; }
   SubscriberMode mode() const override { return SubscriberMode::PUSH; }
 
-  double lastPrice() const { return _lastPrice.load(); }
+  double lastPrice() const {
+    return static_cast<double>(_lastPrice.load()) / Price::Scale;
+  }
 
 private:
   SubscriberId _id;
   std::atomic<int> &_counter;
-  std::atomic<double> _lastPrice{-1.0};
+  std::atomic<int64_t> _lastPrice{Price::fromRaw(-1).raw()};
 };
 
 TEST(MarketDataBusTest, SingleSubscriberReceivesUpdates) {
@@ -62,7 +66,8 @@ TEST(MarketDataBusTest, SingleSubscriberReceivesUpdates) {
     auto update = pool.acquire();
     ASSERT_NE(update.get(), nullptr);
     update->type = BookUpdateType::SNAPSHOT;
-    update->bids.emplace_back(100.0 + 1, 1.0);
+    update->bids.emplace_back(Price::fromDouble(100.0 + 1),
+                              Quantity::fromDouble(1.0));
     bus.publish(std::move(update));
   }
 
@@ -90,7 +95,8 @@ TEST(MarketDataBusTest, MultipleSubscribersReceiveAll) {
     auto update = pool.acquire();
     ASSERT_NE(update.get(), nullptr);
     update->type = BookUpdateType::SNAPSHOT;
-    update->bids.emplace_back(200.0 + i, 1.0);
+    update->bids.emplace_back(Price::fromDouble(200.0 + i),
+                              Quantity::fromDouble(1.0));
     bus.publish(std::move(update));
   }
 
@@ -114,7 +120,8 @@ TEST(MarketDataBusTest, GracefulStopDoesNotLeak) {
     auto update = pool.acquire();
     ASSERT_NE(update.get(), nullptr);
     update->type = BookUpdateType::SNAPSHOT;
-    update->bids.emplace_back(300.0 + i, 1.0);
+    update->bids.emplace_back(Price::fromDouble(300.0 + i),
+                              Quantity::fromDouble(1.0));
     bus.publish(std::move(update));
   }
 

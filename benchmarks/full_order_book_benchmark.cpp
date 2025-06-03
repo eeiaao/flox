@@ -9,6 +9,7 @@
 
 #include "flox/book/full_order_book.h"
 #include "flox/book/full_order_book_factory.h"
+#include "flox/common.h"
 #include "flox/engine/events/book_update_event.h"
 #include "flox/engine/market_data_event_pool.h"
 
@@ -17,10 +18,10 @@
 
 using namespace flox;
 
-using BookUpdatePool = EventPool<BookUpdateEvent, 63>; // или больше, если нужно
+using BookUpdatePool = EventPool<BookUpdateEvent, 63>;
 
 static void BM_ApplyBookUpdate(benchmark::State &state) {
-  FullOrderBook book{0.1};
+  FullOrderBook book{Price::fromDouble(0.1)};
   BookUpdatePool pool;
 
   std::mt19937 rng(42);
@@ -38,10 +39,10 @@ static void BM_ApplyBookUpdate(benchmark::State &state) {
     update->asks.reserve(10000);
 
     for (int i = 0; i < 10000; ++i) {
-      double price = priceDist(rng);
-      double qty = qtyDist(rng);
+      Price price = Price::fromDouble(priceDist(rng));
+      Quantity qty = Quantity::fromDouble(qtyDist(rng));
       update->bids.push_back({price, qty});
-      update->asks.push_back({price + 10.0, qty});
+      update->asks.push_back({Price::fromDouble(price.toDouble() + 10.0), qty});
     }
 
     book.applyBookUpdate(*update);
@@ -50,7 +51,7 @@ static void BM_ApplyBookUpdate(benchmark::State &state) {
 BENCHMARK(BM_ApplyBookUpdate)->Unit(benchmark::kMicrosecond);
 
 static void BM_BestBid(benchmark::State &state) {
-  FullOrderBook book{0.1};
+  FullOrderBook book{Price::fromDouble(0.1)};
   BookUpdatePool pool;
 
   auto update = pool.acquire();
@@ -59,7 +60,9 @@ static void BM_BestBid(benchmark::State &state) {
   update->asks.clear();
 
   for (int i = 0; i < 100000; ++i) {
-    update->bids.push_back({20000.0 - i * 0.1, 1.0});
+    Price price = Price::fromRaw(Price::fromDouble(20000.0).raw() -
+                                 i * Price::fromDouble(0.1).raw());
+    update->bids.push_back({price, Quantity::fromDouble(1.0)});
   }
 
   book.applyBookUpdate(*update);
@@ -71,7 +74,7 @@ static void BM_BestBid(benchmark::State &state) {
 BENCHMARK(BM_BestBid)->Unit(benchmark::kNanosecond);
 
 static void BM_BestAsk(benchmark::State &state) {
-  FullOrderBook book{0.1};
+  FullOrderBook book{Price::fromDouble(0.1)};
   BookUpdatePool pool;
 
   auto update = pool.acquire();
@@ -80,7 +83,9 @@ static void BM_BestAsk(benchmark::State &state) {
   update->bids.clear();
 
   for (int i = 0; i < 100000; ++i) {
-    update->asks.push_back({20000.0 + i * 0.1, 1.0});
+    Price price = Price::fromRaw(Price::fromDouble(20000.0).raw() +
+                                 i * Price::fromDouble(0.1).raw());
+    update->asks.push_back({price, Quantity::fromDouble(1.0)});
   }
 
   book.applyBookUpdate(*update);

@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include "flox/common.h"
 #include "flox/engine/abstract_market_data_subscriber.h"
 #include "flox/engine/events/market_data_event.h"
 #include "flox/engine/symbol_registry.h"
@@ -24,11 +25,11 @@ namespace flox {
 enum class BookUpdateType { SNAPSHOT, DELTA };
 
 struct BookLevel {
-  double price;
-  double quantity;
+  Price price;
+  Quantity quantity;
 
   BookLevel() = default;
-  BookLevel(double p, double q) : price(p), quantity(q) {}
+  BookLevel(Price p, Quantity q) : price(p), quantity(q) {}
 };
 
 struct BookUpdateEvent : public IMarketDataEvent {

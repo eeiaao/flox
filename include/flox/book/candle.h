@@ -9,22 +9,24 @@
 
 #pragma once
 
+#include "flox/common.h"
+
 #include <chrono>
 
 namespace flox {
 
 struct Candle {
-  double open = 0.0;
-  double high = 0.0;
-  double low = 0.0;
-  double close = 0.0;
-  double volume = 0.0;
+  Price open;
+  Price high;
+  Price low;
+  Price close;
+  Volume volume;
   std::chrono::system_clock::time_point startTime;
   std::chrono::system_clock::time_point endTime;
 
   Candle() = default;
 
-  Candle(std::chrono::system_clock::time_point ts, double price, double qty)
+  Candle(std::chrono::system_clock::time_point ts, Price price, Volume qty)
       : open(price), high(price), low(price), close(price), volume(qty),
         startTime(ts), endTime(ts) {}
 };

@@ -9,6 +9,8 @@
 
 #pragma once
 
+#include "flox/common.h"
+
 #include "flox/engine/events/book_update_event.h"
 
 namespace flox {
@@ -18,11 +20,11 @@ public:
   virtual ~IOrderBook() = default;
 
   virtual void applyBookUpdate(const BookUpdateEvent &update) = 0;
-  virtual std::optional<double> bestBid() const = 0;
-  virtual std::optional<double> bestAsk() const = 0;
+  virtual std::optional<Price> bestBid() const = 0;
+  virtual std::optional<Price> bestAsk() const = 0;
 
-  virtual double bidAtPrice(double price) const = 0;
-  virtual double askAtPrice(double price) const = 0;
+  virtual Quantity bidAtPrice(Price price) const = 0;
+  virtual Quantity askAtPrice(Price price) const = 0;
 };
 
 } // namespace flox

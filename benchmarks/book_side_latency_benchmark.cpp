@@ -8,6 +8,7 @@
  */
 
 #include "flox/book/book_side.h"
+#include "flox/common.h"
 #include <benchmark/benchmark.h>
 #include <memory_resource>
 
@@ -19,7 +20,7 @@ static void BM_BookSideBestBid_Latency(benchmark::State &state) {
   BookSide side(levels, BookSide::Side::Bid, &arena);
 
   for (std::size_t i = 0; i < levels; ++i)
-    side.setLevel(i, 1.0);
+    side.setLevel(i, Quantity::fromDouble(1.0));
 
   for (auto _ : state) {
     benchmark::DoNotOptimize(side.findBest());
@@ -33,7 +34,7 @@ static void BM_BookSideShift_Latency(benchmark::State &state) {
   BookSide side(levels, BookSide::Side::Bid, &arena);
 
   for (std::size_t i = 0; i < levels; ++i)
-    side.setLevel(i, 1.0);
+    side.setLevel(i, Quantity::fromDouble(1.0));
 
   int shift = 1;
   for (auto _ : state) {

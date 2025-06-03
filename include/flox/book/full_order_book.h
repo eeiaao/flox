@@ -10,7 +10,9 @@
 #pragma once
 
 #include "flox/book/abstract_order_book.h"
+#include "flox/common.h"
 #include "flox/engine/events/book_update_event.h"
+
 #include <cmath>
 #include <mutex>
 #include <optional>
@@ -20,7 +22,7 @@ namespace flox {
 
 class FullOrderBook : public IOrderBook {
 public:
-  FullOrderBook(double tickSize)
+  explicit FullOrderBook(Price tickSize)
       : _tickSize(tickSize), _minBidIndex(0), _maxBidIndex(0),
         _minAskIndex(SIZE_MAX), _maxAskIndex(0) {}
 
@@ -38,7 +40,7 @@ public:
 
     for (const auto &[price, qty] : update.bids) {
       auto i = priceToIndex(price);
-      if (qty == 0.0) {
+      if (qty.raw() == 0) {
         _bids.erase(i);
       } else {
         _bids[i] = qty;
@@ -49,7 +51,7 @@ public:
 
     for (const auto &[price, qty] : update.asks) {
       auto i = priceToIndex(price);
-      if (qty == 0.0) {
+      if (qty.raw() == 0) {
         _asks.erase(i);
       } else {
         _asks[i] = qty;
@@ -59,52 +61,52 @@ public:
     }
   }
 
-  std::optional<double> bestBid() const override {
+  std::optional<Price> bestBid() const override {
     std::scoped_lock lock(_mutex);
     for (size_t i = _maxBidIndex + 1; i-- > _minBidIndex;) {
       auto it = _bids.find(i);
-      if (it != _bids.end() && it->second > 0.0)
+      if (it != _bids.end() && it->second.raw() > 0)
         return indexToPrice(i);
     }
     return std::nullopt;
   }
 
-  std::optional<double> bestAsk() const override {
+  std::optional<Price> bestAsk() const override {
     std::scoped_lock lock(_mutex);
     for (size_t i = _minAskIndex; i <= _maxAskIndex; ++i) {
       auto it = _asks.find(i);
-      if (it != _asks.end() && it->second > 0.0)
+      if (it != _asks.end() && it->second.raw() > 0)
         return indexToPrice(i);
     }
     return std::nullopt;
   }
 
-  double bidAtPrice(double price) const override {
+  Quantity bidAtPrice(Price price) const override {
     std::scoped_lock lock(_mutex);
     auto it = _bids.find(priceToIndex(price));
-    return it != _bids.end() ? it->second : 0.0;
+    return it != _bids.end() ? it->second : Quantity(0);
   }
 
-  double askAtPrice(double price) const override {
+  Quantity askAtPrice(Price price) const override {
     std::scoped_lock lock(_mutex);
     auto it = _asks.find(priceToIndex(price));
-    return it != _asks.end() ? it->second : 0.0;
+    return it != _asks.end() ? it->second : Quantity(0);
   }
 
 private:
-  size_t priceToIndex(double price) const {
-    return static_cast<size_t>(std::round(price / _tickSize));
+  size_t priceToIndex(Price price) const {
+    return static_cast<size_t>(price.raw() / _tickSize.raw());
   }
 
-  double indexToPrice(size_t index) const {
-    return static_cast<double>(index) * _tickSize;
+  Price indexToPrice(size_t index) const {
+    return Price(static_cast<int64_t>(index) * _tickSize.raw());
   }
 
-  double _tickSize;
+  Price _tickSize;
 
   mutable std::mutex _mutex;
-  std::unordered_map<size_t, double> _bids;
-  std::unordered_map<size_t, double> _asks;
+  std::unordered_map<size_t, Quantity> _bids;
+  std::unordered_map<size_t, Quantity> _asks;
 
   size_t _minBidIndex;
   size_t _maxBidIndex;

@@ -51,6 +51,7 @@ nav:
           - MarketDataEventPool: components/market_event_pool.md
           - TickBarrier: components/tick_barrier.md
           - TickGuard: components/tick_guard.md
+          - Decimal: components/decimal.md
           - SPSCQueue: components/spsc_queue.md
           - RefCountable: components/ref_countable.md
       - Execution and Routing:

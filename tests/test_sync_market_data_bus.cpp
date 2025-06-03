@@ -10,16 +10,18 @@
 #include <atomic>
 #include <chrono>
 #include <gtest/gtest.h>
+#include <map>
 #include <memory>
+#include <mutex>
+#include <set>
 #include <thread>
 #include <vector>
 
 #include "flox/engine/abstract_market_data_subscriber.h"
 #include "flox/engine/events/book_update_event.h"
 #include "flox/engine/events/market_data_event.h"
-#include "flox/engine/market_data_event_pool.h"
-
 #include "flox/engine/market_data_bus.h"
+#include "flox/engine/market_data_event_pool.h"
 
 using namespace flox;
 using namespace std::chrono_literals;
@@ -36,11 +38,10 @@ public:
     std::this_thread::sleep_for(10ms); // simulate work
     ++_counter;
     if (!book.bids.empty())
-      _lastPrice.store(book.bids[0].price);
+      _lastPrice.store(book.bids[0].price.toDouble());
   }
 
   SubscriberId id() const override { return _id; };
-
   double lastPrice() const { return _lastPrice.load(); }
 
 private:
@@ -49,7 +50,6 @@ private:
   std::atomic<double> _lastPrice{-1.0};
 };
 
-// Define a small pool just for test
 constexpr size_t PoolCapacity = 7;
 using BookUpdatePool = EventPool<BookUpdateEvent, PoolCapacity>;
 
@@ -71,7 +71,7 @@ TEST(SyncMarketDataBusTest, AllSubscribersProcessEachTick) {
     auto handle = pool.acquire();
     ASSERT_TRUE(handle);
     handle->type = BookUpdateType::SNAPSHOT;
-    handle->bids = {{100.0 + i, 1.0}};
+    handle->bids = {{Price::fromDouble(100.0 + i), Quantity::fromDouble(1.0)}};
     bus.publish(std::move(handle));
   }
 
@@ -106,7 +106,7 @@ TEST(SyncMarketDataBusTest, AllSubscribersProcessEachTickSynchronously) {
       const auto &book = static_cast<const BookUpdateEvent &>(event);
       std::this_thread::sleep_for(10ms); // simulate work
       if (!book.bids.empty()) {
-        const int seq = static_cast<int>(book.bids[0].price);
+        const int seq = static_cast<int>(book.bids[0].price.toDouble());
         std::lock_guard<std::mutex> lock(_logMutex);
         _tickLog[seq].insert(_id);
       }
@@ -132,7 +132,8 @@ TEST(SyncMarketDataBusTest, AllSubscribersProcessEachTickSynchronously) {
       auto handle = pool.acquire();
       ASSERT_TRUE(handle);
       handle->type = BookUpdateType::SNAPSHOT;
-      handle->bids = {{static_cast<double>(tick), 1.0}};
+      handle->bids = {{Price::fromDouble(static_cast<double>(tick)),
+                       Quantity::fromDouble(1.0)}};
       bus.publish(std::move(handle));
     }
 

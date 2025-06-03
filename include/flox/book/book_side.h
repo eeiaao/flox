@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include "flox/common.h"
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
@@ -27,10 +28,10 @@ public:
     _qty.resize(windowSize);
   }
 
-  void setLevel(std::size_t index, double qty) {
+  void setLevel(std::size_t index, Quantity qty) {
     _qty[ring(index)] = qty;
 
-    if (qty > 0.0) {
+    if (!qty.isZero()) {
       if (!_bestIndex.has_value()) {
         _bestIndex = index;
       } else if (_side == Side::Bid) {
@@ -45,7 +46,7 @@ public:
     }
   }
 
-  double getLevel(std::size_t index) const { return _qty[ring(index)]; }
+  Quantity getLevel(std::size_t index) const { return _qty[ring(index)]; }
 
   void shift(int levels) {
     if (std::abs(levels) >= static_cast<int>(_windowSize)) {
@@ -58,7 +59,7 @@ public:
   }
 
   void clear() {
-    std::fill(_qty.begin(), _qty.end(), 0.0);
+    std::fill(_qty.begin(), _qty.end(), Quantity(0));
     _bestIndex.reset();
   }
 
@@ -69,13 +70,13 @@ public:
     if (_side == Side::Bid) {
       for (int i = static_cast<int>(_windowSize) - 1; i >= 0; --i) {
         std::size_t physical = (i + _offset) % _windowSize;
-        if (_qty[physical] > 0.0)
+        if (!_qty[physical].isZero())
           return i;
       }
     } else {
       for (std::size_t i = 0; i < _windowSize; ++i) {
         std::size_t physical = (i + _offset) % _windowSize;
-        if (_qty[physical] > 0.0)
+        if (!_qty[physical].isZero())
           return i;
       }
     }
@@ -92,7 +93,7 @@ protected:
     return (index + _offset) % _windowSize;
   }
 
-  std::pmr::vector<double> _qty;
+  std::pmr::vector<Quantity> _qty;
   std::size_t _offset;
   std::size_t _windowSize;
   Side _side;

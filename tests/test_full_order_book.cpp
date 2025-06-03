@@ -8,6 +8,7 @@
  */
 
 #include "flox/book/full_order_book.h"
+#include "flox/common.h"
 #include "flox/engine/events/book_update_event.h"
 #include "flox/engine/market_data_event_pool.h"
 
@@ -17,7 +18,7 @@ using namespace flox;
 
 class FullOrderBookTest : public ::testing::Test {
 protected:
-  FullOrderBook book{0.1};
+  FullOrderBook book{Price::fromDouble(0.1)};
   using BookUpdatePool = EventPool<BookUpdateEvent, 63>;
   BookUpdatePool pool;
 
@@ -43,36 +44,53 @@ protected:
 
 TEST_F(FullOrderBookTest, AppliesSnapshotCorrectly) {
   auto update =
-      makeSnapshot({{100.0, 2.0}, {99.0, 1.0}}, {{101.0, 1.5}, {102.0, 3.0}});
+      makeSnapshot({{Price::fromDouble(100.0), Quantity::fromDouble(2.0)},
+                    {Price::fromDouble(99.0), Quantity::fromDouble(1.0)}},
+                   {{Price::fromDouble(101.0), Quantity::fromDouble(1.5)},
+                    {Price::fromDouble(102.0), Quantity::fromDouble(3.0)}});
   book.applyBookUpdate(*update);
 
-  EXPECT_EQ(book.bestBid(), 100.0);
-  EXPECT_EQ(book.bestAsk(), 101.0);
+  EXPECT_EQ(book.bestBid(), Price::fromDouble(100.0));
+  EXPECT_EQ(book.bestAsk(), Price::fromDouble(101.0));
 
-  EXPECT_DOUBLE_EQ(book.bidAtPrice(100.0), 2.0);
-  EXPECT_DOUBLE_EQ(book.bidAtPrice(99.0), 1.0);
-  EXPECT_DOUBLE_EQ(book.askAtPrice(101.0), 1.5);
-  EXPECT_DOUBLE_EQ(book.askAtPrice(102.0), 3.0);
+  EXPECT_EQ(book.bidAtPrice(Price::fromDouble(100.0)),
+            Quantity::fromDouble(2.0));
+  EXPECT_EQ(book.bidAtPrice(Price::fromDouble(99.0)),
+            Quantity::fromDouble(1.0));
+  EXPECT_EQ(book.askAtPrice(Price::fromDouble(101.0)),
+            Quantity::fromDouble(1.5));
+  EXPECT_EQ(book.askAtPrice(Price::fromDouble(102.0)),
+            Quantity::fromDouble(3.0));
 }
 
 TEST_F(FullOrderBookTest, AppliesDeltaCorrectly) {
-  auto snap = makeSnapshot({{100.0, 1.0}}, {{101.0, 2.0}});
+  auto snap =
+      makeSnapshot({{Price::fromDouble(100.0), Quantity::fromDouble(1.0)}},
+                   {{Price::fromDouble(101.0), Quantity::fromDouble(2.0)}});
   book.applyBookUpdate(*snap);
 
-  auto delta = makeDelta({{100.0, 0.0}, {99.0, 1.5}}, {{101.0, 3.0}});
+  auto delta =
+      makeDelta({{Price::fromDouble(100.0), Quantity::fromDouble(0.0)},
+                 {Price::fromDouble(99.0), Quantity::fromDouble(1.5)}},
+                {{Price::fromDouble(101.0), Quantity::fromDouble(3.0)}});
   book.applyBookUpdate(*delta);
 
-  EXPECT_EQ(book.bestBid(), 99.0);
-  EXPECT_EQ(book.bestAsk(), 101.0);
+  EXPECT_EQ(book.bestBid(), Price::fromDouble(99.0));
+  EXPECT_EQ(book.bestAsk(), Price::fromDouble(101.0));
 
-  EXPECT_DOUBLE_EQ(book.bidAtPrice(99.0), 1.5);
-  EXPECT_DOUBLE_EQ(book.bidAtPrice(100.0), 0.0);
-  EXPECT_DOUBLE_EQ(book.askAtPrice(101.0), 3.0);
+  EXPECT_EQ(book.bidAtPrice(Price::fromDouble(99.0)),
+            Quantity::fromDouble(1.5));
+  EXPECT_EQ(book.bidAtPrice(Price::fromDouble(100.0)),
+            Quantity::fromDouble(0.0));
+  EXPECT_EQ(book.askAtPrice(Price::fromDouble(101.0)),
+            Quantity::fromDouble(3.0));
 }
 
 TEST_F(FullOrderBookTest, HandlesEmptyBook) {
   EXPECT_EQ(book.bestBid(), std::nullopt);
   EXPECT_EQ(book.bestAsk(), std::nullopt);
-  EXPECT_DOUBLE_EQ(book.bidAtPrice(123.0), 0.0);
-  EXPECT_DOUBLE_EQ(book.askAtPrice(123.0), 0.0);
+  EXPECT_EQ(book.bidAtPrice(Price::fromDouble(123.0)),
+            Quantity::fromDouble(0.0));
+  EXPECT_EQ(book.askAtPrice(Price::fromDouble(123.0)),
+            Quantity::fromDouble(0.0));
 }

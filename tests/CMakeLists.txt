@@ -65,5 +65,6 @@ add_flox_test(test_ref_countable)
 add_flox_test(test_tick_barrier)
 add_flox_test(test_event_pool)
 add_flox_test(test_engine_smoke)
+add_flox_test(test_decimal)
 
 add_flox_sync_test(test_sync_market_data_bus)

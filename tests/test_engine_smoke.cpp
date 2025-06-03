@@ -7,6 +7,7 @@
  * license information.
  */
 
+#include "flox/common.h"
 #include "flox/engine/abstract_engine_builder.h"
 #include "flox/engine/events/book_update_event.h"
 #include "flox/engine/events/trade_event.h"
@@ -43,15 +44,15 @@ public:
 
   int seenTrades() const { return _seenTrades; }
   int seenBooks() const { return _seenBooks; }
-  double lastTradePrice() const { return _lastTradePrice; }
-  double lastBid() const { return _lastBid; }
+  Price lastTradePrice() const { return _lastTradePrice; }
+  Price lastBid() const { return _lastBid; }
 
 private:
   SymbolId _symbol;
   int _seenTrades = 0;
   int _seenBooks = 0;
-  double _lastTradePrice = 0.0;
-  double _lastBid = 0.0;
+  Price _lastTradePrice = Price::fromDouble(0.0);
+  Price _lastBid = Price::fromDouble(0.0);
 };
 
 using TradePool = EventPool<TradeEvent, 7>;
@@ -64,7 +65,7 @@ public:
       : _bus(bus), _tradePool(tradePool), _bookPool(bookPool), _symbol(symbol) {
   }
 
-  void publishTrade(double price, double qty) {
+  void publishTrade(Price price, Quantity qty) {
     auto event = _tradePool.acquire();
     event->symbol = _symbol;
     event->price = price;
@@ -74,7 +75,7 @@ public:
     _bus.publish(std::move(event));
   }
 
-  void publishBook(double bidPrice, double bidQty) {
+  void publishBook(Price bidPrice, Quantity bidQty) {
     auto event = _bookPool.acquire();
     event->symbol = _symbol;
     event->type = BookUpdateType::SNAPSHOT;
@@ -114,10 +115,10 @@ public:
     void start() override {}
     void stop() override {}
 
-    void runTrade(double price, double qty) {
+    void runTrade(Price price, Quantity qty) {
       _connector.publishTrade(price, qty);
     }
-    void runBook(double price, double qty) {
+    void runBook(Price price, Quantity qty) {
       _connector.publishBook(price, qty);
     }
 
@@ -147,12 +148,12 @@ TEST(SmokeEngineTest, StrategyReceivesBothEvents) {
   auto engine = static_cast<SmokeEngineBuilder::EngineImpl *>(engineBase.get());
 
   engine->start();
-  engine->runTrade(101.25, 10.0);
-  engine->runBook(101.10, 5.0);
+  engine->runTrade(Price::fromDouble(101.25), Quantity::fromDouble(10.0));
+  engine->runBook(Price::fromDouble(101.10), Quantity::fromDouble(5.0));
   engine->stop();
 
   EXPECT_EQ(strategy->seenTrades(), 1);
   EXPECT_EQ(strategy->seenBooks(), 1);
-  EXPECT_DOUBLE_EQ(strategy->lastTradePrice(), 101.25);
-  EXPECT_DOUBLE_EQ(strategy->lastBid(), 101.10);
+  EXPECT_EQ(strategy->lastTradePrice(), Price::fromDouble(101.25));
+  EXPECT_EQ(strategy->lastBid(), Price::fromDouble(101.10));
 }

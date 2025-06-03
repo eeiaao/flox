@@ -11,13 +11,14 @@
 
 #include "flox/book/abstract_order_book_factory.h"
 #include "flox/book/full_order_book.h"
+#include "flox/common.h"
 
 namespace flox {
 
 struct FullOrderBookConfig : public IOrderBookConfig {
-  double tickSize = 0.0;
+  Price tickSize = Price::fromDouble(0.0);
 
-  FullOrderBookConfig(double tickSize) : tickSize(tickSize) {}
+  FullOrderBookConfig(Price tickSize) : tickSize(tickSize) {}
 };
 
 class FullOrderBookFactory : public IOrderBookFactory {

@@ -7,6 +7,7 @@
  * license information.
  */
 
+#include "flox/common.h"
 #include "flox/connector/connector_manager.h"
 #include "flox/connector/exchange_connector.h"
 #include "flox/engine/events/book_update_event.h"
@@ -46,7 +47,7 @@ public:
 
       auto tr = tradePool.acquire();
       tr->symbol = 42;
-      tr->price = 3.14;
+      tr->price = Price::fromDouble(3.14);
 
       _bookCb(bu.get());
       _tradeCb(tr.get());
@@ -81,7 +82,7 @@ TEST(ConnectorManagerTest, RegisterAndStartAll) {
       },
       [&](TradeEvent *tr) {
         EXPECT_EQ(tr->symbol, 42);
-        EXPECT_DOUBLE_EQ(tr->price, 3.14);
+        EXPECT_EQ(tr->price, Price::fromDouble(3.14));
         tradeCalled = true;
       });
 

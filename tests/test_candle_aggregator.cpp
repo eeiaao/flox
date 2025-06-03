@@ -8,6 +8,7 @@
  */
 
 #include "flox/aggregator/candle_aggregator.h"
+#include "flox/common.h"
 #include "flox/engine/events/trade_event.h"
 #include "flox/engine/market_data_event_pool.h"
 
@@ -30,8 +31,8 @@ EventHandle<TradeEvent> makeTrade(TradePool &pool, SymbolId symbol,
                                   double price, double qty, int sec) {
   auto handle = pool.acquire();
   handle->symbol = symbol;
-  handle->price = price;
-  handle->quantity = qty;
+  handle->price = Price::fromDouble(price);
+  handle->quantity = Quantity::fromDouble(qty);
   handle->isBuy = true;
   handle->timestamp = ts(sec);
   return handle;
@@ -55,11 +56,12 @@ TEST(CandleAggregatorTest, AggregatesTradesIntoCandles) {
       *makeTrade(pool, SYMBOL, 102, 2, 65)); // triggers flush
 
   ASSERT_EQ(result.size(), 1);
-  EXPECT_DOUBLE_EQ(result[0].open, 100);
-  EXPECT_DOUBLE_EQ(result[0].high, 105);
-  EXPECT_DOUBLE_EQ(result[0].low, 99);
-  EXPECT_DOUBLE_EQ(result[0].close, 101);
-  EXPECT_DOUBLE_EQ(result[0].volume, 7);
+  EXPECT_EQ(result[0].open, Price::fromDouble(100.0));
+  EXPECT_EQ(result[0].high, Price::fromDouble(105.0));
+  EXPECT_EQ(result[0].low, Price::fromDouble(99.0));
+  EXPECT_EQ(result[0].close, Price::fromDouble(101.0));
+  EXPECT_EQ(result[0].volume,
+            Volume::fromDouble(100 * 1 + 105 * 2 + 99 * 3 + 101 * 1));
   EXPECT_EQ(result[0].startTime, ts(0));
   EXPECT_EQ(result[0].endTime, ts(60));
 }
@@ -78,11 +80,11 @@ TEST(CandleAggregatorTest, FlushesFinalCandleOnStop) {
   aggregator.stop(); // flush remaining
 
   ASSERT_EQ(result.size(), 1);
-  EXPECT_DOUBLE_EQ(result[0].open, 100);
-  EXPECT_DOUBLE_EQ(result[0].high, 105);
-  EXPECT_DOUBLE_EQ(result[0].low, 100);
-  EXPECT_DOUBLE_EQ(result[0].close, 105);
-  EXPECT_DOUBLE_EQ(result[0].volume, 2);
+  EXPECT_EQ(result[0].open, Price::fromDouble(100.0));
+  EXPECT_EQ(result[0].high, Price::fromDouble(105.0));
+  EXPECT_EQ(result[0].low, Price::fromDouble(100.0));
+  EXPECT_EQ(result[0].close, Price::fromDouble(105.0));
+  EXPECT_EQ(result[0].volume, Volume::fromDouble(100 * 1 + 105 * 1));
 }
 
 TEST(CandleAggregatorTest, StartsNewCandleAfterGap) {
@@ -99,7 +101,7 @@ TEST(CandleAggregatorTest, StartsNewCandleAfterGap) {
   ASSERT_EQ(result.size(), 1);
   EXPECT_EQ(result[0].startTime, ts(0));
   EXPECT_EQ(result[0].endTime, ts(60));
-  EXPECT_DOUBLE_EQ(result[0].close, 110);
+  EXPECT_EQ(result[0].close, Price::fromDouble(110.0));
 }
 
 TEST(CandleAggregatorTest, SingleTradeCandle) {
@@ -114,11 +116,11 @@ TEST(CandleAggregatorTest, SingleTradeCandle) {
 
   ASSERT_EQ(result.size(), 1);
   const auto &candle = result[0];
-  EXPECT_DOUBLE_EQ(candle.open, 123);
-  EXPECT_DOUBLE_EQ(candle.high, 123);
-  EXPECT_DOUBLE_EQ(candle.low, 123);
-  EXPECT_DOUBLE_EQ(candle.close, 123);
-  EXPECT_DOUBLE_EQ(candle.volume, 1);
+  EXPECT_EQ(candle.open, Price::fromDouble(123.0));
+  EXPECT_EQ(candle.high, Price::fromDouble(123.0));
+  EXPECT_EQ(candle.low, Price::fromDouble(123.0));
+  EXPECT_EQ(candle.close, Price::fromDouble(123.0));
+  EXPECT_EQ(candle.volume, Volume::fromDouble(123.0 * 1));
 }
 
 TEST(CandleAggregatorTest, MultipleSymbolsAreAggregatedSeparately) {
@@ -147,8 +149,8 @@ TEST(CandleAggregatorTest, MultipleSymbolsAreAggregatedSeparately) {
   ASSERT_TRUE(it1 != result.end());
   ASSERT_TRUE(it2 != result.end());
 
-  EXPECT_DOUBLE_EQ(it1->second.volume, 2);
-  EXPECT_DOUBLE_EQ(it2->second.volume, 3);
+  EXPECT_EQ(it1->second.volume, Volume::fromDouble(10 * 1 + 12 * 1));
+  EXPECT_EQ(it2->second.volume, Volume::fromDouble(20 * 2 + 18 * 1));
 }
 
 TEST(CandleAggregatorTest, DoubleStartClearsOldState) {
@@ -164,7 +166,7 @@ TEST(CandleAggregatorTest, DoubleStartClearsOldState) {
   aggregator.stop();
 
   ASSERT_EQ(result.size(), 1);
-  EXPECT_DOUBLE_EQ(result[0].open, 105);
-  EXPECT_DOUBLE_EQ(result[0].volume, 2);
+  EXPECT_EQ(result[0].open, Price::fromDouble(105.0));
+  EXPECT_EQ(result[0].volume, Volume::fromDouble(105.0 * 2));
   EXPECT_EQ(result[0].startTime, ts(60));
 }
