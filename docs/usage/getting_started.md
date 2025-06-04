@@ -9,6 +9,7 @@ This guide helps you build and install Flox on your machine.
 - Git
 - Linux (recommended)
 - GoogleTest and Google Benchmark
+- clang-format 18.1.8 (for development and contribution)
 
 ## Clone and Build
 
@@ -39,6 +40,16 @@ sudo cmake --install benchmark-build
 ```
 
 > If you already have them installed via your package manager, you can skip this step.
+
+CI uses clang-format 18 to ensure formatting. For clang-format version matters (!). To install it locally:
+```bash
+sudo apt install -y wget gnupg lsb-release software-properties-common
+wget https://apt.llvm.org/llvm.sh
+chmod +x llvm.sh
+sudo ./llvm.sh 18
+sudo apt install -y clang-format-18
+sudo update-alternatives --install /usr/bin/clang-format clang-format /usr/bin/clang-format-18 100
+```
 
 ## Custom Build Options
 
@@ -77,6 +88,24 @@ To install the library system-wide:
 
 ```bash
 sudo make install
+```
+
+## Contribution
+
+All contributions are welcome via pull requests.
+
+Please follow the existing project structure and naming conventions.  
+Add tests, benchmarks, and documentation where appropriate.  
+We use `clang-format` for code style, the `.clang-format` file is provided in the project root.
+
+A pre-commit hook that auto-formats changed `.cpp` and `.h` files is automatically installed when you run `cmake ..` (enabled by default).  
+It will copy `scripts/pre-commit` into `.git/hooks/pre-commit`.
+
+If needed, you can also install it manually:
+
+```bash
+cp scripts/pre-commit .git/hooks/pre-commit
+chmod +x .git/hooks/pre-commit
 ```
 
 ## Use in Your Project

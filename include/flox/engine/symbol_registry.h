@@ -17,22 +17,23 @@
 
 #include "flox/common.h"
 
-namespace flox {
+namespace flox
+{
 
-class SymbolRegistry {
-public:
-  SymbolId registerSymbol(const std::string &exchange,
-                          const std::string &symbol);
+class SymbolRegistry
+{
+ public:
+  SymbolId registerSymbol(const std::string& exchange, const std::string& symbol);
 
-  std::optional<SymbolId> getSymbolId(const std::string &exchange,
-                                      const std::string &symbol) const;
+  std::optional<SymbolId> getSymbolId(const std::string& exchange,
+                                      const std::string& symbol) const;
 
   std::pair<std::string, std::string> getSymbolName(SymbolId id) const;
 
-private:
+ private:
   mutable std::mutex _mutex;
   std::unordered_map<std::string, SymbolId> _map;
   std::vector<std::pair<std::string, std::string>> _reverse;
 };
 
-} // namespace flox
+}  // namespace flox

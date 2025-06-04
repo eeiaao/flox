@@ -15,7 +15,8 @@
 
 using namespace flox;
 
-TEST(BookSideTest, SetAndGetLevel) {
+TEST(BookSideTest, SetAndGetLevel)
+{
   std::pmr::monotonic_buffer_resource arena(1024);
   BookSide side(128, BookSide::Side::Bid, &arena);
 
@@ -23,7 +24,8 @@ TEST(BookSideTest, SetAndGetLevel) {
   EXPECT_EQ(side.getLevel(5), Quantity::fromDouble(42.0));
 }
 
-TEST(BookSideTest, ClearResetsAllLevels) {
+TEST(BookSideTest, ClearResetsAllLevels)
+{
   std::pmr::monotonic_buffer_resource arena(1024);
   BookSide side(64, BookSide::Side::Bid, &arena);
 
@@ -34,7 +36,8 @@ TEST(BookSideTest, ClearResetsAllLevels) {
   EXPECT_EQ(side.findBest(), std::nullopt);
 }
 
-TEST(BookSideTest, BidFindBestReturnsHighestIndexWithQuantity) {
+TEST(BookSideTest, BidFindBestReturnsHighestIndexWithQuantity)
+{
   std::pmr::monotonic_buffer_resource arena(1024);
   BookSide side(64, BookSide::Side::Bid, &arena);
 
@@ -44,7 +47,8 @@ TEST(BookSideTest, BidFindBestReturnsHighestIndexWithQuantity) {
   EXPECT_EQ(side.findBest(), 10);
 }
 
-TEST(BookSideTest, AskFindBestReturnsLowestIndexWithQuantity) {
+TEST(BookSideTest, AskFindBestReturnsLowestIndexWithQuantity)
+{
   std::pmr::monotonic_buffer_resource arena(1024);
   BookSide side(64, BookSide::Side::Ask, &arena);
 
@@ -54,7 +58,8 @@ TEST(BookSideTest, AskFindBestReturnsLowestIndexWithQuantity) {
   EXPECT_EQ(side.findBest(), 5);
 }
 
-TEST(BookSideTest, ShiftPreservesQuantitiesAtCorrectIndex) {
+TEST(BookSideTest, ShiftPreservesQuantitiesAtCorrectIndex)
+{
   std::pmr::monotonic_buffer_resource arena(2048);
   BookSide side(128, BookSide::Side::Bid, &arena);
 
@@ -68,12 +73,13 @@ TEST(BookSideTest, ShiftPreservesQuantitiesAtCorrectIndex) {
   EXPECT_EQ(side.getLevel(shiftedIndex), qty);
 }
 
-TEST(BookSideTest, ShiftTooFarClearsAllLevels) {
+TEST(BookSideTest, ShiftTooFarClearsAllLevels)
+{
   std::pmr::monotonic_buffer_resource arena(2048);
   BookSide side(128, BookSide::Side::Bid, &arena);
 
   side.setLevel(5, Quantity::fromDouble(10.0));
-  side.shift(200); // shift beyond range
+  side.shift(200);  // shift beyond range
 
   EXPECT_EQ(side.getLevel(5), Quantity::fromDouble(0.0));
   EXPECT_EQ(side.findBest(), std::nullopt);

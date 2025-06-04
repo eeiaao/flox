@@ -13,9 +13,11 @@
 
 #include <chrono>
 
-namespace flox {
+namespace flox
+{
 
-struct Candle {
+struct Candle
+{
   Price open;
   Price high;
   Price low;
@@ -27,8 +29,15 @@ struct Candle {
   Candle() = default;
 
   Candle(std::chrono::system_clock::time_point ts, Price price, Volume qty)
-      : open(price), high(price), low(price), close(price), volume(qty),
-        startTime(ts), endTime(ts) {}
+      : open(price),
+        high(price),
+        low(price),
+        close(price),
+        volume(qty),
+        startTime(ts),
+        endTime(ts)
+  {
+  }
 };
 
-} // namespace flox
+}  // namespace flox

@@ -7,9 +7,9 @@
  * license information.
  */
 
+#include <gtest/gtest.h>
 #include <atomic>
 #include <chrono>
-#include <gtest/gtest.h>
 #include <memory>
 #include <thread>
 
@@ -21,35 +21,42 @@
 using namespace flox;
 using namespace std::chrono_literals;
 
-namespace {
+namespace
+{
 
 // ---------------------------------
 // Pull subscriber
 // ---------------------------------
 
-class PullingSubscriber : public IMarketDataSubscriber {
-public:
-  PullingSubscriber(SubscriberId id, MarketDataBus &bus,
-                    std::atomic<int> &counter)
-      : _id(id), _bus(bus), _counter(counter) {}
+class PullingSubscriber : public IMarketDataSubscriber
+{
+ public:
+  PullingSubscriber(SubscriberId id, MarketDataBus& bus, std::atomic<int>& counter)
+      : _id(id), _bus(bus), _counter(counter)
+  {
+  }
 
   SubscriberId id() const override { return _id; }
   SubscriberMode mode() const override { return SubscriberMode::PULL; }
 
-  void onMarketData(const IMarketDataEvent &) override {
+  void onMarketData(const IMarketDataEvent&) override
+  {
     FAIL() << "PULL subscriber must not receive push";
   }
 
-  void readLoop() {
-    if (!_queue) {
+  void readLoop()
+  {
+    if (!_queue)
+    {
       _queue = _bus.getQueue(_id);
       ASSERT_NE(_queue, nullptr);
     }
 
     auto opt = _queue->try_pop_ref();
-    if (opt) {
-      const auto &event = opt->get();
-      const auto &book = static_cast<const BookUpdateEvent &>(*event);
+    if (opt)
+    {
+      const auto& event = opt->get();
+      const auto& book = static_cast<const BookUpdateEvent&>(*event);
       ++_counter;
       if (!book.bids.empty())
         _lastPrice.store(book.bids[0].price.toDouble());
@@ -58,15 +65,16 @@ public:
 
   double lastPrice() const { return _lastPrice.load(); }
 
-private:
+ private:
   SubscriberId _id;
-  MarketDataBus &_bus;
-  std::atomic<int> &_counter;
+  MarketDataBus& _bus;
+  std::atomic<int>& _counter;
   std::atomic<double> _lastPrice{-1.0};
-  MarketDataBus::Queue *_queue = nullptr;
+  MarketDataBus::Queue* _queue = nullptr;
 };
 
-TEST(MarketDataBusTest, PullSubscriberProcessesEvent) {
+TEST(MarketDataBusTest, PullSubscriberProcessesEvent)
+{
   MarketDataBus bus;
   std::atomic<int> counter{0};
 
@@ -90,26 +98,28 @@ TEST(MarketDataBusTest, PullSubscriberProcessesEvent) {
 // Push subscriber
 // ---------------------------------
 
-class PushTestSubscriber : public IMarketDataSubscriber {
-public:
-  PushTestSubscriber(SubscriberId id, std::atomic<int> &counter)
-      : _id(id), _counter(counter) {}
+class PushTestSubscriber : public IMarketDataSubscriber
+{
+ public:
+  PushTestSubscriber(SubscriberId id, std::atomic<int>& counter) : _id(id), _counter(counter) {}
 
   SubscriberId id() const override { return _id; }
   SubscriberMode mode() const override { return SubscriberMode::PUSH; }
 
-  void onMarketData(const IMarketDataEvent &event) override {
-    const auto &book = static_cast<const BookUpdateEvent &>(event);
+  void onMarketData(const IMarketDataEvent& event) override
+  {
+    const auto& book = static_cast<const BookUpdateEvent&>(event);
     if (!book.bids.empty() && book.bids[0].price.toDouble() > 0.0)
       ++_counter;
   }
 
-private:
+ private:
   SubscriberId _id;
-  std::atomic<int> &_counter;
+  std::atomic<int>& _counter;
 };
 
-TEST(MarketDataBusTest, PushSubscriberReceivesAllEvents) {
+TEST(MarketDataBusTest, PushSubscriberReceivesAllEvents)
+{
   MarketDataBus bus;
   std::atomic<int> counter{0};
 
@@ -117,7 +127,8 @@ TEST(MarketDataBusTest, PushSubscriberReceivesAllEvents) {
   bus.subscribe(sub);
 
   EventPool<BookUpdateEvent, 3> pool;
-  for (int i = 0; i < 3; ++i) {
+  for (int i = 0; i < 3; ++i)
+  {
     auto handle = pool.acquire();
     handle->type = BookUpdateType::SNAPSHOT;
     handle->bids = {{Price::fromDouble(100.0 + i), Quantity::fromDouble(1.0)}};
@@ -134,7 +145,8 @@ TEST(MarketDataBusTest, PushSubscriberReceivesAllEvents) {
 // Mixed PUSH and PULL
 // ---------------------------------
 
-TEST(MarketDataBusTest, MixedPushAndPullWorkTogether) {
+TEST(MarketDataBusTest, MixedPushAndPullWorkTogether)
+{
   MarketDataBus bus;
   EventPool<BookUpdateEvent, 3> pool;
 
@@ -158,4 +170,4 @@ TEST(MarketDataBusTest, MixedPushAndPullWorkTogether) {
   EXPECT_NE(pull->lastPrice(), -1.0);
 }
 
-} // namespace
+}  // namespace

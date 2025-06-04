@@ -10,14 +10,17 @@
 #include "flox/engine/events/trade_event.h"
 #include "flox/engine/market_data_bus.h"
 
-namespace flox {
+namespace flox
+{
 
-MarketDataEventType TradeEvent::eventType() const noexcept {
+MarketDataEventType TradeEvent::eventType() const noexcept
+{
   return MarketDataEventType::TRADE;
 }
 
-void TradeEvent::dispatchTo(IMarketDataSubscriber &sub) const {
+void TradeEvent::dispatchTo(IMarketDataSubscriber& sub) const
+{
   sub.onMarketData(*this);
 }
 
-} // namespace flox
+}  // namespace flox

@@ -13,13 +13,15 @@
 
 #include "flox/engine/events/book_update_event.h"
 
-namespace flox {
+namespace flox
+{
 
-class IOrderBook {
-public:
+class IOrderBook
+{
+ public:
   virtual ~IOrderBook() = default;
 
-  virtual void applyBookUpdate(const BookUpdateEvent &update) = 0;
+  virtual void applyBookUpdate(const BookUpdateEvent& update) = 0;
   virtual std::optional<Price> bestBid() const = 0;
   virtual std::optional<Price> bestAsk() const = 0;
 
@@ -27,4 +29,4 @@ public:
   virtual Quantity askAtPrice(Price price) const = 0;
 };
 
-} // namespace flox
+}  // namespace flox

@@ -21,27 +21,28 @@
 #include <string>
 #include <unordered_map>
 
-namespace flox {
+namespace flox
+{
 
-class CandleAggregator : public ISubsystem, public IMarketDataSubscriber {
-public:
-  using CandleCallback = std::function<void(SymbolId, const Candle &)>;
+class CandleAggregator : public ISubsystem, public IMarketDataSubscriber
+{
+ public:
+  using CandleCallback = std::function<void(SymbolId, const Candle&)>;
 
   CandleAggregator(std::chrono::seconds interval, CandleCallback callback);
 
   void start() override;
   void stop() override;
 
-  void onMarketData(const IMarketDataEvent &event) override;
-  SubscriberId id() const override {
-    return reinterpret_cast<SubscriberId>(this);
-  }
+  void onMarketData(const IMarketDataEvent& event) override;
+  SubscriberId id() const override { return reinterpret_cast<SubscriberId>(this); }
   SubscriberMode mode() const override { return SubscriberMode::PUSH; }
 
-private:
-  void onTrade(TradeEvent *trade);
+ private:
+  void onTrade(TradeEvent* trade);
 
-  struct PartialCandle {
+  struct PartialCandle
+  {
     Candle candle;
     bool initialized = false;
   };
@@ -50,8 +51,7 @@ private:
   CandleCallback _callback;
   std::unordered_map<SymbolId, PartialCandle> _candles;
 
-  std::chrono::system_clock::time_point
-  alignToInterval(std::chrono::system_clock::time_point tp);
+  std::chrono::system_clock::time_point alignToInterval(std::chrono::system_clock::time_point tp);
 };
 
-} // namespace flox
+}  // namespace flox

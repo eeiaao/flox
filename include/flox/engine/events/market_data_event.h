@@ -13,36 +13,43 @@
 #include "flox/engine/market_data_event_pool.h"
 #include "flox/util/ref_countable.h"
 
-namespace flox {
+namespace flox
+{
 
 struct TickBarrier;
 class IMarketDataSubscriber;
 
-enum class MarketDataEventType { BOOK, TRADE, CANDLE };
+enum class MarketDataEventType
+{
+  BOOK,
+  TRADE,
+  CANDLE
+};
 
-struct IMarketDataEvent : public RefCountable {
-protected:
-  IEventPool *_origin = nullptr;
+struct IMarketDataEvent : public RefCountable
+{
+ protected:
+  IEventPool* _origin = nullptr;
 
-public:
+ public:
   virtual ~IMarketDataEvent() = default;
   virtual MarketDataEventType eventType() const noexcept = 0;
 
-  virtual void dispatchTo(IMarketDataSubscriber &sub) const = 0;
+  virtual void dispatchTo(IMarketDataSubscriber& sub) const = 0;
 
-  void setPool(IEventPool *pool) { _origin = pool; }
+  void setPool(IEventPool* pool) { _origin = pool; }
 
-  virtual void releaseToPool() {
-    if (_origin) {
+  virtual void releaseToPool()
+  {
+    if (_origin)
+    {
       _origin->release(this);
     }
   }
 
-  virtual EventHandle<IMarketDataEvent> wrap() {
-    return EventHandle<IMarketDataEvent>{this};
-  }
+  virtual EventHandle<IMarketDataEvent> wrap() { return EventHandle<IMarketDataEvent>{this}; }
 
   virtual void clear() {}
 };
 
-} // namespace flox
+}  // namespace flox

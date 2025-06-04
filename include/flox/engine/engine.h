@@ -20,29 +20,31 @@
 #include <string>
 #include <vector>
 
-namespace flox {
+namespace flox
+{
 
-struct ExchangeInstance {
+struct ExchangeInstance
+{
   std::string exchangeType;
   std::string name;
   std::string symbol;
   std::shared_ptr<ExchangeConnector> connector;
 };
 
-class Engine : public IEngine {
-public:
-  Engine(const EngineConfig &config,
-         std::vector<std::unique_ptr<ISubsystem>> subsystems,
+class Engine : public IEngine
+{
+ public:
+  Engine(const EngineConfig& config, std::vector<std::unique_ptr<ISubsystem>> subsystems,
          std::vector<std::shared_ptr<ExchangeConnector>> connectors);
 
   void start() override;
   void stop() override;
 
-private:
+ private:
   EngineConfig _config;
 
   std::vector<std::unique_ptr<ISubsystem>> _subsystems;
   std::vector<std::shared_ptr<ExchangeConnector>> _connectors;
 };
 
-} // namespace flox
+}  // namespace flox

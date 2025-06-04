@@ -14,20 +14,20 @@
 #include <chrono>
 #include <string>
 
-namespace flox {
+namespace flox
+{
 
-class IExecutionTracker {
-public:
+class IExecutionTracker
+{
+ public:
   virtual ~IExecutionTracker() = default;
 
-  virtual void onOrderSubmitted(const Order &order,
-                                std::chrono::steady_clock::time_point ts) = 0;
+  virtual void onOrderSubmitted(const Order& order, std::chrono::steady_clock::time_point ts) = 0;
 
-  virtual void onOrderFilled(const Order &order,
-                             std::chrono::steady_clock::time_point ts) = 0;
+  virtual void onOrderFilled(const Order& order, std::chrono::steady_clock::time_point ts) = 0;
 
-  virtual void onOrderRejected(const Order &order, const std::string &reason,
+  virtual void onOrderRejected(const Order& order, const std::string& reason,
                                std::chrono::steady_clock::time_point ts) = 0;
 };
 
-} // namespace flox
+}  // namespace flox

@@ -5,23 +5,29 @@
 
 using namespace flox;
 
-namespace {
+namespace
+{
 
-struct PriceTag {};
+struct PriceTag
+{
+};
 using Price = Decimal<PriceTag, 1000000, 10>;
 
-TEST(DecimalTest, FromDoubleAndToDouble) {
+TEST(DecimalTest, FromDoubleAndToDouble)
+{
   Price p = Price::fromDouble(123.456789);
   EXPECT_NEAR(p.toDouble(), 123.456789, 1e-6);
 }
 
-TEST(DecimalTest, FromRawAndRawAccess) {
+TEST(DecimalTest, FromRawAndRawAccess)
+{
   Price p = Price::fromRaw(123456789);
   EXPECT_EQ(p.raw(), 123456789);
   EXPECT_NEAR(p.toDouble(), 123.456789, 1e-6);
 }
 
-TEST(DecimalTest, ArithmeticOperations) {
+TEST(DecimalTest, ArithmeticOperations)
+{
   Price a = Price::fromDouble(100.0);
   Price b = Price::fromDouble(25.0);
   Price c = a + b;
@@ -31,7 +37,8 @@ TEST(DecimalTest, ArithmeticOperations) {
   EXPECT_NEAR(d.toDouble(), 75.0, 1e-6);
 }
 
-TEST(DecimalTest, ComparisonOperators) {
+TEST(DecimalTest, ComparisonOperators)
+{
   Price a = Price::fromDouble(10.0);
   Price b = Price::fromDouble(20.0);
 
@@ -43,17 +50,17 @@ TEST(DecimalTest, ComparisonOperators) {
   EXPECT_FALSE(a == b);
 }
 
-TEST(DecimalTest, RoundToTick) {
+TEST(DecimalTest, RoundToTick)
+{
   Price p = Price::fromDouble(103.27);
   Price rounded = p.roundToTick();
   EXPECT_EQ(rounded.raw() % Price::TickSize, 0);
   EXPECT_NEAR(rounded.toDouble(),
-              103.27 -
-                  fmod(103.27 * Price::Scale, Price::TickSize) / Price::Scale,
-              1e-6);
+              103.27 - fmod(103.27 * Price::Scale, Price::TickSize) / Price::Scale, 1e-6);
 }
 
-TEST(DecimalTest, IsZero) {
+TEST(DecimalTest, IsZero)
+{
   Price zero = Price::fromRaw(0);
   Price nonZero = Price::fromDouble(0.000001);
 
@@ -61,4 +68,4 @@ TEST(DecimalTest, IsZero) {
   EXPECT_FALSE(nonZero.isZero());
 }
 
-} // namespace
+}  // namespace

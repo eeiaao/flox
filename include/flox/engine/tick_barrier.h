@@ -13,23 +13,27 @@
 #include <cstddef>
 #include <thread>
 
-namespace flox {
+namespace flox
+{
 
-class TickBarrier {
-public:
+class TickBarrier
+{
+ public:
   explicit TickBarrier(size_t total) : _total(total), _completed(0) {}
 
   void complete() { _completed.fetch_add(1, std::memory_order_acq_rel); }
 
-  void wait() {
-    while (_completed.load(std::memory_order_acquire) < _total) {
+  void wait()
+  {
+    while (_completed.load(std::memory_order_acquire) < _total)
+    {
       std::this_thread::yield();
     }
   }
 
-private:
+ private:
   const size_t _total;
   std::atomic<size_t> _completed;
 };
 
-} // namespace flox
+}  // namespace flox

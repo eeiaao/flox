@@ -5,6 +5,24 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+option(ENABLE_DEV_SETUP "Install pre-commit hook" ON)
+
+if(ENABLE_DEV_SETUP)
+  message(STATUS "Developer setup enabled")
+
+  set(PRECOMMIT_SRC "${CMAKE_SOURCE_DIR}/scripts/pre-commit")
+  set(PRECOMMIT_DST "${CMAKE_SOURCE_DIR}/.git/hooks/pre-commit")
+
+  if(EXISTS "${PRECOMMIT_SRC}")
+    execute_process(COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      "${PRECOMMIT_SRC}" "${PRECOMMIT_DST}")
+    execute_process(COMMAND chmod +x "${PRECOMMIT_DST}")
+    message(STATUS "Installed pre-commit hook to .git/hooks")
+  else()
+    message(WARNING "pre-commit script not found at ${PRECOMMIT_SRC}")
+  endif()
+endif()
+
 include_directories(include)
 
 file(GLOB_RECURSE SRC_FILES

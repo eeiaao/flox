@@ -11,16 +11,19 @@
 
 #include "flox/book/abstract_order_book.h"
 
-namespace flox {
+namespace flox
+{
 
-struct IOrderBookConfig {
+struct IOrderBookConfig
+{
   virtual ~IOrderBookConfig() = default;
 };
 
-class IOrderBookFactory {
-public:
+class IOrderBookFactory
+{
+ public:
   virtual ~IOrderBookFactory() = default;
-  virtual IOrderBook *create(const IOrderBookConfig &config) = 0;
+  virtual IOrderBook* create(const IOrderBookConfig& config) = 0;
 };
 
-} // namespace flox
+}  // namespace flox

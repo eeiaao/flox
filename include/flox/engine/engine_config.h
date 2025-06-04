@@ -12,27 +12,32 @@
 #include <string>
 #include <vector>
 
-namespace flox {
+namespace flox
+{
 
-struct SymbolConfig {
+struct SymbolConfig
+{
   std::string symbol;
   double tickSize;
   double expectedDeviation;
 };
 
-struct ExchangeConfig {
+struct ExchangeConfig
+{
   std::string name;
   std::string type;
   std::vector<SymbolConfig> symbols;
 };
 
-struct KillSwitchConfig {
+struct KillSwitchConfig
+{
   double maxOrderQty = 10'000.0;
   double maxLoss = -1e6;
   int maxOrdersPerSecond = -1;
 };
 
-struct EngineConfig {
+struct EngineConfig
+{
   std::vector<ExchangeConfig> exchanges;
   KillSwitchConfig killSwitchConfig;
 
@@ -40,4 +45,4 @@ struct EngineConfig {
   std::string logFile;
 };
 
-} // namespace flox
+}  // namespace flox

@@ -9,14 +9,16 @@
 
 #pragma once
 
-namespace flox {
+namespace flox
+{
 
-class IEngine {
-public:
+class IEngine
+{
+ public:
   virtual ~IEngine() = default;
 
   virtual void start() = 0;
   virtual void stop() = 0;
 };
 
-} // namespace flox
+}  // namespace flox

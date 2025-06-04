@@ -14,28 +14,30 @@
 
 using namespace flox;
 
-namespace {
+namespace
+{
 
-class DummyEvent : public IMarketDataEvent {
-public:
-  explicit DummyEvent(std::pmr::memory_resource *) {}
+class DummyEvent : public IMarketDataEvent
+{
+ public:
+  explicit DummyEvent(std::pmr::memory_resource*) {}
 
   void clear() override { cleared = true; }
 
-  MarketDataEventType eventType() const noexcept override {
-    return MarketDataEventType::BOOK;
-  }
+  MarketDataEventType eventType() const noexcept override { return MarketDataEventType::BOOK; }
 
-  void dispatchTo(IMarketDataSubscriber &) const override {
+  void dispatchTo(IMarketDataSubscriber&) const override
+  {
     // No-op for test
   }
 
   bool cleared = false;
 };
 
-} // namespace
+}  // namespace
 
-TEST(EventPoolTest, AcquireReturnsValidHandle) {
+TEST(EventPoolTest, AcquireReturnsValidHandle)
+{
   EventPool<DummyEvent, 3> pool;
 
   auto h = pool.acquire();
@@ -43,20 +45,22 @@ TEST(EventPoolTest, AcquireReturnsValidHandle) {
   EXPECT_NE(h.get(), nullptr);
 }
 
-TEST(EventPoolTest, ReleasingReturnsToPool) {
+TEST(EventPoolTest, ReleasingReturnsToPool)
+{
   EventPool<DummyEvent, 1> pool;
 
   auto h1 = pool.acquire();
   EXPECT_TRUE(h1);
 
-  DummyEvent *raw = h1.get();
-  h1 = {}; // handle released
+  DummyEvent* raw = h1.get();
+  h1 = {};  // handle released
 
   auto h2 = pool.acquire();
-  EXPECT_EQ(h2.get(), raw); // reused
+  EXPECT_EQ(h2.get(), raw);  // reused
 }
 
-TEST(EventPoolTest, InUseIsTrackedCorrectly) {
+TEST(EventPoolTest, InUseIsTrackedCorrectly)
+{
   EventPool<DummyEvent, 3> pool;
 
   EXPECT_EQ(pool.inUse(), 0u);
@@ -74,22 +78,24 @@ TEST(EventPoolTest, InUseIsTrackedCorrectly) {
   EXPECT_EQ(pool.inUse(), 0u);
 }
 
-TEST(EventHandleTest, UpcastRetainsReference) {
-  class Base : public IMarketDataEvent {
-  public:
-    explicit Base(std::pmr::memory_resource *) {}
+TEST(EventHandleTest, UpcastRetainsReference)
+{
+  class Base : public IMarketDataEvent
+  {
+   public:
+    explicit Base(std::pmr::memory_resource*) {}
     void clear() override {}
-    MarketDataEventType eventType() const noexcept override {
-      return MarketDataEventType::BOOK;
-    }
-    void dispatchTo(IMarketDataSubscriber &) const override {
+    MarketDataEventType eventType() const noexcept override { return MarketDataEventType::BOOK; }
+    void dispatchTo(IMarketDataSubscriber&) const override
+    {
       // No-op for test
     }
   };
 
-  class Derived : public Base {
-  public:
-    explicit Derived(std::pmr::memory_resource *r) : Base(r) {}
+  class Derived : public Base
+  {
+   public:
+    explicit Derived(std::pmr::memory_resource* r) : Base(r) {}
   };
 
   EventPool<Derived, 1> pool;
@@ -100,11 +106,12 @@ TEST(EventHandleTest, UpcastRetainsReference) {
   EXPECT_NE(upcasted.get(), nullptr);
 }
 
-TEST(EventHandleTest, MoveReleasesPrevious) {
+TEST(EventHandleTest, MoveReleasesPrevious)
+{
   EventPool<DummyEvent, 1> pool;
 
   EventHandle<DummyEvent> h1 = pool.acquire();
-  DummyEvent *ptr = h1.get();
+  DummyEvent* ptr = h1.get();
   EXPECT_NE(ptr, nullptr);
 
   {
@@ -117,11 +124,12 @@ TEST(EventHandleTest, MoveReleasesPrevious) {
   EXPECT_EQ(pool.inUse(), 0u);
 }
 
-TEST(EventHandleTest, DoubleMoveStillValid) {
+TEST(EventHandleTest, DoubleMoveStillValid)
+{
   EventPool<DummyEvent, 1> pool;
 
   EventHandle<DummyEvent> h1 = pool.acquire();
-  DummyEvent *ptr = h1.get();
+  DummyEvent* ptr = h1.get();
 
   EventHandle<DummyEvent> h2 = std::move(h1);
   EventHandle<DummyEvent> h3 = std::move(h2);
@@ -131,10 +139,11 @@ TEST(EventHandleTest, DoubleMoveStillValid) {
   EXPECT_EQ(h3.get(), ptr);
 }
 
-TEST(EventHandleTest, NullHandleIsSafe) {
+TEST(EventHandleTest, NullHandleIsSafe)
+{
   EventHandle<DummyEvent> h;
   EXPECT_FALSE(h);
 
   // Should not crash:
-  h = {}; // reassignment of nullptr
+  h = {};  // reassignment of nullptr
 }

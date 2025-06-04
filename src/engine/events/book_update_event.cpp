@@ -10,14 +10,17 @@
 #include "flox/engine/events/book_update_event.h"
 #include "flox/engine/market_data_bus.h"
 
-namespace flox {
+namespace flox
+{
 
-MarketDataEventType BookUpdateEvent::eventType() const noexcept {
+MarketDataEventType BookUpdateEvent::eventType() const noexcept
+{
   return MarketDataEventType::BOOK;
 }
 
-void BookUpdateEvent::dispatchTo(IMarketDataSubscriber &sub) const {
+void BookUpdateEvent::dispatchTo(IMarketDataSubscriber& sub) const
+{
   sub.onMarketData(*this);
 }
 
-} // namespace flox
+}  // namespace flox

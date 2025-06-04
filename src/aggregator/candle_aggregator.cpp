@@ -11,16 +11,24 @@
 
 #include <cassert>
 
-namespace flox {
+namespace flox
+{
 
-CandleAggregator::CandleAggregator(std::chrono::seconds interval,
-                                   CandleCallback callback)
-    : _interval(interval), _callback(std::move(callback)) {}
+CandleAggregator::CandleAggregator(std::chrono::seconds interval, CandleCallback callback)
+    : _interval(interval), _callback(std::move(callback))
+{
+}
 
-void CandleAggregator::start() { _candles.clear(); }
-void CandleAggregator::stop() {
-  for (auto &[symbol, pc] : _candles) {
-    if (pc.initialized) {
+void CandleAggregator::start()
+{
+  _candles.clear();
+}
+void CandleAggregator::stop()
+{
+  for (auto& [symbol, pc] : _candles)
+  {
+    if (pc.initialized)
+    {
       pc.candle.endTime = pc.candle.startTime + _interval;
       _callback(symbol, pc.candle);
     }
@@ -28,44 +36,49 @@ void CandleAggregator::stop() {
   _candles.clear();
 }
 
-void CandleAggregator::onMarketData(const IMarketDataEvent &event) {
-  if (event.eventType() == MarketDataEventType::TRADE) {
-    onTrade(static_cast<TradeEvent *>(const_cast<IMarketDataEvent *>(&event)));
+void CandleAggregator::onMarketData(const IMarketDataEvent& event)
+{
+  if (event.eventType() == MarketDataEventType::TRADE)
+  {
+    onTrade(static_cast<TradeEvent*>(const_cast<IMarketDataEvent*>(&event)));
   }
 }
 
-void CandleAggregator::onTrade(TradeEvent *trade) {
+void CandleAggregator::onTrade(TradeEvent* trade)
+{
   auto ts = alignToInterval(trade->timestamp);
-  auto &partial = _candles[trade->symbol];
+  auto& partial = _candles[trade->symbol];
 
-  if (!partial.initialized || partial.candle.startTime != ts) {
-    if (partial.initialized) {
+  if (!partial.initialized || partial.candle.startTime != ts)
+  {
+    if (partial.initialized)
+    {
       partial.candle.endTime = partial.candle.startTime + _interval;
       _callback(trade->symbol, partial.candle);
     }
-    partial.candle = Candle(ts, trade->price,
-                            Volume::fromDouble(trade->price.toDouble() *
-                                               trade->quantity.toDouble()));
+    partial.candle =
+        Candle(ts, trade->price,
+               Volume::fromDouble(trade->price.toDouble() * trade->quantity.toDouble()));
     partial.candle.endTime = ts + _interval;
     partial.initialized = true;
     return;
   }
 
-  auto &c = partial.candle;
+  auto& c = partial.candle;
   c.high = std::max(c.high, trade->price);
   c.low = std::min(c.low, trade->price);
   c.close = trade->price;
-  c.volume +=
-      Volume::fromDouble(trade->price.toDouble() * trade->quantity.toDouble());
+  c.volume += Volume::fromDouble(trade->price.toDouble() * trade->quantity.toDouble());
   c.endTime = partial.candle.startTime + _interval;
 }
 
-std::chrono::system_clock::time_point
-CandleAggregator::alignToInterval(std::chrono::system_clock::time_point tp) {
+std::chrono::system_clock::time_point CandleAggregator::alignToInterval(
+    std::chrono::system_clock::time_point tp)
+{
   auto epoch = tp.time_since_epoch();
   auto secs = std::chrono::duration_cast<std::chrono::seconds>(epoch);
   auto snapped = (secs.count() / _interval.count()) * _interval.count();
   return std::chrono::system_clock::time_point(std::chrono::seconds(snapped));
 }
 
-} // namespace flox
+}  // namespace flox

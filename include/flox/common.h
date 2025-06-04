@@ -13,20 +13,35 @@
 
 #include <cstdint>
 
-namespace flox {
+namespace flox
+{
 
-enum class OrderType { LIMIT, MARKET };
-enum class Side { BUY, SELL };
+enum class OrderType
+{
+  LIMIT,
+  MARKET
+};
+enum class Side
+{
+  BUY,
+  SELL
+};
 
 using SymbolId = uint32_t;
 
-struct PriceTag {};
-struct QuantityTag {};
-struct VolumeTag {};
+struct PriceTag
+{
+};
+struct QuantityTag
+{
+};
+struct VolumeTag
+{
+};
 
 // tick = 0.000001 for everything
 using Price = Decimal<PriceTag, 1'000'000, 1>;
 using Quantity = Decimal<QuantityTag, 1'000'000, 1>;
 using Volume = Decimal<VolumeTag, 1'000'000, 1>;
 
-} // namespace flox
+}  // namespace flox

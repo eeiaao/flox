@@ -13,39 +13,46 @@
 
 using namespace flox;
 
-class TestRefCountable : public RefCountable {};
+class TestRefCountable : public RefCountable
+{
+};
 
-TEST(RefCountableTest, InitialCountIsZero) {
+TEST(RefCountableTest, InitialCountIsZero)
+{
   TestRefCountable obj;
   EXPECT_EQ(obj.refCount(), 0u);
 }
 
-TEST(RefCountableTest, RetainIncrementsRefCount) {
+TEST(RefCountableTest, RetainIncrementsRefCount)
+{
   TestRefCountable obj;
-  obj.resetRefCount(); // -> 1
-  obj.retain();        // -> 2
-  obj.retain();        // -> 3
+  obj.resetRefCount();  // -> 1
+  obj.retain();         // -> 2
+  obj.retain();         // -> 3
   EXPECT_EQ(obj.refCount(), 3u);
 }
 
-TEST(RefCountableTest, ReleaseDecrementsRefCountAndReturnsFlag) {
+TEST(RefCountableTest, ReleaseDecrementsRefCountAndReturnsFlag)
+{
   TestRefCountable obj;
   obj.resetRefCount(2);
-  EXPECT_FALSE(obj.release()); // -> 1
-  EXPECT_TRUE(obj.release());  // -> 0
+  EXPECT_FALSE(obj.release());  // -> 1
+  EXPECT_TRUE(obj.release());   // -> 0
 }
 
-TEST(RefCountableTest, ResetSetsRefCount) {
+TEST(RefCountableTest, ResetSetsRefCount)
+{
   TestRefCountable obj;
   obj.resetRefCount(7);
   EXPECT_EQ(obj.refCount(), 7u);
 }
 
-TEST(RefCountableDeathTest, ReleaseOnZeroRefCountTriggersAssert) {
+TEST(RefCountableDeathTest, ReleaseOnZeroRefCountTriggersAssert)
+{
   TestRefCountable obj;
   ASSERT_DEATH(
       {
-        obj.release(); // _refCount == 0 → assert
+        obj.release();  // _refCount == 0 → assert
       },
       ".*release called on zero refcount.*");
 }

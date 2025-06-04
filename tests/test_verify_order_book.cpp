@@ -17,19 +17,19 @@
 
 using namespace flox;
 
-class WindowedOrderBookTestFixture : public ::testing::Test {
-protected:
+class WindowedOrderBookTestFixture : public ::testing::Test
+{
+ protected:
   static constexpr Price TickSize = Price::fromDouble(1.0);
   static constexpr Price Deviation = Price::fromDouble(5.0);
   static constexpr size_t PoolCapacity = 63;
 
   using BookUpdatePool = EventPool<BookUpdateEvent, PoolCapacity>;
 
-  void SetUp() override {
-    _book = _factory.create(WindowedOrderBookConfig{TickSize, Deviation});
-  }
+  void SetUp() override { _book = _factory.create(WindowedOrderBookConfig{TickSize, Deviation}); }
 
-  BookUpdateEvent *acquireSnapshot() {
+  BookUpdateEvent* acquireSnapshot()
+  {
     auto handle = _pool.acquire();
     EXPECT_TRUE(handle);
     handle->type = BookUpdateType::SNAPSHOT;
@@ -37,7 +37,8 @@ protected:
     return _handles.back().get();
   }
 
-  BookUpdateEvent *acquireDelta() {
+  BookUpdateEvent* acquireDelta()
+  {
     auto handle = _pool.acquire();
     EXPECT_TRUE(handle);
     handle->type = BookUpdateType::DELTA;
@@ -45,13 +46,14 @@ protected:
     return _handles.back().get();
   }
 
-  IOrderBook *_book;
+  IOrderBook* _book;
   WindowedOrderBookFactory _factory;
   BookUpdatePool _pool;
   std::vector<EventHandle<BookUpdateEvent>> _handles;
 };
 
-TEST_F(WindowedOrderBookTestFixture, SnapshotFitsInWindow) {
+TEST_F(WindowedOrderBookTestFixture, SnapshotFitsInWindow)
+{
   auto snapshot = acquireSnapshot();
   snapshot->bids = {{Price::fromDouble(100.0), Quantity::fromDouble(5.0)},
                     {Price::fromDouble(99.0), Quantity::fromDouble(3.0)}};
@@ -59,17 +61,14 @@ TEST_F(WindowedOrderBookTestFixture, SnapshotFitsInWindow) {
                     {Price::fromDouble(102.0), Quantity::fromDouble(4.0)}};
   _book->applyBookUpdate(*snapshot);
 
-  EXPECT_EQ(_book->bidAtPrice(Price::fromDouble(100.0)),
-            Quantity::fromDouble(5.0));
-  EXPECT_EQ(_book->bidAtPrice(Price::fromDouble(99.0)),
-            Quantity::fromDouble(3.0));
-  EXPECT_EQ(_book->askAtPrice(Price::fromDouble(101.0)),
-            Quantity::fromDouble(2.0));
-  EXPECT_EQ(_book->askAtPrice(Price::fromDouble(102.0)),
-            Quantity::fromDouble(4.0));
+  EXPECT_EQ(_book->bidAtPrice(Price::fromDouble(100.0)), Quantity::fromDouble(5.0));
+  EXPECT_EQ(_book->bidAtPrice(Price::fromDouble(99.0)), Quantity::fromDouble(3.0));
+  EXPECT_EQ(_book->askAtPrice(Price::fromDouble(101.0)), Quantity::fromDouble(2.0));
+  EXPECT_EQ(_book->askAtPrice(Price::fromDouble(102.0)), Quantity::fromDouble(4.0));
 }
 
-TEST_F(WindowedOrderBookTestFixture, SnapshotPartiallyOutsideWindow) {
+TEST_F(WindowedOrderBookTestFixture, SnapshotPartiallyOutsideWindow)
+{
   auto snapshot = acquireSnapshot();
   for (double p = 200.0; p <= 210.0; ++p)
     snapshot->bids.push_back({Price::fromDouble(p), Quantity::fromDouble(1.0)});
@@ -83,7 +82,8 @@ TEST_F(WindowedOrderBookTestFixture, SnapshotPartiallyOutsideWindow) {
     EXPECT_GE(_book->askAtPrice(Price::fromDouble(p)).toDouble(), 0.0);
 }
 
-TEST_F(WindowedOrderBookTestFixture, DeltaWithinWindow) {
+TEST_F(WindowedOrderBookTestFixture, DeltaWithinWindow)
+{
   auto snapshot = acquireSnapshot();
   snapshot->bids = {{Price::fromDouble(100.0), Quantity::fromDouble(1.0)}};
   snapshot->asks = {{Price::fromDouble(101.0), Quantity::fromDouble(1.0)}};
@@ -94,24 +94,20 @@ TEST_F(WindowedOrderBookTestFixture, DeltaWithinWindow) {
   delta->asks = {{Price::fromDouble(102.0), Quantity::fromDouble(2.5)}};
   _book->applyBookUpdate(*delta);
 
-  EXPECT_EQ(_book->bidAtPrice(Price::fromDouble(99.0)),
-            Quantity::fromDouble(2.0));
-  EXPECT_EQ(_book->bidAtPrice(Price::fromDouble(100.0)),
-            Quantity::fromDouble(1.0));
-  EXPECT_EQ(_book->askAtPrice(Price::fromDouble(101.0)),
-            Quantity::fromDouble(1.0));
-  EXPECT_EQ(_book->askAtPrice(Price::fromDouble(102.0)),
-            Quantity::fromDouble(2.5));
+  EXPECT_EQ(_book->bidAtPrice(Price::fromDouble(99.0)), Quantity::fromDouble(2.0));
+  EXPECT_EQ(_book->bidAtPrice(Price::fromDouble(100.0)), Quantity::fromDouble(1.0));
+  EXPECT_EQ(_book->askAtPrice(Price::fromDouble(101.0)), Quantity::fromDouble(1.0));
+  EXPECT_EQ(_book->askAtPrice(Price::fromDouble(102.0)), Quantity::fromDouble(2.5));
 }
 
-TEST_F(WindowedOrderBookTestFixture, DeltaAtWindowEdge) {
+TEST_F(WindowedOrderBookTestFixture, DeltaAtWindowEdge)
+{
   auto snapshot = acquireSnapshot();
   snapshot->bids = {{Price::fromDouble(100.0), Quantity::fromDouble(1.0)}};
   snapshot->asks = {{Price::fromDouble(101.0), Quantity::fromDouble(1.0)}};
   _book->applyBookUpdate(*snapshot);
 
-  double baseRaw =
-      std::round((100.5 - 5.0) / TickSize.toDouble()) * TickSize.toDouble();
+  double baseRaw = std::round((100.5 - 5.0) / TickSize.toDouble()) * TickSize.toDouble();
   Price base = Price::fromDouble(baseRaw);
   Price edgeAsk = Price::fromDouble(baseRaw + 9.0 * TickSize.toDouble());
 
@@ -120,15 +116,14 @@ TEST_F(WindowedOrderBookTestFixture, DeltaAtWindowEdge) {
   delta->asks = {{edgeAsk, Quantity::fromDouble(3.0)}};
   _book->applyBookUpdate(*delta);
 
-  EXPECT_EQ(_book->bidAtPrice(Price::fromDouble(100.0)),
-            Quantity::fromDouble(1.0));
-  EXPECT_EQ(_book->askAtPrice(Price::fromDouble(101.0)),
-            Quantity::fromDouble(1.0));
+  EXPECT_EQ(_book->bidAtPrice(Price::fromDouble(100.0)), Quantity::fromDouble(1.0));
+  EXPECT_EQ(_book->askAtPrice(Price::fromDouble(101.0)), Quantity::fromDouble(1.0));
   EXPECT_EQ(_book->bidAtPrice(base), Quantity::fromDouble(3.0));
   EXPECT_EQ(_book->askAtPrice(edgeAsk), Quantity::fromDouble(3.0));
 }
 
-TEST_F(WindowedOrderBookTestFixture, DeltaOutsideWindowIsIgnored) {
+TEST_F(WindowedOrderBookTestFixture, DeltaOutsideWindowIsIgnored)
+{
   auto snapshot = acquireSnapshot();
   snapshot->bids = {{Price::fromDouble(100.0), Quantity::fromDouble(1.0)}};
   snapshot->asks = {{Price::fromDouble(101.0), Quantity::fromDouble(1.0)}};
@@ -139,17 +134,14 @@ TEST_F(WindowedOrderBookTestFixture, DeltaOutsideWindowIsIgnored) {
   delta->asks = {{Price::fromDouble(120.0), Quantity::fromDouble(10.0)}};
   _book->applyBookUpdate(*delta);
 
-  EXPECT_EQ(_book->bidAtPrice(Price::fromDouble(100.0)),
-            Quantity::fromDouble(1.0));
-  EXPECT_EQ(_book->askAtPrice(Price::fromDouble(101.0)),
-            Quantity::fromDouble(1.0));
-  EXPECT_EQ(_book->bidAtPrice(Price::fromDouble(80.0)),
-            Quantity::fromDouble(0.0));
-  EXPECT_EQ(_book->askAtPrice(Price::fromDouble(120.0)),
-            Quantity::fromDouble(0.0));
+  EXPECT_EQ(_book->bidAtPrice(Price::fromDouble(100.0)), Quantity::fromDouble(1.0));
+  EXPECT_EQ(_book->askAtPrice(Price::fromDouble(101.0)), Quantity::fromDouble(1.0));
+  EXPECT_EQ(_book->bidAtPrice(Price::fromDouble(80.0)), Quantity::fromDouble(0.0));
+  EXPECT_EQ(_book->askAtPrice(Price::fromDouble(120.0)), Quantity::fromDouble(0.0));
 }
 
-TEST_F(WindowedOrderBookTestFixture, ShiftWindowCleansOldLevels) {
+TEST_F(WindowedOrderBookTestFixture, ShiftWindowCleansOldLevels)
+{
   auto snapshot1 = acquireSnapshot();
   snapshot1->bids = {{Price::fromDouble(100.0), Quantity::fromDouble(5.0)},
                      {Price::fromDouble(101.0), Quantity::fromDouble(6.0)}};
@@ -162,7 +154,8 @@ TEST_F(WindowedOrderBookTestFixture, ShiftWindowCleansOldLevels) {
   snapshot2->asks = {{Price::fromDouble(201.0), Quantity::fromDouble(1.0)}};
   _book->applyBookUpdate(*snapshot2);
 
-  for (double p = 190.0; p <= 210.0; ++p) {
+  for (double p = 190.0; p <= 210.0; ++p)
+  {
     Quantity bid = _book->bidAtPrice(Price::fromDouble(p));
     Quantity ask = _book->askAtPrice(Price::fromDouble(p));
     if (bid > Quantity::fromDouble(0.0))
@@ -172,7 +165,8 @@ TEST_F(WindowedOrderBookTestFixture, ShiftWindowCleansOldLevels) {
   }
 }
 
-TEST_F(WindowedOrderBookTestFixture, MultipleExtremeDeltasAreHandledCorrectly) {
+TEST_F(WindowedOrderBookTestFixture, MultipleExtremeDeltasAreHandledCorrectly)
+{
   auto snapshot = acquireSnapshot();
   snapshot->bids = {{Price::fromDouble(100.0), Quantity::fromDouble(5.0)}};
   snapshot->asks = {{Price::fromDouble(101.0), Quantity::fromDouble(5.0)}};
@@ -197,20 +191,12 @@ TEST_F(WindowedOrderBookTestFixture, MultipleExtremeDeltasAreHandledCorrectly) {
   d3->asks = {{Price::fromDouble(120.0), Quantity::fromDouble(10.0)}};
   _book->applyBookUpdate(*d3);
 
-  EXPECT_EQ(_book->bidAtPrice(Price::fromDouble(100.0)),
-            Quantity::fromDouble(6.0));
-  EXPECT_EQ(_book->bidAtPrice(Price::fromDouble(99.0)),
-            Quantity::fromDouble(2.0));
-  EXPECT_EQ(_book->bidAtPrice(Price::fromDouble(98.0)),
-            Quantity::fromDouble(0.0));
-  EXPECT_EQ(_book->askAtPrice(Price::fromDouble(101.0)),
-            Quantity::fromDouble(7.0));
-  EXPECT_EQ(_book->askAtPrice(Price::fromDouble(102.0)),
-            Quantity::fromDouble(0.0));
-  EXPECT_EQ(_book->askAtPrice(Price::fromDouble(103.0)),
-            Quantity::fromDouble(4.0));
-  EXPECT_EQ(_book->bidAtPrice(Price::fromDouble(80.0)),
-            Quantity::fromDouble(0.0));
-  EXPECT_EQ(_book->askAtPrice(Price::fromDouble(120.0)),
-            Quantity::fromDouble(0.0));
+  EXPECT_EQ(_book->bidAtPrice(Price::fromDouble(100.0)), Quantity::fromDouble(6.0));
+  EXPECT_EQ(_book->bidAtPrice(Price::fromDouble(99.0)), Quantity::fromDouble(2.0));
+  EXPECT_EQ(_book->bidAtPrice(Price::fromDouble(98.0)), Quantity::fromDouble(0.0));
+  EXPECT_EQ(_book->askAtPrice(Price::fromDouble(101.0)), Quantity::fromDouble(7.0));
+  EXPECT_EQ(_book->askAtPrice(Price::fromDouble(102.0)), Quantity::fromDouble(0.0));
+  EXPECT_EQ(_book->askAtPrice(Price::fromDouble(103.0)), Quantity::fromDouble(4.0));
+  EXPECT_EQ(_book->bidAtPrice(Price::fromDouble(80.0)), Quantity::fromDouble(0.0));
+  EXPECT_EQ(_book->askAtPrice(Price::fromDouble(120.0)), Quantity::fromDouble(0.0));
 }

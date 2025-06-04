@@ -12,18 +12,24 @@
 #include "flox/common.h"
 #include "flox/engine/events/market_data_event.h"
 
-namespace flox {
+namespace flox
+{
 
 using SubscriberId = uint64_t;
-enum class SubscriberMode { PUSH, PULL };
+enum class SubscriberMode
+{
+  PUSH,
+  PULL
+};
 
-class IMarketDataSubscriber {
-public:
+class IMarketDataSubscriber
+{
+ public:
   virtual ~IMarketDataSubscriber() = default;
-  virtual void onMarketData(const IMarketDataEvent &event) = 0;
+  virtual void onMarketData(const IMarketDataEvent& event) = 0;
 
   virtual SubscriberId id() const = 0;
   virtual SubscriberMode mode() const { return SubscriberMode::PUSH; }
 };
 
-} // namespace flox
+}  // namespace flox

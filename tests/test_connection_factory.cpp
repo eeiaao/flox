@@ -14,27 +14,27 @@
 
 using namespace flox;
 
-class DummyConnector : public ExchangeConnector {
-public:
+class DummyConnector : public ExchangeConnector
+{
+ public:
   void start() override {}
   void stop() override {}
   std::string exchangeId() const override { return "dummy"; }
 };
 
-TEST(ConnectorFactoryTest, RegisterAndCreateConnector) {
+TEST(ConnectorFactoryTest, RegisterAndCreateConnector)
+{
   ConnectorFactory::instance().registerConnector(
-      "dummy", [](const std::string &symbol) {
-        return std::make_shared<DummyConnector>();
-      });
+      "dummy", [](const std::string& symbol)
+      { return std::make_shared<DummyConnector>(); });
 
-  auto connector =
-      ConnectorFactory::instance().createConnector("dummy", "BTCUSDT");
+  auto connector = ConnectorFactory::instance().createConnector("dummy", "BTCUSDT");
   ASSERT_NE(connector, nullptr);
   EXPECT_EQ(connector->exchangeId(), "dummy");
 }
 
-TEST(ConnectorFactoryTest, UnknownConnectorReturnsNullptr) {
-  auto connector =
-      ConnectorFactory::instance().createConnector("unknown", "BTCUSDT");
+TEST(ConnectorFactoryTest, UnknownConnectorReturnsNullptr)
+{
+  auto connector = ConnectorFactory::instance().createConnector("unknown", "BTCUSDT");
   EXPECT_EQ(connector, nullptr);
 }

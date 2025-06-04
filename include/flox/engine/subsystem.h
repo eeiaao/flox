@@ -11,35 +11,43 @@
 
 #include <memory>
 
-namespace flox {
+namespace flox
+{
 
-class ISubsystem {
-public:
+class ISubsystem
+{
+ public:
   virtual ~ISubsystem() = default;
   virtual void start() = 0;
   virtual void stop() = 0;
 };
 
 // Generic wrapper that makes any component an ISubsystem
-template <typename T> class Subsystem : public ISubsystem {
-public:
+template <typename T>
+class Subsystem : public ISubsystem
+{
+ public:
   explicit Subsystem(std::unique_ptr<T> impl) : _impl(std::move(impl)) {}
 
-  void start() override {
-    if constexpr (requires(T &t) { t.start(); }) {
+  void start() override
+  {
+    if constexpr (requires(T& t) { t.start(); })
+    {
       _impl->start();
     }
   }
 
-  void stop() override {
-    if constexpr (requires(T &t) { t.stop(); }) {
+  void stop() override
+  {
+    if constexpr (requires(T& t) { t.stop(); })
+    {
       _impl->stop();
     }
   }
 
-  T *get() const { return _impl.get(); }
+  T* get() const { return _impl.get(); }
 
-private:
+ private:
   std::unique_ptr<T> _impl;
 };
-} // namespace flox
+}  // namespace flox

@@ -11,22 +11,25 @@
 
 #include "flox/engine/tick_barrier.h"
 
-namespace flox {
+namespace flox
+{
 
-class TickGuard {
-public:
-  explicit TickGuard(TickBarrier &barrier) : _barrier(&barrier) {}
+class TickGuard
+{
+ public:
+  explicit TickGuard(TickBarrier& barrier) : _barrier(&barrier) {}
 
-  ~TickGuard() {
+  ~TickGuard()
+  {
     if (_barrier)
       _barrier->complete();
   }
 
-  TickGuard(const TickGuard &) = delete;
-  TickGuard &operator=(const TickGuard &) = delete;
+  TickGuard(const TickGuard&) = delete;
+  TickGuard& operator=(const TickGuard&) = delete;
 
-private:
-  TickBarrier *_barrier;
+ private:
+  TickBarrier* _barrier;
 };
 
-} // namespace flox
+}  // namespace flox

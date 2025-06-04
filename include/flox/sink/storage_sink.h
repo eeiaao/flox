@@ -12,12 +12,14 @@
 #include "flox/engine/engine.h"
 #include "flox/engine/subsystem.h"
 
-namespace flox {
+namespace flox
+{
 
-class StorageSink : public ISubsystem {
-public:
+class StorageSink : public ISubsystem
+{
+ public:
   virtual ~StorageSink() = default;
-  virtual void store(const Order &order) = 0;
+  virtual void store(const Order& order) = 0;
 };
 
-} // namespace flox
+}  // namespace flox

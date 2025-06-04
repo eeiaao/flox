@@ -22,21 +22,27 @@ using namespace flox;
 // Smoke test: demonstrates how to create a strategy, wire it into the engine,
 // publish trades and book updates via a mock connector, and receive results.
 
-namespace {
+namespace
+{
 
-class TestStrategy : public IStrategy {
-public:
+class TestStrategy : public IStrategy
+{
+ public:
   explicit TestStrategy(SymbolId symbol) : _symbol(symbol) {}
 
-  void onTrade(TradeEvent *trade) override {
-    if (trade->symbol == _symbol) {
+  void onTrade(TradeEvent* trade) override
+  {
+    if (trade->symbol == _symbol)
+    {
       ++_seenTrades;
       _lastTradePrice = trade->price;
     }
   }
 
-  void onBookUpdate(BookUpdateEvent *update) override {
-    if (update->symbol == _symbol && !update->bids.empty()) {
+  void onBookUpdate(BookUpdateEvent* update) override
+  {
+    if (update->symbol == _symbol && !update->bids.empty())
+    {
       ++_seenBooks;
       _lastBid = update->bids[0].price;
     }
@@ -47,7 +53,7 @@ public:
   Price lastTradePrice() const { return _lastTradePrice; }
   Price lastBid() const { return _lastBid; }
 
-private:
+ private:
   SymbolId _symbol;
   int _seenTrades = 0;
   int _seenBooks = 0;
@@ -58,14 +64,17 @@ private:
 using TradePool = EventPool<TradeEvent, 7>;
 using BookUpdatePool = EventPool<BookUpdateEvent, 7>;
 
-class MockConnector {
-public:
-  MockConnector(MarketDataBus &bus, TradePool &tradePool,
-                BookUpdatePool &bookPool, SymbolId symbol)
-      : _bus(bus), _tradePool(tradePool), _bookPool(bookPool), _symbol(symbol) {
+class MockConnector
+{
+ public:
+  MockConnector(MarketDataBus& bus, TradePool& tradePool, BookUpdatePool& bookPool,
+                SymbolId symbol)
+      : _bus(bus), _tradePool(tradePool), _bookPool(bookPool), _symbol(symbol)
+  {
   }
 
-  void publishTrade(Price price, Quantity qty) {
+  void publishTrade(Price price, Quantity qty)
+  {
     auto event = _tradePool.acquire();
     event->symbol = _symbol;
     event->price = price;
@@ -75,7 +84,8 @@ public:
     _bus.publish(std::move(event));
   }
 
-  void publishBook(Price bidPrice, Quantity bidQty) {
+  void publishBook(Price bidPrice, Quantity bidQty)
+  {
     auto event = _bookPool.acquire();
     event->symbol = _symbol;
     event->type = BookUpdateType::SNAPSHOT;
@@ -83,50 +93,52 @@ public:
     _bus.publish(std::move(event));
   }
 
-private:
-  MarketDataBus &_bus;
-  TradePool &_tradePool;
-  BookUpdatePool &_bookPool;
+ private:
+  MarketDataBus& _bus;
+  TradePool& _tradePool;
+  BookUpdatePool& _bookPool;
   SymbolId _symbol;
 };
 
-class SmokeEngineBuilder : public IEngineBuilder {
-public:
+class SmokeEngineBuilder : public IEngineBuilder
+{
+ public:
   SmokeEngineBuilder(SymbolId symbol, std::shared_ptr<TestStrategy> strategy)
-      : _symbol(symbol), _strategy(std::move(strategy)) {}
+      : _symbol(symbol), _strategy(std::move(strategy))
+  {
+  }
 
-  std::unique_ptr<IEngine> build() override {
+  std::unique_ptr<IEngine> build() override
+  {
     _bus = std::make_unique<MarketDataBus>();
     _tradePool = std::make_unique<TradePool>();
     _bookPool = std::make_unique<BookUpdatePool>();
-    _connector = std::make_unique<MockConnector>(*_bus, *_tradePool, *_bookPool,
-                                                 _symbol);
+    _connector = std::make_unique<MockConnector>(*_bus, *_tradePool, *_bookPool, _symbol);
 
     _bus->subscribe(_strategy);
     return std::make_unique<EngineImpl>(*_bus, *_connector, _strategy);
   }
 
-  class EngineImpl : public IEngine {
-  public:
-    EngineImpl(MarketDataBus &bus, MockConnector &connector,
+  class EngineImpl : public IEngine
+  {
+   public:
+    EngineImpl(MarketDataBus& bus, MockConnector& connector,
                std::shared_ptr<TestStrategy> strategy)
-        : _bus(bus), _connector(connector), _strategy(std::move(strategy)) {}
+        : _bus(bus), _connector(connector), _strategy(std::move(strategy))
+    {
+    }
 
     void start() override {}
     void stop() override {}
 
-    void runTrade(Price price, Quantity qty) {
-      _connector.publishTrade(price, qty);
-    }
-    void runBook(Price price, Quantity qty) {
-      _connector.publishBook(price, qty);
-    }
+    void runTrade(Price price, Quantity qty) { _connector.publishTrade(price, qty); }
+    void runBook(Price price, Quantity qty) { _connector.publishBook(price, qty); }
 
     std::shared_ptr<TestStrategy> strategy() const { return _strategy; }
 
-  private:
-    MarketDataBus &_bus;
-    MockConnector &_connector;
+   private:
+    MarketDataBus& _bus;
+    MockConnector& _connector;
     std::shared_ptr<TestStrategy> _strategy;
   };
 
@@ -138,14 +150,15 @@ public:
   std::unique_ptr<MockConnector> _connector;
 };
 
-} // namespace
+}  // namespace
 
-TEST(SmokeEngineTest, StrategyReceivesBothEvents) {
+TEST(SmokeEngineTest, StrategyReceivesBothEvents)
+{
   constexpr SymbolId SYMBOL = 777;
   auto strategy = std::make_shared<TestStrategy>(SYMBOL);
   SmokeEngineBuilder builder(SYMBOL, strategy);
   auto engineBase = builder.build();
-  auto engine = static_cast<SmokeEngineBuilder::EngineImpl *>(engineBase.get());
+  auto engine = static_cast<SmokeEngineBuilder::EngineImpl*>(engineBase.get());
 
   engine->start();
   engine->runTrade(Price::fromDouble(101.25), Quantity::fromDouble(10.0));

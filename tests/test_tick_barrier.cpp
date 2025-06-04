@@ -10,49 +10,56 @@
 #include "flox/engine/tick_barrier.h"
 #include "flox/engine/tick_guard.h"
 
-#include <atomic>
 #include <gtest/gtest.h>
+#include <atomic>
 #include <thread>
 #include <vector>
 
 using namespace flox;
 
-TEST(TickBarrierTest, WaitBlocksUntilAllComplete) {
+TEST(TickBarrierTest, WaitBlocksUntilAllComplete)
+{
   TickBarrier barrier(3);
   std::atomic<bool> done{false};
 
-  std::thread waiter([&] {
-    barrier.wait();
-    done.store(true, std::memory_order_release);
-  });
+  std::thread waiter(
+      [&]
+      {
+        barrier.wait();
+        done.store(true, std::memory_order_release);
+      });
 
   std::this_thread::sleep_for(std::chrono::milliseconds(50));
   EXPECT_FALSE(done.load(std::memory_order_acquire));
 
-  barrier.complete(); // 1
+  barrier.complete();  // 1
   std::this_thread::sleep_for(std::chrono::milliseconds(10));
   EXPECT_FALSE(done.load(std::memory_order_acquire));
 
-  barrier.complete(); // 2
+  barrier.complete();  // 2
   std::this_thread::sleep_for(std::chrono::milliseconds(10));
   EXPECT_FALSE(done.load(std::memory_order_acquire));
 
-  barrier.complete(); // 3
+  barrier.complete();  // 3
   waiter.join();
 
   EXPECT_TRUE(done.load(std::memory_order_acquire));
 }
 
-TEST(TickGuardTest, DestructorCallsComplete) {
+TEST(TickGuardTest, DestructorCallsComplete)
+{
   TickBarrier barrier(1);
 
-  { TickGuard guard(barrier); }
+  {
+    TickGuard guard(barrier);
+  }
 
-  barrier.wait(); // should not block
+  barrier.wait();  // should not block
   SUCCEED();
 }
 
-TEST(TickBarrierTest, StressTestWithManyThreads) {
+TEST(TickBarrierTest, StressTestWithManyThreads)
+{
   constexpr size_t threadCount = 128;
   TickBarrier barrier(threadCount);
   std::atomic<size_t> counter{0};
@@ -60,18 +67,20 @@ TEST(TickBarrierTest, StressTestWithManyThreads) {
   std::vector<std::thread> threads;
   threads.reserve(threadCount);
 
-  for (size_t i = 0; i < threadCount; ++i) {
-    threads.emplace_back([&] {
-      // Simulate work
-      std::this_thread::sleep_for(std::chrono::milliseconds(1 + (rand() % 5)));
-      counter.fetch_add(1, std::memory_order_relaxed);
-      barrier.complete();
-    });
+  for (size_t i = 0; i < threadCount; ++i)
+  {
+    threads.emplace_back(
+        [&]
+        {
+          // Simulate work
+          std::this_thread::sleep_for(std::chrono::milliseconds(1 + (rand() % 5)));
+          counter.fetch_add(1, std::memory_order_relaxed);
+          barrier.complete();
+        });
   }
 
   barrier.wait();
-  for (auto &t : threads)
-    t.join();
+  for (auto& t : threads) t.join();
 
   EXPECT_EQ(counter.load(), threadCount);
 }

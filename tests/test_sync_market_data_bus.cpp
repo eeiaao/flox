@@ -7,9 +7,9 @@
  * license information.
  */
 
+#include <gtest/gtest.h>
 #include <atomic>
 #include <chrono>
-#include <gtest/gtest.h>
 #include <map>
 #include <memory>
 #include <mutex>
@@ -26,16 +26,21 @@
 using namespace flox;
 using namespace std::chrono_literals;
 
-namespace {
+namespace
+{
 
-class SyncTestSubscriber : public IMarketDataSubscriber {
-public:
-  explicit SyncTestSubscriber(SubscriberId id, std::atomic<int> &counter)
-      : _id(id), _counter(counter) {}
+class SyncTestSubscriber : public IMarketDataSubscriber
+{
+ public:
+  explicit SyncTestSubscriber(SubscriberId id, std::atomic<int>& counter)
+      : _id(id), _counter(counter)
+  {
+  }
 
-  void onMarketData(const IMarketDataEvent &event) override {
-    const auto &book = static_cast<const BookUpdateEvent &>(event);
-    std::this_thread::sleep_for(10ms); // simulate work
+  void onMarketData(const IMarketDataEvent& event) override
+  {
+    const auto& book = static_cast<const BookUpdateEvent&>(event);
+    std::this_thread::sleep_for(10ms);  // simulate work
     ++_counter;
     if (!book.bids.empty())
       _lastPrice.store(book.bids[0].price.toDouble());
@@ -44,16 +49,17 @@ public:
   SubscriberId id() const override { return _id; };
   double lastPrice() const { return _lastPrice.load(); }
 
-private:
+ private:
   SubscriberId _id;
-  std::atomic<int> &_counter;
+  std::atomic<int>& _counter;
   std::atomic<double> _lastPrice{-1.0};
 };
 
 constexpr size_t PoolCapacity = 7;
 using BookUpdatePool = EventPool<BookUpdateEvent, PoolCapacity>;
 
-TEST(SyncMarketDataBusTest, AllSubscribersProcessEachTick) {
+TEST(SyncMarketDataBusTest, AllSubscribersProcessEachTick)
+{
   MarketDataBus bus;
   BookUpdatePool pool;
 
@@ -67,7 +73,8 @@ TEST(SyncMarketDataBusTest, AllSubscribersProcessEachTick) {
   bus.subscribe(s3);
   bus.start();
 
-  for (int i = 0; i < 5; ++i) {
+  for (int i = 0; i < 5; ++i)
+  {
     auto handle = pool.acquire();
     ASSERT_TRUE(handle);
     handle->type = BookUpdateType::SNAPSHOT;
@@ -86,7 +93,8 @@ TEST(SyncMarketDataBusTest, AllSubscribersProcessEachTick) {
   EXPECT_EQ(pool.inUse(), 0);
 }
 
-TEST(SyncMarketDataBusTest, AllSubscribersProcessEachTickSynchronously) {
+TEST(SyncMarketDataBusTest, AllSubscribersProcessEachTickSynchronously)
+{
   MarketDataBus bus;
   BookUpdatePool pool;
 
@@ -96,16 +104,21 @@ TEST(SyncMarketDataBusTest, AllSubscribersProcessEachTickSynchronously) {
   std::mutex logMutex;
   std::map<int, std::set<SubscriberId>> tickLog;
 
-  class StrictSyncSubscriber : public IMarketDataSubscriber {
-  public:
-    StrictSyncSubscriber(SubscriberId id, std::mutex &logMutex,
-                         std::map<int, std::set<SubscriberId>> &tickLog)
-        : _id(id), _logMutex(logMutex), _tickLog(tickLog) {}
+  class StrictSyncSubscriber : public IMarketDataSubscriber
+  {
+   public:
+    StrictSyncSubscriber(SubscriberId id, std::mutex& logMutex,
+                         std::map<int, std::set<SubscriberId>>& tickLog)
+        : _id(id), _logMutex(logMutex), _tickLog(tickLog)
+    {
+    }
 
-    void onMarketData(const IMarketDataEvent &event) override {
-      const auto &book = static_cast<const BookUpdateEvent &>(event);
-      std::this_thread::sleep_for(10ms); // simulate work
-      if (!book.bids.empty()) {
+    void onMarketData(const IMarketDataEvent& event) override
+    {
+      const auto& book = static_cast<const BookUpdateEvent&>(event);
+      std::this_thread::sleep_for(10ms);  // simulate work
+      if (!book.bids.empty())
+      {
         const int seq = static_cast<int>(book.bids[0].price.toDouble());
         std::lock_guard<std::mutex> lock(_logMutex);
         _tickLog[seq].insert(_id);
@@ -114,33 +127,36 @@ TEST(SyncMarketDataBusTest, AllSubscribersProcessEachTickSynchronously) {
 
     SubscriberId id() const override { return _id; }
 
-  private:
+   private:
     SubscriberId _id;
-    std::mutex &_logMutex;
-    std::map<int, std::set<SubscriberId>> &_tickLog;
+    std::mutex& _logMutex;
+    std::map<int, std::set<SubscriberId>>& _tickLog;
   };
 
-  for (int i = 0; i < numSubscribers; ++i) {
+  for (int i = 0; i < numSubscribers; ++i)
+  {
     auto s = std::make_shared<StrictSyncSubscriber>(i + 1, logMutex, tickLog);
     bus.subscribe(s);
   }
 
   bus.start();
 
-  for (int tick = 0; tick < numTicks; ++tick) {
+  for (int tick = 0; tick < numTicks; ++tick)
+  {
     {
       auto handle = pool.acquire();
       ASSERT_TRUE(handle);
       handle->type = BookUpdateType::SNAPSHOT;
-      handle->bids = {{Price::fromDouble(static_cast<double>(tick)),
-                       Quantity::fromDouble(1.0)}};
+      handle->bids = {{Price::fromDouble(static_cast<double>(tick)), Quantity::fromDouble(1.0)}};
       bus.publish(std::move(handle));
     }
 
-    for (int i = 0; i < 100; ++i) {
+    for (int i = 0; i < 100; ++i)
+    {
       std::this_thread::sleep_for(1ms);
       std::lock_guard<std::mutex> lock(logMutex);
-      if (tickLog[tick].size() == static_cast<size_t>(numSubscribers)) {
+      if (tickLog[tick].size() == static_cast<size_t>(numSubscribers))
+      {
         break;
       }
     }
@@ -154,7 +170,8 @@ TEST(SyncMarketDataBusTest, AllSubscribersProcessEachTickSynchronously) {
 
   bus.stop();
 
-  for (int tick = 0; tick < numTicks; ++tick) {
+  for (int tick = 0; tick < numTicks; ++tick)
+  {
     ASSERT_EQ(tickLog[tick].size(), static_cast<size_t>(numSubscribers))
         << "Tick " << tick << " incomplete at final check";
   }
@@ -162,4 +179,4 @@ TEST(SyncMarketDataBusTest, AllSubscribersProcessEachTickSynchronously) {
   EXPECT_EQ(pool.inUse(), 0);
 }
 
-} // namespace
+}  // namespace

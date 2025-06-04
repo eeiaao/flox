@@ -13,14 +13,15 @@
 
 #include <string>
 
-namespace flox {
+namespace flox
+{
 
-class IOrderExecutionListener {
-public:
+class IOrderExecutionListener
+{
+ public:
   virtual ~IOrderExecutionListener() = default;
-  virtual void onOrderFilled(const Order &order) = 0;
-  virtual void onOrderRejected(const Order &order,
-                               const std::string &reason) = 0;
+  virtual void onOrderFilled(const Order& order) = 0;
+  virtual void onOrderRejected(const Order& order, const std::string& reason) = 0;
 };
 
-} // namespace flox
+}  // namespace flox

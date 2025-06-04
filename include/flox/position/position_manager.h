@@ -18,34 +18,33 @@
 #include <iostream>
 #include <vector>
 
-namespace flox {
+namespace flox
+{
 
-class PositionManager : public IPositionManager,
-                        public IOrderExecutionListener,
-                        public ISubsystem {
-public:
+class PositionManager : public IPositionManager, public IOrderExecutionListener, public ISubsystem
+{
+ public:
   void start() override {}
   void stop() override {}
 
-  void onOrderFilled(const Order &order) override;
-  void onOrderRejected(const Order &order, const std::string &reason) override;
+  void onOrderFilled(const Order& order) override;
+  void onOrderRejected(const Order& order, const std::string& reason) override;
 
   double getPosition(SymbolId symbol) const override;
   void printPositions() const;
 
-private:
+ private:
   static constexpr int64_t QTY_PRECISION = 1'000'000;
   static constexpr size_t MAX_SYMBOLS = 65'536;
 
   std::vector<int64_t> _positions = std::vector<int64_t>(MAX_SYMBOLS, 0);
 
-  static int64_t toInternal(double qty) {
+  static int64_t toInternal(double qty)
+  {
     return static_cast<int64_t>(qty * QTY_PRECISION + 0.5);
   }
 
-  static double toDisplay(int64_t qty) {
-    return static_cast<double>(qty) / QTY_PRECISION;
-  }
+  static double toDisplay(int64_t qty) { return static_cast<double>(qty) / QTY_PRECISION; }
 };
 
-} // namespace flox
+}  // namespace flox

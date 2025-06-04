@@ -16,10 +16,12 @@
 
 using namespace flox;
 
-TEST(WindowedOrderBookTest, ApplySnapshot) {
+TEST(WindowedOrderBookTest, ApplySnapshot)
+{
   WindowedOrderBookFactory factory;
-  auto book = factory.create(WindowedOrderBookConfig{Price::fromDouble(0.1),
-                                                     Price::fromDouble(100.0)});
+  auto book =
+      factory.create(WindowedOrderBookConfig{Price::fromDouble(0.1),
+                                             Price::fromDouble(100.0)});
 
   EventPool<BookUpdateEvent, 3> pool;
   auto snapshot = pool.acquire();
@@ -34,10 +36,11 @@ TEST(WindowedOrderBookTest, ApplySnapshot) {
   ASSERT_EQ(book->bestAsk(), Price::fromDouble(20010));
 }
 
-TEST(WindowedOrderBookTest, ApplyDelta) {
+TEST(WindowedOrderBookTest, ApplyDelta)
+{
   WindowedOrderBookFactory factory;
-  auto book = factory.create(WindowedOrderBookConfig{Price::fromDouble(0.1),
-                                                     Price::fromDouble(100.0)});
+  auto book =
+      factory.create(WindowedOrderBookConfig{Price::fromDouble(0.1), Price::fromDouble(100.0)});
 
   EventPool<BookUpdateEvent, 3> pool;
   auto snapshot = pool.acquire();
@@ -57,10 +60,11 @@ TEST(WindowedOrderBookTest, ApplyDelta) {
   ASSERT_EQ(book->bestAsk(), Price::fromDouble(1505));
 }
 
-TEST(WindowedOrderBookTest, SnapshotRemovesStaleLevels) {
+TEST(WindowedOrderBookTest, SnapshotRemovesStaleLevels)
+{
   WindowedOrderBookFactory factory;
-  auto book = factory.create(WindowedOrderBookConfig{Price::fromDouble(0.1),
-                                                     Price::fromDouble(100.0)});
+  auto book =
+      factory.create(WindowedOrderBookConfig{Price::fromDouble(0.1), Price::fromDouble(100.0)});
 
   EventPool<BookUpdateEvent, 3> pool;
   auto snap1 = pool.acquire();
@@ -77,11 +81,11 @@ TEST(WindowedOrderBookTest, SnapshotRemovesStaleLevels) {
   ASSERT_EQ(book->bestBid(), Price::fromDouble(19990));
 }
 
-TEST(WindowedOrderBookTest, PriceIndexRoundTrip) {
+TEST(WindowedOrderBookTest, PriceIndexRoundTrip)
+{
   WindowedOrderBookFactory factory;
-  auto book =
-      static_cast<WindowedOrderBook *>(factory.create(WindowedOrderBookConfig{
-          Price::fromDouble(0.1), Price::fromDouble(100.0)}));
+  auto book = static_cast<WindowedOrderBook*>(
+      factory.create(WindowedOrderBookConfig{Price::fromDouble(0.1), Price::fromDouble(100.0)}));
 
   Price p = Price::fromDouble(20000.0);
   size_t index = book->priceToIndex(p);
@@ -89,10 +93,11 @@ TEST(WindowedOrderBookTest, PriceIndexRoundTrip) {
   ASSERT_EQ(p, back);
 }
 
-TEST(WindowedOrderBookTest, BestBidAskEmptyAfterErase) {
+TEST(WindowedOrderBookTest, BestBidAskEmptyAfterErase)
+{
   WindowedOrderBookFactory factory;
-  auto book = factory.create(WindowedOrderBookConfig{Price::fromDouble(0.1),
-                                                     Price::fromDouble(100.0)});
+  auto book =
+      factory.create(WindowedOrderBookConfig{Price::fromDouble(0.1), Price::fromDouble(100.0)});
 
   EventPool<BookUpdateEvent, 3> pool;
   auto snap = pool.acquire();
@@ -111,11 +116,11 @@ TEST(WindowedOrderBookTest, BestBidAskEmptyAfterErase) {
   ASSERT_FALSE(book->bestAsk().has_value());
 }
 
-TEST(WindowedOrderBookTest, DeltaAddsNewLevel) {
+TEST(WindowedOrderBookTest, DeltaAddsNewLevel)
+{
   WindowedOrderBookFactory factory;
-  auto book =
-      static_cast<WindowedOrderBook *>(factory.create(WindowedOrderBookConfig{
-          Price::fromDouble(0.1), Price::fromDouble(100.0)}));
+  auto book = static_cast<WindowedOrderBook*>(
+      factory.create(WindowedOrderBookConfig{Price::fromDouble(0.1), Price::fromDouble(100.0)}));
 
   EventPool<BookUpdateEvent, 3> pool;
   auto snap = pool.acquire();
@@ -132,10 +137,11 @@ TEST(WindowedOrderBookTest, DeltaAddsNewLevel) {
   ASSERT_EQ(book->bidAtPrice(Price::fromDouble(99.9)), Quantity::fromDouble(2));
 }
 
-TEST(WindowedOrderBookTest, DeltaRemovesLevel) {
+TEST(WindowedOrderBookTest, DeltaRemovesLevel)
+{
   WindowedOrderBookFactory factory;
-  auto book = factory.create(WindowedOrderBookConfig{Price::fromDouble(0.1),
-                                                     Price::fromDouble(100.0)});
+  auto book =
+      factory.create(WindowedOrderBookConfig{Price::fromDouble(0.1), Price::fromDouble(100.0)});
 
   EventPool<BookUpdateEvent, 3> pool;
   auto snap = pool.acquire();
@@ -152,11 +158,11 @@ TEST(WindowedOrderBookTest, DeltaRemovesLevel) {
   ASSERT_EQ(book->bestBid(), Price::fromDouble(99.9));
 }
 
-TEST(WindowedOrderBookTest, DeltaModifiesLevel) {
+TEST(WindowedOrderBookTest, DeltaModifiesLevel)
+{
   WindowedOrderBookFactory factory;
-  auto book =
-      static_cast<WindowedOrderBook *>(factory.create(WindowedOrderBookConfig{
-          Price::fromDouble(0.1), Price::fromDouble(100.0)}));
+  auto book = static_cast<WindowedOrderBook*>(
+      factory.create(WindowedOrderBookConfig{Price::fromDouble(0.1), Price::fromDouble(100.0)}));
 
   EventPool<BookUpdateEvent, 3> pool;
   auto snap = pool.acquire();
@@ -169,15 +175,14 @@ TEST(WindowedOrderBookTest, DeltaModifiesLevel) {
   delta->bids = {{Price::fromDouble(100.0), Quantity::fromDouble(5)}};
   book->applyBookUpdate(*delta);
 
-  ASSERT_EQ(book->bidAtPrice(Price::fromDouble(100.0)),
-            Quantity::fromDouble(5));
+  ASSERT_EQ(book->bidAtPrice(Price::fromDouble(100.0)), Quantity::fromDouble(5));
 }
 
-TEST(WindowedOrderBookTest, DeltaIsPartialUpdate) {
+TEST(WindowedOrderBookTest, DeltaIsPartialUpdate)
+{
   WindowedOrderBookFactory factory;
-  auto book =
-      static_cast<WindowedOrderBook *>(factory.create(WindowedOrderBookConfig{
-          Price::fromDouble(0.1), Price::fromDouble(100.0)}));
+  auto book = static_cast<WindowedOrderBook*>(
+      factory.create(WindowedOrderBookConfig{Price::fromDouble(0.1), Price::fromDouble(100.0)}));
 
   EventPool<BookUpdateEvent, 3> pool;
   auto snap = pool.acquire();
@@ -191,21 +196,20 @@ TEST(WindowedOrderBookTest, DeltaIsPartialUpdate) {
   delta->bids = {{Price::fromDouble(100.0), Quantity::fromDouble(3)}};
   book->applyBookUpdate(*delta);
 
-  ASSERT_EQ(book->bidAtPrice(Price::fromDouble(100.0)),
-            Quantity::fromDouble(3));
+  ASSERT_EQ(book->bidAtPrice(Price::fromDouble(100.0)), Quantity::fromDouble(3));
   ASSERT_EQ(book->bidAtPrice(Price::fromDouble(99.9)), Quantity::fromDouble(2));
 }
 
-TEST(WindowedOrderBookTest, PriceRoundTrip) {
+TEST(WindowedOrderBookTest, PriceRoundTrip)
+{
   WindowedOrderBookFactory factory;
-  auto book =
-      static_cast<WindowedOrderBook *>(factory.create(WindowedOrderBookConfig{
-          Price::fromDouble(0.1), Price::fromDouble(100.0)}));
+  auto book = static_cast<WindowedOrderBook*>(
+      factory.create(WindowedOrderBookConfig{Price::fromDouble(0.1), Price::fromDouble(100.0)}));
 
-  std::vector<Price> prices = {Price::fromDouble(99.9),
-                               Price::fromDouble(100.0),
+  std::vector<Price> prices = {Price::fromDouble(99.9), Price::fromDouble(100.0),
                                Price::fromDouble(100.1)};
-  for (Price p : prices) {
+  for (Price p : prices)
+  {
     size_t index = book->priceToIndex(p);
     ASSERT_EQ(book->indexToPrice(index), p);
   }

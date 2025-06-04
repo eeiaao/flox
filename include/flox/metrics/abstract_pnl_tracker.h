@@ -11,12 +11,14 @@
 
 #include "flox/book/order.h"
 
-namespace flox {
+namespace flox
+{
 
-class IPnLTracker {
-public:
+class IPnLTracker
+{
+ public:
   virtual ~IPnLTracker() = default;
-  virtual void onOrderFilled(const Order &order) = 0;
+  virtual void onOrderFilled(const Order& order) = 0;
 };
 
-} // namespace flox
+}  // namespace flox

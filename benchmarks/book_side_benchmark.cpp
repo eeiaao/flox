@@ -15,31 +15,37 @@
 
 using namespace flox;
 
-static void BM_BookSideBestBid(benchmark::State &state) {
+static void BM_BookSideBestBid(benchmark::State& state)
+{
   constexpr std::size_t levels = 100'000;
   std::pmr::monotonic_buffer_resource arena(10'000'000);
   BookSide side(levels, BookSide::Side::Bid, &arena);
 
-  for (std::size_t i = 0; i < levels; ++i) {
+  for (std::size_t i = 0; i < levels; ++i)
+  {
     side.setLevel(i, Quantity::fromDouble(1.0));
   }
 
-  for (auto _ : state) {
+  for (auto _ : state)
+  {
     benchmark::DoNotOptimize(side.findBest());
   }
 }
 BENCHMARK(BM_BookSideBestBid)->Unit(benchmark::kNanosecond);
 
-static void BM_BookSideBestAsk(benchmark::State &state) {
+static void BM_BookSideBestAsk(benchmark::State& state)
+{
   constexpr std::size_t levels = 100'000;
   std::pmr::monotonic_buffer_resource arena(10'000'000);
   BookSide side(levels, BookSide::Side::Ask, &arena);
 
-  for (std::size_t i = 0; i < levels; ++i) {
+  for (std::size_t i = 0; i < levels; ++i)
+  {
     side.setLevel(i, Quantity::fromDouble(1.0));
   }
 
-  for (auto _ : state) {
+  for (auto _ : state)
+  {
     benchmark::DoNotOptimize(side.findBest());
   }
 }

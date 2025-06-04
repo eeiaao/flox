@@ -16,34 +16,40 @@
 #include <string>
 #include <unordered_map>
 
-namespace flox {
+namespace flox
+{
 
-class ConnectorFactory {
-public:
-  using CreatorFunc = std::function<std::shared_ptr<ExchangeConnector>(
-      const std::string &symbol)>;
+class ConnectorFactory
+{
+ public:
+  using CreatorFunc =
+      std::function<std::shared_ptr<ExchangeConnector>(const std::string& symbol)>;
 
-  static ConnectorFactory &instance() {
+  static ConnectorFactory& instance()
+  {
     static ConnectorFactory factory;
     return factory;
   }
 
-  void registerConnector(const std::string &type, CreatorFunc creator) {
+  void registerConnector(const std::string& type, CreatorFunc creator)
+  {
     _creators[type] = std::move(creator);
   }
 
-  std::shared_ptr<ExchangeConnector>
-  createConnector(const std::string &type, const std::string &symbol) const {
+  std::shared_ptr<ExchangeConnector> createConnector(const std::string& type,
+                                                     const std::string& symbol) const
+  {
     auto it = _creators.find(type);
-    if (it != _creators.end()) {
+    if (it != _creators.end())
+    {
       return it->second(symbol);
     }
     return nullptr;
   }
 
-private:
+ private:
   ConnectorFactory() = default;
   std::unordered_map<std::string, CreatorFunc> _creators;
 };
 
-} // namespace flox
+}  // namespace flox

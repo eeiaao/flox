@@ -9,14 +9,16 @@
 
 #pragma once
 
-namespace flox {
+namespace flox
+{
 
 class IMarketDataEvent;
 
-class IEventPool {
-public:
+class IEventPool
+{
+ public:
   virtual ~IEventPool() = default;
-  virtual void release(IMarketDataEvent *event) = 0;
+  virtual void release(IMarketDataEvent* event) = 0;
 };
 
-} // namespace flox
+}  // namespace flox

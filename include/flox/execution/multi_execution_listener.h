@@ -14,31 +14,38 @@
 #include <algorithm>
 #include <vector>
 
-namespace flox {
+namespace flox
+{
 
-class MultiExecutionListener : public IOrderExecutionListener {
-public:
-  void addListener(IOrderExecutionListener *listener) {
-    if (listener && std::find(_listeners.begin(), _listeners.end(), listener) ==
-                        _listeners.end()) {
+class MultiExecutionListener : public IOrderExecutionListener
+{
+ public:
+  void addListener(IOrderExecutionListener* listener)
+  {
+    if (listener && std::find(_listeners.begin(), _listeners.end(), listener) == _listeners.end())
+    {
       _listeners.push_back(listener);
     }
   }
 
-  void onOrderFilled(const Order &order) override {
-    for (auto *listener : _listeners) {
+  void onOrderFilled(const Order& order) override
+  {
+    for (auto* listener : _listeners)
+    {
       listener->onOrderFilled(order);
     }
   }
 
-  void onOrderRejected(const Order &order, const std::string &reason) override {
-    for (auto *listener : _listeners) {
+  void onOrderRejected(const Order& order, const std::string& reason) override
+  {
+    for (auto* listener : _listeners)
+    {
       listener->onOrderRejected(order, reason);
     }
   }
 
-private:
-  std::vector<IOrderExecutionListener *> _listeners;
+ private:
+  std::vector<IOrderExecutionListener*> _listeners;
 };
 
-} // namespace flox
+}  // namespace flox

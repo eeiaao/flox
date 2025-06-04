@@ -16,24 +16,26 @@
 
 #include <string>
 
-namespace flox {
+namespace flox
+{
 
-class IOrderExecutor : public ISubsystem {
-public:
+class IOrderExecutor : public ISubsystem
+{
+ public:
   virtual ~IOrderExecutor() = default;
 
-  virtual void submitOrder(const Order &order) = 0;
+  virtual void submitOrder(const Order& order) = 0;
 
-  void setExecutionTracker(IExecutionTracker *tracker) { _tracker = tracker; }
-  void setListener(IOrderExecutionListener *listener) { _listener = listener; }
+  void setExecutionTracker(IExecutionTracker* tracker) { _tracker = tracker; }
+  void setListener(IOrderExecutionListener* listener) { _listener = listener; }
 
-protected:
-  IExecutionTracker *getExecutionTracker() const { return _tracker; }
-  IOrderExecutionListener *getListener() const { return _listener; }
+ protected:
+  IExecutionTracker* getExecutionTracker() const { return _tracker; }
+  IOrderExecutionListener* getListener() const { return _listener; }
 
-private:
-  IExecutionTracker *_tracker = nullptr;
-  IOrderExecutionListener *_listener = nullptr;
+ private:
+  IExecutionTracker* _tracker = nullptr;
+  IOrderExecutionListener* _listener = nullptr;
 };
 
-} // namespace flox
+}  // namespace flox

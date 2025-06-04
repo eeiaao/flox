@@ -15,13 +15,15 @@
 #include "flox/engine/abstract_market_data_subscriber.h"
 #include "flox/engine/events/market_data_event.h"
 
-namespace flox {
+namespace flox
+{
 
-class MarketDataBus {
-public:
+class MarketDataBus
+{
+ public:
   static constexpr size_t QueueSize = 4096;
 #ifdef USE_SYNC_MARKET_BUS
-  using QueueItem = std::pair<EventHandle<IMarketDataEvent>, TickBarrier *>;
+  using QueueItem = std::pair<EventHandle<IMarketDataEvent>, TickBarrier*>;
 #else
   using QueueItem = EventHandle<IMarketDataEvent>;
 #endif
@@ -33,7 +35,7 @@ public:
 
   void subscribe(std::shared_ptr<IMarketDataSubscriber> subscriber);
 
-  Queue *getQueue(SubscriberId id);
+  Queue* getQueue(SubscriberId id);
 
   void start();
   void stop();
@@ -45,12 +47,12 @@ public:
     publish(event.template upcast<IMarketDataEvent>());
   }
 
-private:
+ private:
   void publish(EventHandle<IMarketDataEvent> event);
 
-private:
+ private:
   class Impl;
   std::unique_ptr<Impl> _impl;
 };
 
-} // namespace flox
+}  // namespace flox

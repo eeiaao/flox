@@ -13,27 +13,30 @@
 #include "flox/book/full_order_book.h"
 #include "flox/common.h"
 
-namespace flox {
+namespace flox
+{
 
-struct FullOrderBookConfig : public IOrderBookConfig {
+struct FullOrderBookConfig : public IOrderBookConfig
+{
   Price tickSize = Price::fromDouble(0.0);
 
   FullOrderBookConfig(Price tickSize) : tickSize(tickSize) {}
 };
 
-class FullOrderBookFactory : public IOrderBookFactory {
-public:
-  IOrderBook *create(const IOrderBookConfig &config) override {
-    const auto *fullOrderBookConfig =
-        static_cast<const FullOrderBookConfig *>(&config);
+class FullOrderBookFactory : public IOrderBookFactory
+{
+ public:
+  IOrderBook* create(const IOrderBookConfig& config) override
+  {
+    const auto* fullOrderBookConfig = static_cast<const FullOrderBookConfig*>(&config);
     auto book = std::make_unique<FullOrderBook>(fullOrderBookConfig->tickSize);
-    IOrderBook *ptr = book.get();
+    IOrderBook* ptr = book.get();
     _owned.emplace_back(std::move(book));
     return ptr;
   }
 
-private:
+ private:
   std::vector<std::unique_ptr<IOrderBook>> _owned;
 };
 
-} // namespace flox
+}  // namespace flox

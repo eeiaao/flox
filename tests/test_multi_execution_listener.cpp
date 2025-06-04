@@ -7,31 +7,35 @@
  * license information.
  */
 
-#include "flox/execution/multi_execution_listener.h"
 #include <gtest/gtest.h>
+#include "flox/execution/multi_execution_listener.h"
 
 using namespace flox;
 
-class MockExecutionListener : public IOrderExecutionListener {
-public:
+class MockExecutionListener : public IOrderExecutionListener
+{
+ public:
   int filledCount = 0;
   int rejectedCount = 0;
   Order lastOrder;
   std::string lastReason;
 
-  void onOrderFilled(const Order &order) override {
+  void onOrderFilled(const Order& order) override
+  {
     ++filledCount;
     lastOrder = order;
   }
 
-  void onOrderRejected(const Order &order, const std::string &reason) override {
+  void onOrderRejected(const Order& order, const std::string& reason) override
+  {
     ++rejectedCount;
     lastOrder = order;
     lastReason = reason;
   }
 };
 
-TEST(MultiExecutionListenerTest, CallsAllListeners) {
+TEST(MultiExecutionListenerTest, CallsAllListeners)
+{
   MultiExecutionListener multi;
   MockExecutionListener l1, l2;
 
@@ -50,12 +54,13 @@ TEST(MultiExecutionListenerTest, CallsAllListeners) {
   EXPECT_EQ(l2.lastOrder.quantity, 1);
 }
 
-TEST(MultiExecutionListenerTest, PreventsDuplicateListeners) {
+TEST(MultiExecutionListenerTest, PreventsDuplicateListeners)
+{
   MultiExecutionListener multi;
   MockExecutionListener l1;
 
   multi.addListener(&l1);
-  multi.addListener(&l1); // Duplicate
+  multi.addListener(&l1);  // Duplicate
 
   Order order;
   order.symbol = 1;
@@ -63,5 +68,5 @@ TEST(MultiExecutionListenerTest, PreventsDuplicateListeners) {
   order.quantity = 1.0;
   multi.onOrderFilled(order);
 
-  EXPECT_EQ(l1.filledCount, 1); // Should only be called once
+  EXPECT_EQ(l1.filledCount, 1);  // Should only be called once
 }

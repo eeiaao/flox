@@ -19,20 +19,21 @@ using namespace flox;
 
 using BookUpdatePool = EventPool<BookUpdateEvent, 63>;
 
-static void BM_ApplyBookUpdate(benchmark::State &state) {
+static void BM_ApplyBookUpdate(benchmark::State& state)
+{
   constexpr Price tickSize = Price::fromDouble(0.1);
   constexpr Price expectedDeviation = Price::fromDouble(100.0);
 
   WindowedOrderBookFactory factory;
-  auto *book =
-      factory.create(WindowedOrderBookConfig{tickSize, expectedDeviation});
+  auto* book = factory.create(WindowedOrderBookConfig{tickSize, expectedDeviation});
   BookUpdatePool pool;
 
   std::mt19937 rng(42);
   std::uniform_real_distribution<> priceDist(19900, 20100);
   std::uniform_real_distribution<> qtyDist(1, 5);
 
-  for (auto _ : state) {
+  for (auto _ : state)
+  {
     auto update = pool.acquire();
     update->type = BookUpdateType::DELTA;
     update->timestamp = std::chrono::system_clock::now();
@@ -41,7 +42,8 @@ static void BM_ApplyBookUpdate(benchmark::State &state) {
     update->bids.reserve(10000);
     update->asks.reserve(10000);
 
-    for (int i = 0; i < 10000; ++i) {
+    for (int i = 0; i < 10000; ++i)
+    {
       Price price = Price::fromDouble(priceDist(rng));
       Quantity qty = Quantity::fromDouble(qtyDist(rng));
       update->bids.push_back({price, qty});
@@ -53,13 +55,13 @@ static void BM_ApplyBookUpdate(benchmark::State &state) {
 }
 BENCHMARK(BM_ApplyBookUpdate)->Unit(benchmark::kMicrosecond);
 
-static void BM_BestBid(benchmark::State &state) {
+static void BM_BestBid(benchmark::State& state)
+{
   constexpr Price tickSize = Price::fromDouble(0.1);
   constexpr Price expectedDeviation = Price::fromDouble(5000.0);
 
   WindowedOrderBookFactory factory;
-  auto *book =
-      factory.create(WindowedOrderBookConfig{tickSize, expectedDeviation});
+  auto* book = factory.create(WindowedOrderBookConfig{tickSize, expectedDeviation});
   BookUpdatePool pool;
 
   auto update = pool.acquire();
@@ -68,27 +70,28 @@ static void BM_BestBid(benchmark::State &state) {
   update->asks.clear();
   update->bids.reserve(100000);
 
-  for (int i = 0; i < 100000; ++i) {
-    Price price =
-        Price::fromRaw(Price::fromDouble(20000.0).raw() - i * tickSize.raw());
+  for (int i = 0; i < 100000; ++i)
+  {
+    Price price = Price::fromRaw(Price::fromDouble(20000.0).raw() - i * tickSize.raw());
     update->bids.push_back({price, Quantity::fromDouble(1.0)});
   }
 
   book->applyBookUpdate(*update);
 
-  for (auto _ : state) {
+  for (auto _ : state)
+  {
     benchmark::DoNotOptimize(book->bestBid());
   }
 }
 BENCHMARK(BM_BestBid)->Unit(benchmark::kNanosecond);
 
-static void BM_BestAsk(benchmark::State &state) {
+static void BM_BestAsk(benchmark::State& state)
+{
   constexpr Price tickSize = Price::fromDouble(0.1);
   constexpr Price expectedDeviation = Price::fromDouble(5000.0);
 
   WindowedOrderBookFactory factory;
-  auto *book =
-      factory.create(WindowedOrderBookConfig{tickSize, expectedDeviation});
+  auto* book = factory.create(WindowedOrderBookConfig{tickSize, expectedDeviation});
   BookUpdatePool pool;
 
   auto update = pool.acquire();
@@ -97,15 +100,16 @@ static void BM_BestAsk(benchmark::State &state) {
   update->bids.clear();
   update->asks.reserve(100000);
 
-  for (int i = 0; i < 100000; ++i) {
-    Price price =
-        Price::fromRaw(Price::fromDouble(20000.0).raw() + i * tickSize.raw());
+  for (int i = 0; i < 100000; ++i)
+  {
+    Price price = Price::fromRaw(Price::fromDouble(20000.0).raw() + i * tickSize.raw());
     update->asks.push_back({price, Quantity::fromDouble(1.0)});
   }
 
   book->applyBookUpdate(*update);
 
-  for (auto _ : state) {
+  for (auto _ : state)
+  {
     benchmark::DoNotOptimize(book->bestAsk());
   }
 }

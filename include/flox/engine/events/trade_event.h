@@ -15,19 +15,21 @@
 #include "flox/common.h"
 #include "flox/engine/events/market_data_event.h"
 
-namespace flox {
+namespace flox
+{
 
-struct TradeEvent : public IMarketDataEvent {
+struct TradeEvent : public IMarketDataEvent
+{
   SymbolId symbol;
   Price price;
   Quantity quantity;
   bool isBuy;
   std::chrono::system_clock::time_point timestamp;
 
-  TradeEvent(std::pmr::memory_resource *) {}
+  TradeEvent(std::pmr::memory_resource*) {}
 
   MarketDataEventType eventType() const noexcept override;
-  void dispatchTo(IMarketDataSubscriber &sub) const override;
+  void dispatchTo(IMarketDataSubscriber& sub) const override;
 };
 
-} // namespace flox
+}  // namespace flox

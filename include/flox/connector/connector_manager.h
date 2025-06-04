@@ -16,28 +16,34 @@
 #include <memory>
 #include <vector>
 
-namespace flox {
+namespace flox
+{
 
-class ConnectorManager {
-public:
-  void registerConnector(std::shared_ptr<ExchangeConnector> connector) {
-    const auto &id = connector->exchangeId();
+class ConnectorManager
+{
+ public:
+  void registerConnector(std::shared_ptr<ExchangeConnector> connector)
+  {
+    const auto& id = connector->exchangeId();
     connectors[id] = connector;
   }
 
-  void startAll(std::function<void(BookUpdateEvent *)> onBookUpdate,
-                std::function<void(TradeEvent *)> onTrade) {
-    for (auto &[symbol, connector] : connectors) {
+  void startAll(std::function<void(BookUpdateEvent*)> onBookUpdate,
+                std::function<void(TradeEvent*)> onTrade)
+  {
+    for (auto& [symbol, connector] : connectors)
+    {
       std::cout << "[ConnectorManager] starting: " << symbol << std::endl;
-      connector->setCallbacks(
-          [onBookUpdate](BookUpdateEvent *update) { onBookUpdate(update); },
-          [onTrade](TradeEvent *trade) { onTrade(trade); });
+      connector->setCallbacks([onBookUpdate](BookUpdateEvent* update)
+                              { onBookUpdate(update); },
+                              [onTrade](TradeEvent* trade)
+                              { onTrade(trade); });
       connector->start();
     }
   }
 
-private:
+ private:
   std::map<std::string, std::shared_ptr<ExchangeConnector>> connectors;
 };
 
-} // namespace flox
+}  // namespace flox

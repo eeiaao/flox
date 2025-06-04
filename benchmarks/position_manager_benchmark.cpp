@@ -15,7 +15,8 @@
 
 using namespace flox;
 
-static Order makeOrder(SymbolId symbol, Side side, double qty) {
+static Order makeOrder(SymbolId symbol, Side side, double qty)
+{
   return Order{.id = 0,
                .side = side,
                .price = 0,
@@ -25,24 +26,28 @@ static Order makeOrder(SymbolId symbol, Side side, double qty) {
                .timestamp = std::chrono::system_clock::now()};
 }
 
-static void BM_PositionManager_OnOrderFilled(benchmark::State &state) {
+static void BM_PositionManager_OnOrderFilled(benchmark::State& state)
+{
   PositionManager pm;
 
   std::mt19937 rng(42);
-  std::uniform_int_distribution<SymbolId> symbolDist(0, 1000); // 1001 symbols
+  std::uniform_int_distribution<SymbolId> symbolDist(0, 1000);  // 1001 symbols
   std::uniform_real_distribution<double> qtyDist(0.000001, 10.0);
   std::bernoulli_distribution sideDist(0.5);
 
   std::vector<Order> orders;
   orders.reserve(state.max_iterations);
 
-  for (int i = 0; i < state.max_iterations; ++i) {
-    orders.emplace_back(makeOrder(
-        symbolDist(rng), sideDist(rng) ? Side::BUY : Side::SELL, qtyDist(rng)));
+  for (int i = 0; i < state.max_iterations; ++i)
+  {
+    orders.emplace_back(
+        makeOrder(symbolDist(rng), sideDist(rng) ? Side::BUY : Side::SELL, qtyDist(rng)));
   }
 
-  for (auto _ : state) {
-    for (const auto &order : orders) {
+  for (auto _ : state)
+  {
+    for (const auto& order : orders)
+    {
       pm.onOrderFilled(order);
     }
   }

@@ -7,9 +7,9 @@
  * license information.
  */
 
+#include <gtest/gtest.h>
 #include <atomic>
 #include <chrono>
-#include <gtest/gtest.h>
 #include <memory>
 #include <thread>
 #include <vector>
@@ -22,18 +22,23 @@
 
 using namespace flox;
 
-namespace {
+namespace
+{
 
 using BookUpdatePool = EventPool<BookUpdateEvent, 63>;
 
-class TestSubscriber : public IMarketDataSubscriber {
-public:
-  explicit TestSubscriber(SubscriberId id, std::atomic<int> &counter)
-      : _id(id), _counter(counter) {}
+class TestSubscriber : public IMarketDataSubscriber
+{
+ public:
+  explicit TestSubscriber(SubscriberId id, std::atomic<int>& counter) : _id(id), _counter(counter)
+  {
+  }
 
-  void onMarketData(const IMarketDataEvent &event) override {
-    if (event.eventType() == MarketDataEventType::BOOK) {
-      const auto &update = static_cast<const BookUpdateEvent &>(event);
+  void onMarketData(const IMarketDataEvent& event) override
+  {
+    if (event.eventType() == MarketDataEventType::BOOK)
+    {
+      const auto& update = static_cast<const BookUpdateEvent&>(event);
       std::this_thread::sleep_for(std::chrono::milliseconds(1));
       ++_counter;
       _lastPrice.store(update.bids.empty() ? Price::fromRaw(-1).raw()
@@ -44,17 +49,16 @@ public:
   SubscriberId id() const override { return _id; }
   SubscriberMode mode() const override { return SubscriberMode::PUSH; }
 
-  double lastPrice() const {
-    return static_cast<double>(_lastPrice.load()) / Price::Scale;
-  }
+  double lastPrice() const { return static_cast<double>(_lastPrice.load()) / Price::Scale; }
 
-private:
+ private:
   SubscriberId _id;
-  std::atomic<int> &_counter;
+  std::atomic<int>& _counter;
   std::atomic<int64_t> _lastPrice{Price::fromRaw(-1).raw()};
 };
 
-TEST(MarketDataBusTest, SingleSubscriberReceivesUpdates) {
+TEST(MarketDataBusTest, SingleSubscriberReceivesUpdates)
+{
   MarketDataBus bus;
   std::atomic<int> receivedCount{0};
 
@@ -62,12 +66,12 @@ TEST(MarketDataBusTest, SingleSubscriberReceivesUpdates) {
   bus.subscribe(subscriber);
 
   BookUpdatePool pool;
-  for (int i = 0; i < 10; ++i) {
+  for (int i = 0; i < 10; ++i)
+  {
     auto update = pool.acquire();
     ASSERT_NE(update.get(), nullptr);
     update->type = BookUpdateType::SNAPSHOT;
-    update->bids.emplace_back(Price::fromDouble(100.0 + 1),
-                              Quantity::fromDouble(1.0));
+    update->bids.emplace_back(Price::fromDouble(100.0 + 1), Quantity::fromDouble(1.0));
     bus.publish(std::move(update));
   }
 
@@ -79,7 +83,8 @@ TEST(MarketDataBusTest, SingleSubscriberReceivesUpdates) {
   EXPECT_EQ(pool.inUse(), 0);
 }
 
-TEST(MarketDataBusTest, MultipleSubscribersReceiveAll) {
+TEST(MarketDataBusTest, MultipleSubscribersReceiveAll)
+{
   MarketDataBus bus;
   std::atomic<int> received1{0};
   std::atomic<int> received2{0};
@@ -91,12 +96,12 @@ TEST(MarketDataBusTest, MultipleSubscribersReceiveAll) {
   bus.subscribe(sub2);
 
   BookUpdatePool pool;
-  for (int i = 0; i < 20; ++i) {
+  for (int i = 0; i < 20; ++i)
+  {
     auto update = pool.acquire();
     ASSERT_NE(update.get(), nullptr);
     update->type = BookUpdateType::SNAPSHOT;
-    update->bids.emplace_back(Price::fromDouble(200.0 + i),
-                              Quantity::fromDouble(1.0));
+    update->bids.emplace_back(Price::fromDouble(200.0 + i), Quantity::fromDouble(1.0));
     bus.publish(std::move(update));
   }
 
@@ -110,18 +115,19 @@ TEST(MarketDataBusTest, MultipleSubscribersReceiveAll) {
   EXPECT_EQ(pool.inUse(), 0);
 }
 
-TEST(MarketDataBusTest, GracefulStopDoesNotLeak) {
+TEST(MarketDataBusTest, GracefulStopDoesNotLeak)
+{
   MarketDataBus bus;
   std::atomic<int> count{0};
   bus.subscribe(std::make_shared<TestSubscriber>(1, count));
 
   BookUpdatePool pool;
-  for (int i = 0; i < 5; ++i) {
+  for (int i = 0; i < 5; ++i)
+  {
     auto update = pool.acquire();
     ASSERT_NE(update.get(), nullptr);
     update->type = BookUpdateType::SNAPSHOT;
-    update->bids.emplace_back(Price::fromDouble(300.0 + i),
-                              Quantity::fromDouble(1.0));
+    update->bids.emplace_back(Price::fromDouble(300.0 + i), Quantity::fromDouble(1.0));
     bus.publish(std::move(update));
   }
 
@@ -132,4 +138,4 @@ TEST(MarketDataBusTest, GracefulStopDoesNotLeak) {
   EXPECT_EQ(pool.inUse(), 0);
 }
 
-} // namespace
+}  // namespace

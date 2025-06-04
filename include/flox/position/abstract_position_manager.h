@@ -13,13 +13,15 @@
 
 #include <string>
 
-namespace flox {
+namespace flox
+{
 
-class IPositionManager {
-public:
+class IPositionManager
+{
+ public:
   virtual ~IPositionManager() = default;
 
   virtual double getPosition(SymbolId symbol) const = 0;
 };
 
-} // namespace flox
+}  // namespace flox

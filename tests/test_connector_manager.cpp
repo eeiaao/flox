@@ -26,19 +26,21 @@ using ::testing::Invoke;
 using ::testing::Return;
 using ::testing::SaveArg;
 
-class MockExchangeConnector : public ExchangeConnector {
-public:
+class MockExchangeConnector : public ExchangeConnector
+{
+ public:
   MOCK_METHOD(void, start, (), (override));
   MOCK_METHOD(void, stop, (), (override));
   MOCK_METHOD(std::string, exchangeId, (), (const, override));
-  MOCK_METHOD(void, setCallbacks, (BookUpdateCallback, TradeCallback),
-              (override));
+  MOCK_METHOD(void, setCallbacks, (BookUpdateCallback, TradeCallback), (override));
 
   BookUpdateCallback _bookCb;
   TradeCallback _tradeCb;
 
-  void triggerTestData() {
-    if (_bookCb && _tradeCb) {
+  void triggerTestData()
+  {
+    if (_bookCb && _tradeCb)
+    {
       EventPool<BookUpdateEvent, 3> bookUpdatePool;
       EventPool<TradeEvent, 3> tradePool;
 
@@ -55,19 +57,18 @@ public:
   }
 };
 
-TEST(ConnectorManagerTest, RegisterAndStartAll) {
+TEST(ConnectorManagerTest, RegisterAndStartAll)
+{
   auto connector = std::make_shared<MockExchangeConnector>();
   ConnectorManager manager;
 
   EXPECT_CALL(*connector, exchangeId()).WillOnce(Return("bybit"));
 
   EXPECT_CALL(*connector, setCallbacks(_, _))
-      .WillOnce(DoAll(SaveArg<0>(&connector->_bookCb),
-                      SaveArg<1>(&connector->_tradeCb)));
+      .WillOnce(DoAll(SaveArg<0>(&connector->_bookCb), SaveArg<1>(&connector->_tradeCb)));
 
-  EXPECT_CALL(*connector, start()).WillOnce(Invoke([&] {
-    connector->triggerTestData();
-  }));
+  EXPECT_CALL(*connector, start()).WillOnce(Invoke([&]
+                                                   { connector->triggerTestData(); }));
 
   manager.registerConnector(connector);
 
@@ -75,12 +76,14 @@ TEST(ConnectorManagerTest, RegisterAndStartAll) {
   bool tradeCalled = false;
 
   manager.startAll(
-      [&](BookUpdateEvent *bu) {
+      [&](BookUpdateEvent* bu)
+      {
         ASSERT_NE(bu, nullptr);
         EXPECT_EQ(bu->symbol, 42);
         bookUpdateCalled = true;
       },
-      [&](TradeEvent *tr) {
+      [&](TradeEvent* tr)
+      {
         EXPECT_EQ(tr->symbol, 42);
         EXPECT_EQ(tr->price, Price::fromDouble(3.14));
         tradeCalled = true;

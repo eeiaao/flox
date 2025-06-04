@@ -15,40 +15,44 @@
 #include <functional>
 #include <string>
 
-namespace flox {
+namespace flox
+{
 
-class ExchangeConnector {
-public:
+class ExchangeConnector
+{
+ public:
   virtual ~ExchangeConnector() = default;
 
-  using BookUpdateCallback = std::function<void(BookUpdateEvent *)>;
-  using TradeCallback = std::function<void(TradeEvent *)>;
+  using BookUpdateCallback = std::function<void(BookUpdateEvent*)>;
+  using TradeCallback = std::function<void(TradeEvent*)>;
 
   virtual void start() = 0;
   virtual void stop() = 0;
 
   virtual std::string exchangeId() const = 0;
 
-  virtual void setCallbacks(BookUpdateCallback onBookUpdate,
-                            TradeCallback onTrade) {
+  virtual void setCallbacks(BookUpdateCallback onBookUpdate, TradeCallback onTrade)
+  {
     _onBookUpdate = std::move(onBookUpdate);
     _onTrade = std::move(onTrade);
   }
 
-protected:
-  void emitBookUpdate(BookUpdateEvent *bu) {
+ protected:
+  void emitBookUpdate(BookUpdateEvent* bu)
+  {
     if (_onBookUpdate)
       _onBookUpdate(bu);
   }
 
-  void emitTrade(TradeEvent *t) {
+  void emitTrade(TradeEvent* t)
+  {
     if (_onTrade)
       _onTrade(t);
   }
 
-private:
+ private:
   BookUpdateCallback _onBookUpdate;
   TradeCallback _onTrade;
 };
 
-} // namespace flox
+}  // namespace flox

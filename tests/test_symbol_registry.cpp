@@ -16,7 +16,8 @@
 
 using namespace flox;
 
-TEST(SymbolRegistryTest, RegisterAndGetSymbolId) {
+TEST(SymbolRegistryTest, RegisterAndGetSymbolId)
+{
   SymbolRegistry registry;
 
   auto id1 = registry.registerSymbol("bybit", "BTCUSDT");
@@ -34,7 +35,8 @@ TEST(SymbolRegistryTest, RegisterAndGetSymbolId) {
   EXPECT_FALSE(missingId.has_value());
 }
 
-TEST(SymbolRegistryTest, GetSymbolName) {
+TEST(SymbolRegistryTest, GetSymbolName)
+{
   SymbolRegistry registry;
   auto id = registry.registerSymbol("bybit", "BTCUSDT");
 
@@ -43,31 +45,36 @@ TEST(SymbolRegistryTest, GetSymbolName) {
   EXPECT_EQ(symbol, "BTCUSDT");
 }
 
-TEST(SymbolRegistryTest, ThreadSafety) {
+TEST(SymbolRegistryTest, ThreadSafety)
+{
   SymbolRegistry registry;
   constexpr int threadCount = 8;
   constexpr int symbolsPerThread = 1000;
 
   std::vector<std::thread> threads;
 
-  for (int t = 0; t < threadCount; ++t) {
-    threads.emplace_back([t, &registry]() {
-      for (int i = 0; i < symbolsPerThread; ++i) {
-        std::string exchange = "ex" + std::to_string(t % 3);
-        std::string symbol =
-            "SYM_" + std::to_string(t) + "_" + std::to_string(i);
-        registry.registerSymbol(exchange, symbol);
-      }
-    });
+  for (int t = 0; t < threadCount; ++t)
+  {
+    threads.emplace_back(
+        [t, &registry]()
+        {
+          for (int i = 0; i < symbolsPerThread; ++i)
+          {
+            std::string exchange = "ex" + std::to_string(t % 3);
+            std::string symbol = "SYM_" + std::to_string(t) + "_" + std::to_string(i);
+            registry.registerSymbol(exchange, symbol);
+          }
+        });
   }
 
-  for (auto &th : threads)
-    th.join();
+  for (auto& th : threads) th.join();
 
   int total = threadCount * symbolsPerThread;
   std::unordered_set<SymbolId> ids;
-  for (int t = 0; t < threadCount; ++t) {
-    for (int i = 0; i < symbolsPerThread; ++i) {
+  for (int t = 0; t < threadCount; ++t)
+  {
+    for (int i = 0; i < symbolsPerThread; ++i)
+    {
       std::string exchange = "ex" + std::to_string(t % 3);
       std::string symbol = "SYM_" + std::to_string(t) + "_" + std::to_string(i);
       auto maybeId = registry.getSymbolId(exchange, symbol);
@@ -79,16 +86,19 @@ TEST(SymbolRegistryTest, ThreadSafety) {
   EXPECT_EQ(ids.size(), total);
 }
 
-TEST(SymbolRegistryTest, StressTestMassiveSymbols) {
+TEST(SymbolRegistryTest, StressTestMassiveSymbols)
+{
   SymbolRegistry registry;
   constexpr int count = 100000;
 
-  for (int i = 0; i < count; ++i) {
+  for (int i = 0; i < count; ++i)
+  {
     std::string symbol = "S" + std::to_string(i);
     registry.registerSymbol("stress", symbol);
   }
 
-  for (int i = 0; i < count; ++i) {
+  for (int i = 0; i < count; ++i)
+  {
     std::string symbol = "S" + std::to_string(i);
     auto id = registry.getSymbolId("stress", symbol);
     ASSERT_TRUE(id.has_value());

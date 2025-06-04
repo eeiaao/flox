@@ -20,11 +20,17 @@
 #include <string>
 #include <vector>
 
-namespace flox {
+namespace flox
+{
 
-enum class BookUpdateType { SNAPSHOT, DELTA };
+enum class BookUpdateType
+{
+  SNAPSHOT,
+  DELTA
+};
 
-struct BookLevel {
+struct BookLevel
+{
   Price price;
   Quantity quantity;
 
@@ -32,19 +38,21 @@ struct BookLevel {
   BookLevel(Price p, Quantity q) : price(p), quantity(q) {}
 };
 
-struct BookUpdateEvent : public IMarketDataEvent {
+struct BookUpdateEvent : public IMarketDataEvent
+{
   SymbolId symbol;
   BookUpdateType type;
   std::pmr::vector<BookLevel> bids;
   std::pmr::vector<BookLevel> asks;
   std::chrono::system_clock::time_point timestamp;
 
-  BookUpdateEvent(std::pmr::memory_resource *res) : bids(res), asks(res) {
+  BookUpdateEvent(std::pmr::memory_resource* res) : bids(res), asks(res)
+  {
     assert(res != nullptr && "pmr::memory_resource is null!");
   }
 
   MarketDataEventType eventType() const noexcept override;
-  void dispatchTo(IMarketDataSubscriber &sub) const override;
+  void dispatchTo(IMarketDataSubscriber& sub) const override;
 };
 
-} // namespace flox
+}  // namespace flox

@@ -14,28 +14,32 @@
 
 #include <chrono>
 
-namespace flox {
+namespace flox
+{
 
-class ExecutionTrackerAdapter : public IOrderExecutionListener {
-public:
-  explicit ExecutionTrackerAdapter(IExecutionTracker *tracker)
-      : _tracker(tracker) {}
+class ExecutionTrackerAdapter : public IOrderExecutionListener
+{
+ public:
+  explicit ExecutionTrackerAdapter(IExecutionTracker* tracker) : _tracker(tracker) {}
 
-  void onOrderFilled(const Order &order) override {
-    if (_tracker) {
+  void onOrderFilled(const Order& order) override
+  {
+    if (_tracker)
+    {
       _tracker->onOrderFilled(order, std::chrono::steady_clock::now());
     }
   }
 
-  void onOrderRejected(const Order &order, const std::string &reason) override {
-    if (_tracker) {
-      _tracker->onOrderRejected(order, reason,
-                                std::chrono::steady_clock::now());
+  void onOrderRejected(const Order& order, const std::string& reason) override
+  {
+    if (_tracker)
+    {
+      _tracker->onOrderRejected(order, reason, std::chrono::steady_clock::now());
     }
   }
 
-private:
-  IExecutionTracker *_tracker = nullptr;
+ private:
+  IExecutionTracker* _tracker = nullptr;
 };
 
-} // namespace flox
+}  // namespace flox

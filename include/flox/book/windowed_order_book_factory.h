@@ -20,37 +20,42 @@
 #include <utility>
 #include <vector>
 
-namespace flox {
+namespace flox
+{
 
-struct WindowedOrderBookConfig : public IOrderBookConfig {
+struct WindowedOrderBookConfig : public IOrderBookConfig
+{
   Price tickSize;
   Price expectedDeviation;
 
   WindowedOrderBookConfig(Price tickSize, Price expectedDeviation)
-      : tickSize(tickSize), expectedDeviation(expectedDeviation) {}
+      : tickSize(tickSize), expectedDeviation(expectedDeviation)
+  {
+  }
 };
 
-class WindowedOrderBookFactory : public IOrderBookFactory {
-public:
+class WindowedOrderBookFactory : public IOrderBookFactory
+{
+ public:
   explicit WindowedOrderBookFactory(std::size_t arenaSize = 2'000'000)
-      : _buffer(new std::byte[arenaSize]), _arena(_buffer.get(), arenaSize),
-        _mem(&_arena) {}
+      : _buffer(new std::byte[arenaSize]), _arena(_buffer.get(), arenaSize), _mem(&_arena)
+  {
+  }
 
-  IOrderBook *create(const IOrderBookConfig &config) override {
-    const auto &windowedConfig =
-        static_cast<const WindowedOrderBookConfig &>(config);
-    void *ptr =
-        _mem->allocate(sizeof(WindowedOrderBook), alignof(WindowedOrderBook));
-    return new (ptr) WindowedOrderBook(windowedConfig.tickSize,
-                                       windowedConfig.expectedDeviation, _mem);
+  IOrderBook* create(const IOrderBookConfig& config) override
+  {
+    const auto& windowedConfig = static_cast<const WindowedOrderBookConfig&>(config);
+    void* ptr = _mem->allocate(sizeof(WindowedOrderBook), alignof(WindowedOrderBook));
+    return new (ptr)
+        WindowedOrderBook(windowedConfig.tickSize, windowedConfig.expectedDeviation, _mem);
   }
 
   void reset() { _arena.reset(); }
 
-private:
+ private:
   std::unique_ptr<std::byte[]> _buffer;
   ArenaResource _arena;
-  std::pmr::memory_resource *_mem;
+  std::pmr::memory_resource* _mem;
 };
 
-} // namespace flox
+}  // namespace flox

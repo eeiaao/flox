@@ -15,9 +15,11 @@
 #include <cstdint>
 #include <string>
 
-namespace flox {
+namespace flox
+{
 
-struct Order {
+struct Order
+{
   uint64_t id;
   Side side;
   double price;
@@ -27,4 +29,4 @@ struct Order {
   std::chrono::system_clock::time_point timestamp;
 };
 
-} // namespace flox
+}  // namespace flox

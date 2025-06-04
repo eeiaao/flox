@@ -12,33 +12,40 @@
 #include <algorithm>
 #include <utility>
 
-namespace flox {
+namespace flox
+{
 
-Engine::Engine(const EngineConfig &config,
-               std::vector<std::unique_ptr<ISubsystem>> subsystems,
+Engine::Engine(const EngineConfig& config, std::vector<std::unique_ptr<ISubsystem>> subsystems,
                std::vector<std::shared_ptr<ExchangeConnector>> connectors)
-    : _config(config), _subsystems(std::move(subsystems)),
-      _connectors(std::move(connectors)) {}
+    : _config(config), _subsystems(std::move(subsystems)), _connectors(std::move(connectors))
+{
+}
 
-void Engine::start() {
-  for (auto &connector : _connectors) {
+void Engine::start()
+{
+  for (auto& connector : _connectors)
+  {
     connector->start();
   }
 
-  for (auto &subsystem : _subsystems) {
+  for (auto& subsystem : _subsystems)
+  {
     subsystem->start();
   }
 }
 
-void Engine::stop() {
+void Engine::stop()
+{
   std::reverse(_subsystems.begin(), _subsystems.end());
-  for (auto &subsystem : _subsystems) {
+  for (auto& subsystem : _subsystems)
+  {
     subsystem->stop();
   }
 
-  for (auto &connector : _connectors) {
+  for (auto& connector : _connectors)
+  {
     connector->stop();
   }
 }
 
-} // namespace flox
+}  // namespace flox

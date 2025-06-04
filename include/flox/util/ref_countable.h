@@ -12,31 +12,34 @@
 #include <atomic>
 #include <cassert>
 
-namespace flox {
+namespace flox
+{
 
-class RefCountable {
-public:
-  void retain() noexcept {
+class RefCountable
+{
+ public:
+  void retain() noexcept
+  {
     assert(_refCount.load(std::memory_order_relaxed) >= 0);
     _refCount.fetch_add(1, std::memory_order_relaxed);
   }
 
-  bool release() noexcept {
+  bool release() noexcept
+  {
     auto prev = _refCount.fetch_sub(1, std::memory_order_acq_rel);
     assert(prev > 0 && "release called on zero refcount");
     return prev == 1;
   }
 
-  void resetRefCount(uint32_t value = 1) noexcept {
+  void resetRefCount(uint32_t value = 1) noexcept
+  {
     _refCount.store(value, std::memory_order_relaxed);
   }
 
-  uint32_t refCount() const noexcept {
-    return _refCount.load(std::memory_order_relaxed);
-  }
+  uint32_t refCount() const noexcept { return _refCount.load(std::memory_order_relaxed); }
 
-protected:
+ protected:
   std::atomic<uint32_t> _refCount{0};
 };
 
-} // namespace flox
+}  // namespace flox

@@ -13,13 +13,15 @@
 
 #include <memory>
 
-namespace flox {
+namespace flox
+{
 
-class IEngineBuilder {
-public:
+class IEngineBuilder
+{
+ public:
   virtual ~IEngineBuilder() = default;
 
   virtual std::unique_ptr<IEngine> build() = 0;
 };
 
-} // namespace flox
+}  // namespace flox

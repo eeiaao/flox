@@ -9,10 +9,11 @@
 
 #include "flox/engine/symbol_registry.h"
 
-namespace flox {
+namespace flox
+{
 
-SymbolId SymbolRegistry::registerSymbol(const std::string &exchange,
-                                        const std::string &symbol) {
+SymbolId SymbolRegistry::registerSymbol(const std::string& exchange, const std::string& symbol)
+{
   std::scoped_lock lock(_mutex);
   std::string key = exchange + ":" + symbol;
   auto it = _map.find(key);
@@ -25,9 +26,9 @@ SymbolId SymbolRegistry::registerSymbol(const std::string &exchange,
   return id;
 }
 
-std::optional<SymbolId>
-SymbolRegistry::getSymbolId(const std::string &exchange,
-                            const std::string &symbol) const {
+std::optional<SymbolId> SymbolRegistry::getSymbolId(const std::string& exchange,
+                                                    const std::string& symbol) const
+{
   std::scoped_lock lock(_mutex);
   std::string key = exchange + ":" + symbol;
   auto it = _map.find(key);
@@ -36,10 +37,10 @@ SymbolRegistry::getSymbolId(const std::string &exchange,
   return std::nullopt;
 }
 
-std::pair<std::string, std::string>
-SymbolRegistry::getSymbolName(SymbolId id) const {
+std::pair<std::string, std::string> SymbolRegistry::getSymbolName(SymbolId id) const
+{
   std::scoped_lock lock(_mutex);
   return _reverse.at(id);
 }
 
-} // namespace flox
+}  // namespace flox

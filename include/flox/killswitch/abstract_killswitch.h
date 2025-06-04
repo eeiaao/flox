@@ -11,16 +11,18 @@
 
 #include "flox/book/order.h"
 
-namespace flox {
+namespace flox
+{
 
-class IKillSwitch {
-public:
+class IKillSwitch
+{
+ public:
   virtual ~IKillSwitch() = default;
 
-  virtual void check(const Order &order) = 0;
-  virtual void trigger(const std::string &reason) = 0;
+  virtual void check(const Order& order) = 0;
+  virtual void trigger(const std::string& reason) = 0;
   virtual bool isTriggered() const = 0;
   virtual std::string reason() const = 0;
 };
 
-} // namespace flox
+}  // namespace flox

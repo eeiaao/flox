@@ -10,9 +10,16 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v3
 
-    - name: Install dependencies
+    - name: Install clang-format
       run: |
         sudo apt update
+        sudo apt install -y clang-format
+
+    - name: Check formatting
+      run: ./scripts/check-format.sh
+
+    - name: Install dependencies
+      run: |
         sudo apt install -y cmake g++-13 ninja-build
 
     - name: Build and Install GoogleTest

@@ -13,13 +13,15 @@
 
 #include <string>
 
-namespace flox {
+namespace flox
+{
 
-class IOrderValidator {
-public:
+class IOrderValidator
+{
+ public:
   virtual ~IOrderValidator() = default;
 
-  virtual bool validate(const Order &order, std::string &reason) const = 0;
+  virtual bool validate(const Order& order, std::string& reason) const = 0;
 };
 
-} // namespace flox
+}  // namespace flox

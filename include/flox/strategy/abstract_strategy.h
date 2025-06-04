@@ -19,10 +19,12 @@
 #include "flox/risk/abstract_risk_manager.h"
 #include "flox/validation/abstract_order_validator.h"
 
-namespace flox {
+namespace flox
+{
 
-class IStrategy : public IMarketDataSubscriber {
-public:
+class IStrategy : public IMarketDataSubscriber
+{
+ public:
   virtual ~IStrategy() = default;
 
   // Lifecycle
@@ -30,23 +32,23 @@ public:
   virtual void onStop() {}
 
   // Event hooks
-  virtual void onCandle(SymbolId symbol, const Candle &candle) {}
-  virtual void onTrade(TradeEvent *trade) {}
-  virtual void onBookUpdate(BookUpdateEvent *bookUpdate) {}
+  virtual void onCandle(SymbolId symbol, const Candle& candle) {}
+  virtual void onTrade(TradeEvent* trade) {}
+  virtual void onBookUpdate(BookUpdateEvent* bookUpdate) {}
 
   // MarketData dispatch
-  void onMarketData(const IMarketDataEvent &event) override {
-    switch (event.eventType()) {
-    case MarketDataEventType::TRADE:
-      onTrade(
-          static_cast<TradeEvent *>(const_cast<IMarketDataEvent *>(&event)));
-      break;
-    case MarketDataEventType::BOOK:
-      onBookUpdate(static_cast<BookUpdateEvent *>(
-          const_cast<IMarketDataEvent *>(&event)));
-      break;
-    default:
-      break;
+  void onMarketData(const IMarketDataEvent& event) override
+  {
+    switch (event.eventType())
+    {
+      case MarketDataEventType::TRADE:
+        onTrade(static_cast<TradeEvent*>(const_cast<IMarketDataEvent*>(&event)));
+        break;
+      case MarketDataEventType::BOOK:
+        onBookUpdate(static_cast<BookUpdateEvent*>(const_cast<IMarketDataEvent*>(&event)));
+        break;
+      default:
+        break;
     }
   }
 
@@ -54,26 +56,24 @@ public:
   SubscriberMode mode() const override { return SubscriberMode::PUSH; }
 
   // Dependency injection
-  void setRiskManager(IRiskManager *manager) { _riskManager = manager; }
-  void setPositionManager(IPositionManager *manager) {
-    _positionManager = manager;
-  }
-  void setOrderExecutor(IOrderExecutor *executor) { _executor = executor; }
-  void setOrderValidator(IOrderValidator *validator) { _validator = validator; }
+  void setRiskManager(IRiskManager* manager) { _riskManager = manager; }
+  void setPositionManager(IPositionManager* manager) { _positionManager = manager; }
+  void setOrderExecutor(IOrderExecutor* executor) { _executor = executor; }
+  void setOrderValidator(IOrderValidator* validator) { _validator = validator; }
 
-protected:
-  IRiskManager *GetRiskManager() { return _riskManager; }
-  IPositionManager *GetPositionManager() { return _positionManager; }
-  IOrderExecutor *GetOrderExecutor() { return _executor; }
-  IOrderValidator *GetOrderValidator() { return _validator; }
+ protected:
+  IRiskManager* GetRiskManager() { return _riskManager; }
+  IPositionManager* GetPositionManager() { return _positionManager; }
+  IOrderExecutor* GetOrderExecutor() { return _executor; }
+  IOrderValidator* GetOrderValidator() { return _validator; }
 
-private:
+ private:
   SubscriberId _subscriberId = reinterpret_cast<SubscriberId>(this);
 
-  IRiskManager *_riskManager = nullptr;
-  IPositionManager *_positionManager = nullptr;
-  IOrderExecutor *_executor = nullptr;
-  IOrderValidator *_validator = nullptr;
+  IRiskManager* _riskManager = nullptr;
+  IPositionManager* _positionManager = nullptr;
+  IOrderExecutor* _executor = nullptr;
+  IOrderValidator* _validator = nullptr;
 };
 
-} // namespace flox
+}  // namespace flox

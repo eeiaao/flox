@@ -9,29 +9,33 @@
 
 #include "flox/util/spsc_queue.h"
 
+#include <gtest/gtest.h>
 #include <atomic>
 #include <cstdio>
-#include <gtest/gtest.h>
 #include <memory>
 #include <thread>
 
 using namespace flox;
 
-namespace {
+namespace
+{
 
-struct FileWrapper {
-  FILE *f = nullptr;
+struct FileWrapper
+{
+  FILE* f = nullptr;
   static inline int destructed = 0;
 
-  FileWrapper(const char *path) { f = fopen(path, "w"); }
-  ~FileWrapper() {
+  FileWrapper(const char* path) { f = fopen(path, "w"); }
+  ~FileWrapper()
+  {
     if (f)
       fclose(f);
     ++destructed;
   }
 };
 
-TEST(SPSCQueueAdvancedTest, RAIIObjectsDestroyedProperly) {
+TEST(SPSCQueueAdvancedTest, RAIIObjectsDestroyedProperly)
+{
   FileWrapper::destructed = 0;
   {
     SPSCQueue<FileWrapper, 4> q;
@@ -43,13 +47,16 @@ TEST(SPSCQueueAdvancedTest, RAIIObjectsDestroyedProperly) {
 }
 
 // Simulated UB: double destruction (intentionally wrong)
-TEST(SPSCQueueAdvancedTest, DoubleDestructionCausesAbort) {
+TEST(SPSCQueueAdvancedTest, DoubleDestructionCausesAbort)
+{
   ASSERT_EXIT(({
-                struct Dummy {
+                struct Dummy
+                {
                   int value = 42;
-                  bool *destroyed = nullptr;
+                  bool* destroyed = nullptr;
 
-                  ~Dummy() {
+                  ~Dummy()
+                  {
                     if (destroyed && *destroyed)
                       std::abort();
                     if (destroyed)
@@ -60,36 +67,45 @@ TEST(SPSCQueueAdvancedTest, DoubleDestructionCausesAbort) {
                 bool destroyed = false;
                 SPSCQueue<Dummy, 4> q;
                 Dummy d{42, &destroyed};
-                q.push(d); // creates internal copy
+                q.push(d);  // creates internal copy
                 Dummy out;
-                q.pop(out); // destroys queue copy
+                q.pop(out);  // destroys queue copy
                 // now `out` will destroy again on scope exit
               }),
               ::testing::KilledBySignal(SIGABRT), ".*");
 }
 
 // Stress test
-TEST(SPSCQueueAdvancedTest, StressTestMillionsOfOps) {
+TEST(SPSCQueueAdvancedTest, StressTestMillionsOfOps)
+{
   SPSCQueue<int, 1024> q;
   std::atomic<bool> done = false;
   std::atomic<int> count = 0;
 
-  std::thread producer([&] {
-    for (int i = 0; i < 1'000'000; ++i) {
-      while (!q.push(i)) {
-      }
-    }
-    done = true;
-  });
+  std::thread producer(
+      [&]
+      {
+        for (int i = 0; i < 1'000'000; ++i)
+        {
+          while (!q.push(i))
+          {
+          }
+        }
+        done = true;
+      });
 
-  std::thread consumer([&] {
-    int val;
-    while (!done || !q.empty()) {
-      if (q.pop(val)) {
-        ++count;
-      }
-    }
-  });
+  std::thread consumer(
+      [&]
+      {
+        int val;
+        while (!done || !q.empty())
+        {
+          if (q.pop(val))
+          {
+            ++count;
+          }
+        }
+      });
 
   producer.join();
   consumer.join();
@@ -97,4 +113,4 @@ TEST(SPSCQueueAdvancedTest, StressTestMillionsOfOps) {
   EXPECT_EQ(count, 1'000'000);
 }
 
-} // namespace
+}  // namespace

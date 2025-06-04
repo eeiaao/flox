@@ -12,12 +12,14 @@
 #include "flox/book/order.h"
 #include "flox/engine/subsystem.h"
 
-namespace flox {
+namespace flox
+{
 
-class IRiskManager : public ISubsystem {
-public:
+class IRiskManager : public ISubsystem
+{
+ public:
   virtual ~IRiskManager() = default;
-  virtual bool allow(const Order &order) const = 0;
+  virtual bool allow(const Order& order) const = 0;
 };
 
-} // namespace flox
+}  // namespace flox
