@@ -23,7 +23,7 @@ class ConnectorFactory
 {
  public:
   using CreatorFunc =
-      std::function<std::shared_ptr<ExchangeConnector>(const std::string& symbol)>;
+      std::move_only_function<std::shared_ptr<ExchangeConnector>(const std::string& symbol)>;
 
   static ConnectorFactory& instance()
   {

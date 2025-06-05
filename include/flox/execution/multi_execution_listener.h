@@ -12,6 +12,7 @@
 #include "flox/execution/abstract_execution_listener.h"
 
 #include <algorithm>
+#include <ranges>
 #include <vector>
 
 namespace flox
@@ -22,7 +23,7 @@ class MultiExecutionListener : public IOrderExecutionListener
  public:
   void addListener(IOrderExecutionListener* listener)
   {
-    if (listener && std::find(_listeners.begin(), _listeners.end(), listener) == _listeners.end())
+    if (listener && std::ranges::find(_listeners, listener) == _listeners.end())
     {
       _listeners.push_back(listener);
     }
@@ -30,18 +31,17 @@ class MultiExecutionListener : public IOrderExecutionListener
 
   void onOrderFilled(const Order& order) override
   {
-    for (auto* listener : _listeners)
-    {
-      listener->onOrderFilled(order);
-    }
+    std::ranges::for_each(_listeners,
+                          [&](auto* listener)
+                          { listener->onOrderFilled(order); });
   }
 
   void onOrderRejected(const Order& order, const std::string& reason) override
   {
-    for (auto* listener : _listeners)
-    {
-      listener->onOrderRejected(order, reason);
-    }
+    std::ranges::for_each(
+        _listeners,
+        [&](auto* listener)
+        { listener->onOrderRejected(order, reason); });
   }
 
  private:

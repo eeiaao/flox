@@ -10,6 +10,7 @@
 #include "flox/aggregator/candle_aggregator.h"
 
 #include <cassert>
+#include <ranges>
 
 namespace flox
 {
@@ -25,13 +26,12 @@ void CandleAggregator::start()
 }
 void CandleAggregator::stop()
 {
-  for (auto& [symbol, pc] : _candles)
+  for (auto&& [symbol, pc] :
+       _candles | std::views::filter([](auto&& kv)
+                                     { return kv.second.initialized; }))
   {
-    if (pc.initialized)
-    {
-      pc.candle.endTime = pc.candle.startTime + _interval;
-      _callback(symbol, pc.candle);
-    }
+    pc.candle.endTime = pc.candle.startTime + _interval;
+    _callback(symbol, pc.candle);
   }
   _candles.clear();
 }

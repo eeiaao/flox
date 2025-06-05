@@ -21,10 +21,8 @@
 
 using namespace flox;
 using ::testing::_;
-using ::testing::DoAll;
 using ::testing::Invoke;
 using ::testing::Return;
-using ::testing::SaveArg;
 
 class MockExchangeConnector : public ExchangeConnector
 {
@@ -32,7 +30,13 @@ class MockExchangeConnector : public ExchangeConnector
   MOCK_METHOD(void, start, (), (override));
   MOCK_METHOD(void, stop, (), (override));
   MOCK_METHOD(std::string, exchangeId, (), (const, override));
-  MOCK_METHOD(void, setCallbacks, (BookUpdateCallback, TradeCallback), (override));
+  void setCallbacks(BookUpdateCallback book, TradeCallback trade) override
+  {
+    _bookCb = std::move(book);
+    _tradeCb = std::move(trade);
+    onCallbacksSet();
+  }
+  MOCK_METHOD(void, onCallbacksSet, ());
 
   BookUpdateCallback _bookCb;
   TradeCallback _tradeCb;
@@ -64,8 +68,7 @@ TEST(ConnectorManagerTest, RegisterAndStartAll)
 
   EXPECT_CALL(*connector, exchangeId()).WillOnce(Return("bybit"));
 
-  EXPECT_CALL(*connector, setCallbacks(_, _))
-      .WillOnce(DoAll(SaveArg<0>(&connector->_bookCb), SaveArg<1>(&connector->_tradeCb)));
+  EXPECT_CALL(*connector, onCallbacksSet()).Times(1);
 
   EXPECT_CALL(*connector, start()).WillOnce(Invoke([&]
                                                    { connector->triggerTestData(); }));

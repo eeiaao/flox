@@ -27,7 +27,7 @@ namespace flox
 class CandleAggregator : public ISubsystem, public IMarketDataSubscriber
 {
  public:
-  using CandleCallback = std::function<void(SymbolId, const Candle&)>;
+  using CandleCallback = std::move_only_function<void(SymbolId, const Candle&)>;
 
   CandleAggregator(std::chrono::seconds interval, CandleCallback callback);
 
