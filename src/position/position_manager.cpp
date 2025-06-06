@@ -8,6 +8,7 @@
  */
 
 #include "flox/position/position_manager.h"
+#include "flox/common.h"
 
 namespace flox
 {
@@ -17,15 +18,13 @@ void PositionManager::onOrderFilled(const Order& order)
   if (order.symbol >= _positions.size())
     return;
 
-  const auto scaledQty = toInternal(order.quantity);
-
   if (order.side == Side::BUY)
   {
-    _positions[order.symbol] += scaledQty;
+    _positions[order.symbol] += order.quantity;
   }
   else
   {
-    _positions[order.symbol] -= scaledQty;
+    _positions[order.symbol] -= order.quantity;
   }
 }
 
@@ -34,12 +33,12 @@ void PositionManager::onOrderRejected(const Order&)
   // no-op
 }
 
-double PositionManager::getPosition(SymbolId symbol) const
+Quantity PositionManager::getPosition(SymbolId symbol) const
 {
   if (symbol >= _positions.size())
-    return 0.0;
+    return Quantity{0};
 
-  return toDisplay(_positions[symbol]);
+  return _positions[symbol];
 }
 
 void PositionManager::printPositions() const
@@ -47,9 +46,9 @@ void PositionManager::printPositions() const
   std::cout << "=== Current Positions ===\n";
   for (SymbolId symbol = 0; symbol < _positions.size(); ++symbol)
   {
-    if (_positions[symbol] != 0)
+    if (!_positions[symbol].isZero())
     {
-      std::cout << symbol << ": " << toDisplay(_positions[symbol]) << '\n';
+      std::cout << symbol << ": " << _positions[symbol] << '\n';
     }
   }
   std::cout << "==========================\n";

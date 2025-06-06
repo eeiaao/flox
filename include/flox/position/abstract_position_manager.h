@@ -11,8 +11,6 @@
 
 #include "flox/common.h"
 
-#include <string>
-
 namespace flox
 {
 
@@ -21,7 +19,7 @@ class IPositionManager
  public:
   virtual ~IPositionManager() = default;
 
-  virtual double getPosition(SymbolId symbol) const = 0;
+  virtual Quantity getPosition(SymbolId symbol) const = 0;
 };
 
 }  // namespace flox

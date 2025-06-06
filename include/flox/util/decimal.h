@@ -10,8 +10,8 @@
 #pragma once
 
 #include <cassert>
-#include <compare>
 #include <cstdint>
+#include <ostream>
 
 namespace flox
 {
@@ -28,7 +28,16 @@ class Decimal
 
   static constexpr Decimal fromDouble(double val)
   {
-    return Decimal(static_cast<int64_t>(val * Scale + 0.5));
+    if constexpr (Scale > 0)
+    {
+      return Decimal(static_cast<int64_t>(val >= 0.0
+                                              ? val * Scale + 0.5
+                                              : val * Scale - 0.5));
+    }
+    else
+    {
+      return Decimal(0);
+    }
   }
   static constexpr Decimal fromRaw(int64_t raw) { return Decimal(raw); }
 
@@ -66,5 +75,11 @@ class Decimal
  private:
   int64_t _raw;
 };
+
+template <typename Tag, int Scale_, int64_t TickSize_>
+std::ostream& operator<<(std::ostream& os, const Decimal<Tag, Scale_, TickSize_>& value)
+{
+  return os << value.toDouble();
+}
 
 }  // namespace flox

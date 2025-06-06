@@ -8,6 +8,7 @@
  */
 
 #include "flox/book/order.h"
+#include "flox/common.h"
 #include "flox/position/position_manager.h"
 
 #include <benchmark/benchmark.h>
@@ -17,21 +18,25 @@ using namespace flox;
 
 static Order makeOrder(SymbolId symbol, Side side, double qty)
 {
-  return Order{.id = 0,
-               .side = side,
-               .price = 0,
-               .quantity = qty,
-               .type = OrderType::LIMIT,
-               .symbol = symbol,
-               .timestamp = std::chrono::system_clock::now()};
+  auto now = std::chrono::system_clock::now().time_since_epoch();
+  return Order{
+      .id = 0,
+      .side = side,
+      .price = Price{},
+      .quantity = Quantity::fromDouble(qty),
+      .type = OrderType::LIMIT,
+      .symbol = symbol,
+      .status = OrderStatus::NEW,
+      .createdAt = now};
 }
 
 static void BM_PositionManager_OnOrderFilled(benchmark::State& state)
 {
   PositionManager pm;
+  pm.start();
 
   std::mt19937 rng(42);
-  std::uniform_int_distribution<SymbolId> symbolDist(0, 1000);  // 1001 symbols
+  std::uniform_int_distribution<SymbolId> symbolDist(0, 1000);
   std::uniform_real_distribution<double> qtyDist(0.000001, 10.0);
   std::bernoulli_distribution sideDist(0.5);
 
@@ -53,6 +58,5 @@ static void BM_PositionManager_OnOrderFilled(benchmark::State& state)
   }
 }
 
-BENCHMARK(BM_PositionManager_OnOrderFilled)->Unit(benchmark::kNanosecond);
-
+BENCHMARK(BM_PositionManager_OnOrderFilled);
 BENCHMARK_MAIN();

@@ -34,7 +34,7 @@ TEST(PositionManager, IncreasesOnBuy)
 {
   PositionManager pm;
   pm.onOrderFilled(makeOrder(BTC, Side::BUY, 1.234567));
-  EXPECT_NEAR(pm.getPosition(BTC), 1.234567, 1e-6);
+  EXPECT_EQ(pm.getPosition(BTC), Quantity::fromDouble(1.234567));
 }
 
 TEST(PositionManager, DecreasesOnSell)
@@ -42,20 +42,20 @@ TEST(PositionManager, DecreasesOnSell)
   PositionManager pm;
   pm.onOrderFilled(makeOrder(BTC, Side::BUY, 2.0));
   pm.onOrderFilled(makeOrder(BTC, Side::SELL, 0.5));
-  EXPECT_NEAR(pm.getPosition(BTC), 1.5, 1e-6);
+  EXPECT_EQ(pm.getPosition(BTC), Quantity::fromDouble(1.5));
 }
 
 TEST(PositionManager, CanBeNegative)
 {
   PositionManager pm;
   pm.onOrderFilled(makeOrder(BTC, Side::SELL, 0.25));
-  EXPECT_NEAR(pm.getPosition(BTC), -0.25, 1e-6);
+  EXPECT_EQ(pm.getPosition(BTC), Quantity::fromDouble(-0.25));
 }
 
 TEST(PositionManager, UnknownSymbolIsZero)
 {
   PositionManager pm;
-  EXPECT_NEAR(pm.getPosition(ETH), 0.0, 1e-6);
+  EXPECT_EQ(pm.getPosition(ETH), Quantity::fromRaw(0));
 }
 
 TEST(PositionManager, MultipleSymbols)
@@ -64,6 +64,6 @@ TEST(PositionManager, MultipleSymbols)
   pm.onOrderFilled(makeOrder(BTC, Side::BUY, 1.0));
   pm.onOrderFilled(makeOrder(ETH, Side::BUY, 2.0));
   pm.onOrderFilled(makeOrder(BTC, Side::SELL, 0.5));
-  EXPECT_NEAR(pm.getPosition(BTC), 0.5, 1e-6);
-  EXPECT_NEAR(pm.getPosition(ETH), 2.0, 1e-6);
+  EXPECT_EQ(pm.getPosition(BTC), Quantity::fromDouble(0.5));
+  EXPECT_EQ(pm.getPosition(ETH), Quantity::fromDouble(2.0));
 }

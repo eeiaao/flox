@@ -87,8 +87,8 @@ TEST(MultiExecutionListenerTest, CallsAllListeners)
 
   EXPECT_EQ(l1.filledCount, 1);
   EXPECT_EQ(l2.filledCount, 1);
-  EXPECT_EQ(l1.lastOrder.price, 100);
-  EXPECT_EQ(l2.lastOrder.quantity, 1);
+  EXPECT_EQ(l1.lastOrder.price, Price::fromDouble(100.0));
+  EXPECT_EQ(l2.lastOrder.quantity, Quantity::fromDouble(1.0));
 }
 
 TEST(MultiExecutionListenerTest, ForwardsLifecycleCallbacks)

@@ -68,4 +68,20 @@ TEST(DecimalTest, IsZero)
   EXPECT_FALSE(nonZero.isZero());
 }
 
+TEST(DecimalTest, FromDoubleNegativeRoundCorrectly)
+{
+  EXPECT_EQ(Price::fromDouble(-0.25).raw(), -250000);
+  EXPECT_EQ(Price::fromDouble(-1.0).raw(), -1000000);
+  EXPECT_EQ(Price::fromDouble(-0.000001).raw(), -1);
+  EXPECT_EQ(Price::fromDouble(-0.0000001).raw(), 0);
+}
+
+TEST(DecimalTest, FromDoublePositiveRoundCorrectly)
+{
+  EXPECT_EQ(Price::fromDouble(0.25).raw(), 250000);
+  EXPECT_EQ(Price::fromDouble(1.0).raw(), 1000000);
+  EXPECT_EQ(Price::fromDouble(0.000001).raw(), 1);
+  EXPECT_EQ(Price::fromDouble(0.0000001).raw(), 0);
+}
+
 }  // namespace
