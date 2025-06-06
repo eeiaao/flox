@@ -32,19 +32,19 @@ class TestStrategy : public IStrategy
 
   void onTrade(TradeEvent* trade) override
   {
-    if (trade->symbol == _symbol)
+    if (trade->trade.symbol == _symbol)
     {
       ++_seenTrades;
-      _lastTradePrice = trade->price;
+      _lastTradePrice = trade->trade.price;
     }
   }
 
   void onBookUpdate(BookUpdateEvent* update) override
   {
-    if (update->symbol == _symbol && !update->bids.empty())
+    if (update->update.symbol == _symbol && !update->update.bids.empty())
     {
       ++_seenBooks;
-      _lastBid = update->bids[0].price;
+      _lastBid = update->update.bids[0].price;
     }
   }
 
@@ -76,20 +76,20 @@ class MockConnector
   void publishTrade(Price price, Quantity qty)
   {
     auto event = _tradePool.acquire();
-    event->symbol = _symbol;
-    event->price = price;
-    event->quantity = qty;
-    event->isBuy = true;
-    event->timestamp = std::chrono::system_clock::now();
+    event->trade.symbol = _symbol;
+    event->trade.price = price;
+    event->trade.quantity = qty;
+    event->trade.isBuy = true;
+    event->trade.timestamp = std::chrono::system_clock::now();
     _bus.publish(std::move(event));
   }
 
   void publishBook(Price bidPrice, Quantity bidQty)
   {
     auto event = _bookPool.acquire();
-    event->symbol = _symbol;
-    event->type = BookUpdateType::SNAPSHOT;
-    event->bids.push_back({bidPrice, bidQty});
+    event->update.symbol = _symbol;
+    event->update.type = BookUpdateType::SNAPSHOT;
+    event->update.bids.push_back({bidPrice, bidQty});
     _bus.publish(std::move(event));
   }
 

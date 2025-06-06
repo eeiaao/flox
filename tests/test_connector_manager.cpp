@@ -49,11 +49,11 @@ class MockExchangeConnector : public ExchangeConnector
       EventPool<TradeEvent, 3> tradePool;
 
       auto bu = bookUpdatePool.acquire();
-      bu->symbol = 42;
+      bu->update.symbol = 42;
 
       auto tr = tradePool.acquire();
-      tr->symbol = 42;
-      tr->price = Price::fromDouble(3.14);
+      tr->trade.symbol = 42;
+      tr->trade.price = Price::fromDouble(3.14);
 
       _bookCb(bu.get());
       _tradeCb(tr.get());
@@ -82,13 +82,13 @@ TEST(ConnectorManagerTest, RegisterAndStartAll)
       [&](BookUpdateEvent* bu)
       {
         ASSERT_NE(bu, nullptr);
-        EXPECT_EQ(bu->symbol, 42);
+        EXPECT_EQ(bu->update.symbol, 42);
         bookUpdateCalled = true;
       },
       [&](TradeEvent* tr)
       {
-        EXPECT_EQ(tr->symbol, 42);
-        EXPECT_EQ(tr->price, Price::fromDouble(3.14));
+        EXPECT_EQ(tr->trade.symbol, 42);
+        EXPECT_EQ(tr->trade.price, Price::fromDouble(3.14));
         tradeCalled = true;
       });
 

@@ -41,8 +41,8 @@ class TestSubscriber : public IMarketDataSubscriber
       const auto& update = static_cast<const BookUpdateEvent&>(event);
       std::this_thread::sleep_for(std::chrono::milliseconds(1));
       ++_counter;
-      _lastPrice.store(update.bids.empty() ? Price::fromRaw(-1).raw()
-                                           : update.bids[0].price.raw());
+      _lastPrice.store(update.update.bids.empty() ? Price::fromRaw(-1).raw()
+                                                  : update.update.bids[0].price.raw());
     }
   }
 
@@ -70,8 +70,8 @@ TEST(MarketDataBusTest, SingleSubscriberReceivesUpdates)
   {
     auto update = pool.acquire();
     ASSERT_NE(update.get(), nullptr);
-    update->type = BookUpdateType::SNAPSHOT;
-    update->bids.emplace_back(Price::fromDouble(100.0 + 1), Quantity::fromDouble(1.0));
+    update->update.type = BookUpdateType::SNAPSHOT;
+    update->update.bids.emplace_back(Price::fromDouble(100.0 + 1), Quantity::fromDouble(1.0));
     bus.publish(std::move(update));
   }
 
@@ -100,8 +100,8 @@ TEST(MarketDataBusTest, MultipleSubscribersReceiveAll)
   {
     auto update = pool.acquire();
     ASSERT_NE(update.get(), nullptr);
-    update->type = BookUpdateType::SNAPSHOT;
-    update->bids.emplace_back(Price::fromDouble(200.0 + i), Quantity::fromDouble(1.0));
+    update->update.type = BookUpdateType::SNAPSHOT;
+    update->update.bids.emplace_back(Price::fromDouble(200.0 + i), Quantity::fromDouble(1.0));
     bus.publish(std::move(update));
   }
 
@@ -126,8 +126,8 @@ TEST(MarketDataBusTest, GracefulStopDoesNotLeak)
   {
     auto update = pool.acquire();
     ASSERT_NE(update.get(), nullptr);
-    update->type = BookUpdateType::SNAPSHOT;
-    update->bids.emplace_back(Price::fromDouble(300.0 + i), Quantity::fromDouble(1.0));
+    update->update.type = BookUpdateType::SNAPSHOT;
+    update->update.bids.emplace_back(Price::fromDouble(300.0 + i), Quantity::fromDouble(1.0));
     bus.publish(std::move(update));
   }
 

@@ -32,20 +32,20 @@ static void BM_ApplyBookUpdate(benchmark::State& state)
   for (auto _ : state)
   {
     auto update = pool.acquire();
-    update->type = BookUpdateType::DELTA;
-    update->timestamp = std::chrono::system_clock::now();
+    update->update.type = BookUpdateType::DELTA;
+    update->update.timestamp = std::chrono::system_clock::now();
 
-    update->bids.clear();
-    update->asks.clear();
-    update->bids.reserve(10000);
-    update->asks.reserve(10000);
+    update->update.bids.clear();
+    update->update.asks.clear();
+    update->update.bids.reserve(10000);
+    update->update.asks.reserve(10000);
 
     for (int i = 0; i < 10000; ++i)
     {
       Price price = Price::fromDouble(priceDist(rng));
       Quantity qty = Quantity::fromDouble(qtyDist(rng));
-      update->bids.push_back({price, qty});
-      update->asks.push_back({Price::fromDouble(price.toDouble() + 10.0), qty});
+      update->update.bids.push_back({price, qty});
+      update->update.asks.push_back({Price::fromDouble(price.toDouble() + 10.0), qty});
     }
 
     book.applyBookUpdate(*update);
@@ -59,15 +59,15 @@ static void BM_BestBid(benchmark::State& state)
   BookUpdatePool pool;
 
   auto update = pool.acquire();
-  update->type = BookUpdateType::SNAPSHOT;
-  update->bids.reserve(100000);
-  update->asks.clear();
+  update->update.type = BookUpdateType::SNAPSHOT;
+  update->update.bids.reserve(100000);
+  update->update.asks.clear();
 
   for (int i = 0; i < 100000; ++i)
   {
     Price price =
         Price::fromRaw(Price::fromDouble(20000.0).raw() - i * Price::fromDouble(0.1).raw());
-    update->bids.push_back({price, Quantity::fromDouble(1.0)});
+    update->update.bids.push_back({price, Quantity::fromDouble(1.0)});
   }
 
   book.applyBookUpdate(*update);
@@ -85,15 +85,15 @@ static void BM_BestAsk(benchmark::State& state)
   BookUpdatePool pool;
 
   auto update = pool.acquire();
-  update->type = BookUpdateType::SNAPSHOT;
-  update->asks.reserve(100000);
-  update->bids.clear();
+  update->update.type = BookUpdateType::SNAPSHOT;
+  update->update.asks.reserve(100000);
+  update->update.bids.clear();
 
   for (int i = 0; i < 100000; ++i)
   {
     Price price =
         Price::fromRaw(Price::fromDouble(20000.0).raw() + i * Price::fromDouble(0.1).raw());
-    update->asks.push_back({price, Quantity::fromDouble(1.0)});
+    update->update.asks.push_back({price, Quantity::fromDouble(1.0)});
   }
 
   book.applyBookUpdate(*update);

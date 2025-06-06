@@ -44,7 +44,7 @@ class MarketDataBus
   void publish(EventHandle<T> event)
     requires std::is_base_of_v<IMarketDataEvent, T>
   {
-    publish(event.template upcast<IMarketDataEvent>());
+    publish(std::move(event).template upcast<IMarketDataEvent>());
   }
 
  private:
