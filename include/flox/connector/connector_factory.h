@@ -37,7 +37,7 @@ class ConnectorFactory
   }
 
   std::shared_ptr<ExchangeConnector> createConnector(const std::string& type,
-                                                     const std::string& symbol) const
+                                                     const std::string& symbol)
   {
     auto it = _creators.find(type);
     if (it != _creators.end())
