@@ -28,6 +28,7 @@ enum class Side
 };
 
 using SymbolId = uint32_t;
+using OrderId = uint64_t;
 
 struct PriceTag
 {

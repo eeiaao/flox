@@ -27,8 +27,13 @@ class PositionManager : public IPositionManager, public IOrderExecutionListener,
   void start() override {}
   void stop() override {}
 
+  void onOrderAccepted(const Order&) override {}
+  void onOrderPartiallyFilled(const Order&, Quantity) override {}
   void onOrderFilled(const Order& order) override;
-  void onOrderRejected(const Order& order, const std::string& reason) override;
+  void onOrderCanceled(const Order&) override {}
+  void onOrderExpired(const Order&) override {}
+  void onOrderRejected(const Order& order) override;
+  void onOrderReplaced(const Order&, const Order&) override {}
 
   double getPosition(SymbolId symbol) const override;
   void printPositions() const;

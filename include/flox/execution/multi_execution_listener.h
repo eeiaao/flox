@@ -29,19 +29,55 @@ class MultiExecutionListener : public IOrderExecutionListener
     }
   }
 
-  void onOrderFilled(const Order& order) override
+  void onOrderAccepted(const Order& order) override
   {
     std::ranges::for_each(_listeners,
-                          [&](auto* listener)
-                          { listener->onOrderFilled(order); });
+                          [&](auto* l)
+                          { l->onOrderAccepted(order); });
   }
 
-  void onOrderRejected(const Order& order, const std::string& reason) override
+  void onOrderPartiallyFilled(const Order& order, Quantity fillQty) override
   {
     std::ranges::for_each(
         _listeners,
-        [&](auto* listener)
-        { listener->onOrderRejected(order, reason); });
+        [&](auto* l)
+        { l->onOrderPartiallyFilled(order, fillQty); });
+  }
+
+  void onOrderFilled(const Order& order) override
+  {
+    std::ranges::for_each(_listeners,
+                          [&](auto* l)
+                          { l->onOrderFilled(order); });
+  }
+
+  void onOrderCanceled(const Order& order) override
+  {
+    std::ranges::for_each(_listeners,
+                          [&](auto* l)
+                          { l->onOrderCanceled(order); });
+  }
+
+  void onOrderExpired(const Order& order) override
+  {
+    std::ranges::for_each(_listeners,
+                          [&](auto* l)
+                          { l->onOrderExpired(order); });
+  }
+
+  void onOrderRejected(const Order& order) override
+  {
+    std::ranges::for_each(_listeners,
+                          [&](auto* l)
+                          { l->onOrderRejected(order); });
+  }
+
+  void onOrderReplaced(const Order& oldOrder, const Order& newOrder) override
+  {
+    std::ranges::for_each(
+        _listeners,
+        [&](auto* l)
+        { l->onOrderReplaced(oldOrder, newOrder); });
   }
 
  private:

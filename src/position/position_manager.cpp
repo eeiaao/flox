@@ -29,7 +29,7 @@ void PositionManager::onOrderFilled(const Order& order)
   }
 }
 
-void PositionManager::onOrderRejected(const Order&, const std::string&)
+void PositionManager::onOrderRejected(const Order&)
 {
   // no-op
 }

@@ -20,8 +20,14 @@ class IOrderExecutionListener
 {
  public:
   virtual ~IOrderExecutionListener() = default;
+
+  virtual void onOrderAccepted(const Order& order) = 0;
+  virtual void onOrderPartiallyFilled(const Order& order, Quantity fillQty) = 0;
   virtual void onOrderFilled(const Order& order) = 0;
-  virtual void onOrderRejected(const Order& order, const std::string& reason) = 0;
+  virtual void onOrderCanceled(const Order& order) = 0;
+  virtual void onOrderExpired(const Order& order) = 0;
+  virtual void onOrderRejected(const Order& order) = 0;
+  virtual void onOrderReplaced(const Order& oldOrder, const Order& newOrder) = 0;
 };
 
 }  // namespace flox

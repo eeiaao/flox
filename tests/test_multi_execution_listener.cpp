@@ -8,6 +8,7 @@
  */
 
 #include <gtest/gtest.h>
+#include "flox/common.h"
 #include "flox/execution/multi_execution_listener.h"
 
 using namespace flox;
@@ -18,20 +19,24 @@ class MockExecutionListener : public IOrderExecutionListener
   int filledCount = 0;
   int rejectedCount = 0;
   Order lastOrder;
-  std::string lastReason;
 
+  void onOrderAccepted(const Order&) override {}
+  void onOrderPartiallyFilled(const Order&, Quantity) override {}
   void onOrderFilled(const Order& order) override
   {
     ++filledCount;
     lastOrder = order;
   }
 
-  void onOrderRejected(const Order& order, const std::string& reason) override
+  void onOrderCanceled(const Order&) override {}
+  void onOrderExpired(const Order&) override {}
+  void onOrderRejected(const Order& order) override
   {
     ++rejectedCount;
     lastOrder = order;
-    lastReason = reason;
   }
+
+  void onOrderReplaced(const Order&, const Order&) override {}
 };
 
 TEST(MultiExecutionListenerTest, CallsAllListeners)
@@ -42,10 +47,10 @@ TEST(MultiExecutionListenerTest, CallsAllListeners)
   multi.addListener(&l1);
   multi.addListener(&l2);
 
-  Order order;
+  Order order{};
   order.symbol = 1;
-  order.price = 100.0;
-  order.quantity = 1.0;
+  order.price = Price::fromDouble(100.0);
+  order.quantity = Quantity::fromDouble(1.0);
   multi.onOrderFilled(order);
 
   EXPECT_EQ(l1.filledCount, 1);
@@ -62,10 +67,10 @@ TEST(MultiExecutionListenerTest, PreventsDuplicateListeners)
   multi.addListener(&l1);
   multi.addListener(&l1);  // Duplicate
 
-  Order order;
+  Order order{};
   order.symbol = 1;
-  order.price = 100.0;
-  order.quantity = 1.0;
+  order.price = Price::fromDouble(100.0);
+  order.quantity = Quantity::fromDouble(1.0);
   multi.onOrderFilled(order);
 
   EXPECT_EQ(l1.filledCount, 1);  // Should only be called once

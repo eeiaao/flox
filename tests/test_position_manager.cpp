@@ -19,13 +19,15 @@ constexpr SymbolId ETH = 2;
 
 static Order makeOrder(SymbolId symbol, Side side, double qty)
 {
-  return Order{.id = 0,
-               .side = side,
-               .price = 0,
-               .quantity = qty,
-               .type = OrderType::LIMIT,
-               .symbol = symbol,
-               .timestamp = std::chrono::system_clock::now()};
+  Order order{};
+  order.id = 0;
+  order.side = side;
+  order.price = Price::fromDouble(0);
+  order.quantity = Quantity::fromDouble(qty);
+  order.type = OrderType::LIMIT;
+  order.symbol = symbol;
+  order.createdAt = std::chrono::nanoseconds(0);
+  return order;
 }
 
 TEST(PositionManager, IncreasesOnBuy)

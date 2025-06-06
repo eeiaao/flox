@@ -25,6 +25,8 @@ class IOrderExecutor : public ISubsystem
   virtual ~IOrderExecutor() = default;
 
   virtual void submitOrder(const Order& order) = 0;
+  virtual void cancelOrder(OrderId orderId) = 0;
+  virtual void replaceOrder(OrderId oldOrderId, const Order& newOrder) = 0;
 
   void setExecutionTracker(IExecutionTracker* tracker) { _tracker = tracker; }
   void setListener(IOrderExecutionListener* listener) { _listener = listener; }

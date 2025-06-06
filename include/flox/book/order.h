@@ -13,20 +13,39 @@
 
 #include <chrono>
 #include <cstdint>
-#include <string>
+#include <optional>
 
 namespace flox
 {
 
+enum class OrderStatus
+{
+  NEW,
+  PENDING,
+  PARTIALLY_FILLED,
+  FILLED,
+  CANCELED,
+  EXPIRED,
+  REPLACED,
+  REJECTED
+};
+
 struct Order
 {
-  uint64_t id;
-  Side side;
-  double price;
-  double quantity;
-  OrderType type;
-  SymbolId symbol;
-  std::chrono::system_clock::time_point timestamp;
+  OrderId id{};
+  Side side{};
+  Price price{};
+  Quantity quantity{};
+  OrderType type{};
+  SymbolId symbol{};
+
+  OrderStatus status = OrderStatus::NEW;
+  Quantity filledQuantity{0};
+
+  std::chrono::nanoseconds createdAt{};
+  std::optional<std::chrono::nanoseconds> exchangeTimestamp;
+  std::optional<std::chrono::nanoseconds> lastUpdated;
+  std::optional<std::chrono::nanoseconds> expiresAfter;
 };
 
 }  // namespace flox
