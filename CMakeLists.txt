@@ -40,7 +40,7 @@ target_compile_options(${FLOX} PRIVATE
 
 add_library(${FLOX_SYNC} STATIC ${SRC_FILES})
 add_library(flox::${FLOX_SYNC} ALIAS ${FLOX_SYNC})
-target_compile_definitions(${FLOX_SYNC} PRIVATE USE_SYNC_MARKET_BUS)
+target_compile_definitions(${FLOX_SYNC} PRIVATE USE_SYNC_MARKET_BUS USE_SYNC_ORDER_BUS)
 target_compile_options(${FLOX_SYNC} PRIVATE
   $<$<CONFIG:Release>:-O3 -march=native -flto -funroll-loops>
 )

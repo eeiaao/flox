@@ -1,0 +1,56 @@
+#pragma once
+
+#include "flox/book/order.h"
+#include "flox/execution/abstract_execution_listener.h"
+
+namespace flox
+{
+
+enum class OrderEventType
+{
+  ACCEPTED,
+  PARTIALLY_FILLED,
+  FILLED,
+  CANCELED,
+  EXPIRED,
+  REJECTED,
+  REPLACED
+};
+
+struct OrderEvent
+{
+  OrderEventType type{};
+  Order order{};
+  Order newOrder{};
+  Quantity fillQty{0};
+
+  void dispatchTo(IOrderExecutionListener& listener) const
+  {
+    switch (type)
+    {
+      case OrderEventType::ACCEPTED:
+        listener.onOrderAccepted(order);
+        break;
+      case OrderEventType::PARTIALLY_FILLED:
+        listener.onOrderPartiallyFilled(order, fillQty);
+        break;
+      case OrderEventType::FILLED:
+        listener.onOrderFilled(order);
+        break;
+      case OrderEventType::CANCELED:
+        listener.onOrderCanceled(order);
+        break;
+      case OrderEventType::EXPIRED:
+        listener.onOrderExpired(order);
+        break;
+      case OrderEventType::REJECTED:
+        listener.onOrderRejected(order);
+        break;
+      case OrderEventType::REPLACED:
+        listener.onOrderReplaced(order, newOrder);
+        break;
+    }
+  }
+};
+
+}  // namespace flox
