@@ -58,8 +58,8 @@ class PullingSubscriber : public IMarketDataSubscriber
       const auto& event = opt->get();
       const auto& book = static_cast<const BookUpdateEvent&>(*event);
       ++_counter;
-      if (!book.bids.empty())
-        _lastPrice.store(book.bids[0].price.toDouble());
+      if (!book.update.bids.empty())
+        _lastPrice.store(book.update.bids[0].price.toDouble());
     }
   }
 
@@ -84,8 +84,8 @@ TEST(MarketDataBusTest, PullSubscriberProcessesEvent)
 
   EventPool<BookUpdateEvent, 3> pool;
   auto event = pool.acquire();
-  event->type = BookUpdateType::SNAPSHOT;
-  event->bids = {{Price::fromDouble(200.0), Quantity::fromDouble(1.0)}};
+  event->update.type = BookUpdateType::SNAPSHOT;
+  event->update.bids = {{Price::fromDouble(200.0), Quantity::fromDouble(1.0)}};
   bus.publish(std::move(event));
 
   sub->readLoop();
@@ -109,7 +109,7 @@ class PushTestSubscriber : public IMarketDataSubscriber
   void onMarketData(const IMarketDataEvent& event) override
   {
     const auto& book = static_cast<const BookUpdateEvent&>(event);
-    if (!book.bids.empty() && book.bids[0].price.toDouble() > 0.0)
+    if (!book.update.bids.empty() && book.update.bids[0].price.toDouble() > 0.0)
       ++_counter;
   }
 
@@ -130,8 +130,8 @@ TEST(MarketDataBusTest, PushSubscriberReceivesAllEvents)
   for (int i = 0; i < 3; ++i)
   {
     auto handle = pool.acquire();
-    handle->type = BookUpdateType::SNAPSHOT;
-    handle->bids = {{Price::fromDouble(100.0 + i), Quantity::fromDouble(1.0)}};
+    handle->update.type = BookUpdateType::SNAPSHOT;
+    handle->update.bids = {{Price::fromDouble(100.0 + i), Quantity::fromDouble(1.0)}};
     bus.publish(std::move(handle));
   }
 
@@ -158,8 +158,8 @@ TEST(MarketDataBusTest, MixedPushAndPullWorkTogether)
   bus.subscribe(pull);
 
   auto handle = pool.acquire();
-  handle->type = BookUpdateType::SNAPSHOT;
-  handle->bids = {{Price::fromDouble(105.5), Quantity::fromDouble(3.3)}};
+  handle->update.type = BookUpdateType::SNAPSHOT;
+  handle->update.bids = {{Price::fromDouble(105.5), Quantity::fromDouble(3.3)}};
   bus.publish(std::move(handle));
 
   pull->readLoop();

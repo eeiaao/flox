@@ -33,11 +33,11 @@ EventHandle<TradeEvent> makeTrade(TradePool& pool, SymbolId symbol, double price
                                   int sec)
 {
   auto handle = pool.acquire();
-  handle->symbol = symbol;
-  handle->price = Price::fromDouble(price);
-  handle->quantity = Quantity::fromDouble(qty);
-  handle->isBuy = true;
-  handle->timestamp = ts(sec);
+  handle->trade.symbol = symbol;
+  handle->trade.price = Price::fromDouble(price);
+  handle->trade.quantity = Quantity::fromDouble(qty);
+  handle->trade.isBuy = true;
+  handle->trade.timestamp = ts(sec);
   return handle;
 }
 

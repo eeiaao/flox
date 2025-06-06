@@ -33,9 +33,11 @@ class FullOrderBook : public IOrderBook
   {
   }
 
-  void applyBookUpdate(const BookUpdateEvent& update) override
+  void applyBookUpdate(const BookUpdateEvent& event) override
   {
     std::scoped_lock lock(_mutex);
+
+    const auto& update = event.update;
 
     if (update.type == BookUpdateType::SNAPSHOT)
     {

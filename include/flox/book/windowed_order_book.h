@@ -42,9 +42,11 @@ class WindowedOrderBook : public IOrderBook
   {
   }
 
-  void applyBookUpdate(const BookUpdateEvent& update) override
+  void applyBookUpdate(const BookUpdateEvent& event) override
   {
     std::scoped_lock lock(_mutex);
+
+    const auto& update = event.update;
 
     Price minPrice = Price(std::numeric_limits<int64_t>::max());
     Price maxPrice = Price(std::numeric_limits<int64_t>::lowest());
