@@ -37,11 +37,12 @@ static void BM_CandleAggregator_OnTrade(benchmark::State& state)
   {
     auto trade = tradePool.acquire();
 
-    trade->symbol = SYMBOL;
-    trade->price = Price::fromDouble(priceDist(rng));
-    trade->quantity = Quantity::fromDouble(qtyDist(rng));
-    trade->isBuy = true;
-    trade->timestamp = std::chrono::system_clock::time_point(std::chrono::seconds(baseTs++));
+    trade->trade.symbol = SYMBOL;
+    trade->trade.price = Price::fromDouble(priceDist(rng));
+    trade->trade.quantity = Quantity::fromDouble(qtyDist(rng));
+    trade->trade.isBuy = true;
+    trade->trade.timestamp =
+        std::chrono::system_clock::time_point(std::chrono::seconds(baseTs++));
 
     aggregator.onMarketData(*trade);
   }
