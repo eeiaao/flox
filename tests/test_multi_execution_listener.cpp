@@ -16,27 +16,59 @@ using namespace flox;
 class MockExecutionListener : public IOrderExecutionListener
 {
  public:
+  int acceptedCount = 0;
+  int partialCount = 0;
   int filledCount = 0;
+  int canceledCount = 0;
+  int expiredCount = 0;
   int rejectedCount = 0;
+  int replacedCount = 0;
   Order lastOrder;
+  Order replacedOld;
+  Order replacedNew;
 
-  void onOrderAccepted(const Order&) override {}
-  void onOrderPartiallyFilled(const Order&, Quantity) override {}
+  void onOrderAccepted(const Order& order) override
+  {
+    ++acceptedCount;
+    lastOrder = order;
+  }
+
+  void onOrderPartiallyFilled(const Order& order, Quantity) override
+  {
+    ++partialCount;
+    lastOrder = order;
+  }
+
   void onOrderFilled(const Order& order) override
   {
     ++filledCount;
     lastOrder = order;
   }
 
-  void onOrderCanceled(const Order&) override {}
-  void onOrderExpired(const Order&) override {}
+  void onOrderCanceled(const Order& order) override
+  {
+    ++canceledCount;
+    lastOrder = order;
+  }
+
+  void onOrderExpired(const Order& order) override
+  {
+    ++expiredCount;
+    lastOrder = order;
+  }
+
   void onOrderRejected(const Order& order) override
   {
     ++rejectedCount;
     lastOrder = order;
   }
 
-  void onOrderReplaced(const Order&, const Order&) override {}
+  void onOrderReplaced(const Order& oldOrder, const Order& newOrder) override
+  {
+    ++replacedCount;
+    replacedOld = oldOrder;
+    replacedNew = newOrder;
+  }
 };
 
 TEST(MultiExecutionListenerTest, CallsAllListeners)
@@ -57,6 +89,43 @@ TEST(MultiExecutionListenerTest, CallsAllListeners)
   EXPECT_EQ(l2.filledCount, 1);
   EXPECT_EQ(l1.lastOrder.price, 100);
   EXPECT_EQ(l2.lastOrder.quantity, 1);
+}
+
+TEST(MultiExecutionListenerTest, ForwardsLifecycleCallbacks)
+{
+  MultiExecutionListener multi;
+  MockExecutionListener listener;
+
+  multi.addListener(&listener);
+
+  Order order{};
+  order.symbol = 1;
+  order.price = Price::fromDouble(10.0);
+  order.quantity = Quantity::fromDouble(1.0);
+
+  multi.onOrderAccepted(order);
+  EXPECT_EQ(listener.acceptedCount, 1);
+
+  multi.onOrderPartiallyFilled(order, Quantity::fromDouble(0.5));
+  EXPECT_EQ(listener.partialCount, 1);
+
+  multi.onOrderCanceled(order);
+  EXPECT_EQ(listener.canceledCount, 1);
+
+  multi.onOrderExpired(order);
+  EXPECT_EQ(listener.expiredCount, 1);
+
+  multi.onOrderRejected(order);
+  EXPECT_EQ(listener.rejectedCount, 1);
+
+  Order newOrder{};
+  newOrder.symbol = 2;
+  newOrder.price = Price::fromDouble(11.0);
+  newOrder.quantity = Quantity::fromDouble(1.0);
+  multi.onOrderReplaced(order, newOrder);
+  EXPECT_EQ(listener.replacedCount, 1);
+  EXPECT_EQ(listener.replacedOld.symbol, 1u);
+  EXPECT_EQ(listener.replacedNew.symbol, 2u);
 }
 
 TEST(MultiExecutionListenerTest, PreventsDuplicateListeners)
