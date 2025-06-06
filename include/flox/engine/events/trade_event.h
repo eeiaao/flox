@@ -12,7 +12,7 @@
 #include <chrono>
 #include <string>
 
-#include "flox/common.h"
+#include "flox/book/trade.h"
 #include "flox/engine/events/market_data_event.h"
 
 namespace flox
@@ -20,11 +20,9 @@ namespace flox
 
 struct TradeEvent : public IMarketDataEvent
 {
-  SymbolId symbol;
-  Price price;
-  Quantity quantity;
-  bool isBuy;
-  std::chrono::system_clock::time_point timestamp;
+  using Listener = IMarketDataSubscriber;
+
+  Trade trade{};
 
   TradeEvent(std::pmr::memory_resource*) {}
 

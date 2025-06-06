@@ -32,19 +32,19 @@ class TestStrategy : public IStrategy
 
   void onTrade(TradeEvent* trade) override
   {
-    if (trade->symbol == _symbol)
+    if (trade->trade.symbol == _symbol)
     {
       ++_seenTrades;
-      _lastTradePrice = trade->price;
+      _lastTradePrice = trade->trade.price;
     }
   }
 
   void onBookUpdate(BookUpdateEvent* update) override
   {
-    if (update->symbol == _symbol && !update->bids.empty())
+    if (update->update.symbol == _symbol && !update->update.bids.empty())
     {
       ++_seenBooks;
-      _lastBid = update->bids[0].price;
+      _lastBid = update->update.bids[0].price;
     }
   }
 

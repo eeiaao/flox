@@ -19,6 +19,7 @@ enum class OrderEventType
 
 struct OrderEvent
 {
+  using Listener = IOrderExecutionListener;
   OrderEventType type{};
   Order order{};
   Order newOrder{};

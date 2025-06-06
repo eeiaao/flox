@@ -46,29 +46,29 @@ void CandleAggregator::onMarketData(const IMarketDataEvent& event)
 
 void CandleAggregator::onTrade(TradeEvent* trade)
 {
-  auto ts = alignToInterval(trade->timestamp);
-  auto& partial = _candles[trade->symbol];
+  auto ts = alignToInterval(trade->trade.timestamp);
+  auto& partial = _candles[trade->trade.symbol];
 
   if (!partial.initialized || partial.candle.startTime != ts)
   {
     if (partial.initialized)
     {
       partial.candle.endTime = partial.candle.startTime + _interval;
-      _callback(trade->symbol, partial.candle);
+      _callback(trade->trade.symbol, partial.candle);
     }
     partial.candle =
-        Candle(ts, trade->price,
-               Volume::fromDouble(trade->price.toDouble() * trade->quantity.toDouble()));
+        Candle(ts, trade->trade.price,
+               Volume::fromDouble(trade->trade.price.toDouble() * trade->trade.quantity.toDouble()));
     partial.candle.endTime = ts + _interval;
     partial.initialized = true;
     return;
   }
 
   auto& c = partial.candle;
-  c.high = std::max(c.high, trade->price);
-  c.low = std::min(c.low, trade->price);
-  c.close = trade->price;
-  c.volume += Volume::fromDouble(trade->price.toDouble() * trade->quantity.toDouble());
+  c.high = std::max(c.high, trade->trade.price);
+  c.low = std::min(c.low, trade->trade.price);
+  c.close = trade->trade.price;
+  c.volume += Volume::fromDouble(trade->trade.price.toDouble() * trade->trade.quantity.toDouble());
   c.endTime = partial.candle.startTime + _interval;
 }
 

@@ -9,7 +9,7 @@
 
 #pragma once
 
-#include "flox/common.h"
+#include "flox/book/book_update.h"
 #include "flox/engine/abstract_market_data_subscriber.h"
 #include "flox/engine/events/market_data_event.h"
 #include "flox/engine/symbol_registry.h"
@@ -40,19 +40,22 @@ struct BookLevel
 
 struct BookUpdateEvent : public IMarketDataEvent
 {
-  SymbolId symbol;
-  BookUpdateType type;
-  std::pmr::vector<BookLevel> bids;
-  std::pmr::vector<BookLevel> asks;
-  std::chrono::system_clock::time_point timestamp;
+  using Listener = IMarketDataSubscriber;
 
-  BookUpdateEvent(std::pmr::memory_resource* res) : bids(res), asks(res)
+  BookUpdate update;
+
+  BookUpdateEvent(std::pmr::memory_resource* res) : update(res)
   {
     assert(res != nullptr && "pmr::memory_resource is null!");
   }
 
   MarketDataEventType eventType() const noexcept override;
   void dispatchTo(IMarketDataSubscriber& sub) const override;
+  void clear() override
+  {
+    update.bids.clear();
+    update.asks.clear();
+  }
 };
 
 }  // namespace flox

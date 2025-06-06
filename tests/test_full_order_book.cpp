@@ -27,9 +27,9 @@ class FullOrderBookTest : public ::testing::Test
                                             const std::vector<BookLevel>& asks)
   {
     auto u = pool.acquire();
-    u->type = BookUpdateType::SNAPSHOT;
-    u->bids.assign(bids.begin(), bids.end());
-    u->asks.assign(asks.begin(), asks.end());
+    u->update.type = BookUpdateType::SNAPSHOT;
+    u->update.bids.assign(bids.begin(), bids.end());
+    u->update.asks.assign(asks.begin(), asks.end());
     return u;
   }
 
@@ -37,9 +37,9 @@ class FullOrderBookTest : public ::testing::Test
                                          const std::vector<BookLevel>& asks)
   {
     auto u = pool.acquire();
-    u->type = BookUpdateType::DELTA;
-    u->bids.assign(bids.begin(), bids.end());
-    u->asks.assign(asks.begin(), asks.end());
+    u->update.type = BookUpdateType::DELTA;
+    u->update.bids.assign(bids.begin(), bids.end());
+    u->update.asks.assign(asks.begin(), asks.end());
     return u;
   }
 };

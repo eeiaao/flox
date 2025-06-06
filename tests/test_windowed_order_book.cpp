@@ -25,11 +25,11 @@ TEST(WindowedOrderBookTest, ApplySnapshot)
 
   EventPool<BookUpdateEvent, 3> pool;
   auto snapshot = pool.acquire();
-  snapshot->type = BookUpdateType::SNAPSHOT;
-  snapshot->bids = {{Price::fromDouble(20000), Quantity::fromDouble(5)},
-                    {Price::fromDouble(19990), Quantity::fromDouble(3)}};
-  snapshot->asks = {{Price::fromDouble(20010), Quantity::fromDouble(2)},
-                    {Price::fromDouble(20020), Quantity::fromDouble(4)}};
+  snapshot->update.type = BookUpdateType::SNAPSHOT;
+  snapshot->update.bids = {{Price::fromDouble(20000), Quantity::fromDouble(5)},
+                           {Price::fromDouble(19990), Quantity::fromDouble(3)}};
+  snapshot->update.asks = {{Price::fromDouble(20010), Quantity::fromDouble(2)},
+                           {Price::fromDouble(20020), Quantity::fromDouble(4)}};
   book->applyBookUpdate(*snapshot);
 
   ASSERT_EQ(book->bestBid(), Price::fromDouble(20000));
@@ -44,16 +44,16 @@ TEST(WindowedOrderBookTest, ApplyDelta)
 
   EventPool<BookUpdateEvent, 3> pool;
   auto snapshot = pool.acquire();
-  snapshot->type = BookUpdateType::SNAPSHOT;
-  snapshot->bids = {{Price::fromDouble(1500), Quantity::fromDouble(1)}};
-  snapshot->asks = {{Price::fromDouble(1505), Quantity::fromDouble(1)}};
+  snapshot->update.type = BookUpdateType::SNAPSHOT;
+  snapshot->update.bids = {{Price::fromDouble(1500), Quantity::fromDouble(1)}};
+  snapshot->update.asks = {{Price::fromDouble(1505), Quantity::fromDouble(1)}};
   book->applyBookUpdate(*snapshot);
 
   auto delta = pool.acquire();
-  delta->type = BookUpdateType::DELTA;
-  delta->bids = {{Price::fromDouble(1500), Quantity::fromDouble(0)},
-                 {Price::fromDouble(1495), Quantity::fromDouble(2)}};
-  delta->asks = {{Price::fromDouble(1505), Quantity::fromDouble(3)}};
+  delta->update.type = BookUpdateType::DELTA;
+  delta->update.bids = {{Price::fromDouble(1500), Quantity::fromDouble(0)},
+                        {Price::fromDouble(1495), Quantity::fromDouble(2)}};
+  delta->update.asks = {{Price::fromDouble(1505), Quantity::fromDouble(3)}};
   book->applyBookUpdate(*delta);
 
   ASSERT_EQ(book->bestBid(), Price::fromDouble(1495));
@@ -68,15 +68,15 @@ TEST(WindowedOrderBookTest, SnapshotRemovesStaleLevels)
 
   EventPool<BookUpdateEvent, 3> pool;
   auto snap1 = pool.acquire();
-  snap1->type = BookUpdateType::SNAPSHOT;
-  snap1->bids = {{Price::fromDouble(20000), Quantity::fromDouble(5)},
-                 {Price::fromDouble(19990), Quantity::fromDouble(3)}};
+  snap1->update.type = BookUpdateType::SNAPSHOT;
+  snap1->update.bids = {{Price::fromDouble(20000), Quantity::fromDouble(5)},
+                        {Price::fromDouble(19990), Quantity::fromDouble(3)}};
   book->applyBookUpdate(*snap1);
   ASSERT_EQ(book->bestBid(), Price::fromDouble(20000));
 
   auto snap2 = pool.acquire();
-  snap2->type = BookUpdateType::SNAPSHOT;
-  snap2->bids = {{Price::fromDouble(19990), Quantity::fromDouble(7)}};
+  snap2->update.type = BookUpdateType::SNAPSHOT;
+  snap2->update.bids = {{Price::fromDouble(19990), Quantity::fromDouble(7)}};
   book->applyBookUpdate(*snap2);
   ASSERT_EQ(book->bestBid(), Price::fromDouble(19990));
 }
@@ -101,15 +101,15 @@ TEST(WindowedOrderBookTest, BestBidAskEmptyAfterErase)
 
   EventPool<BookUpdateEvent, 3> pool;
   auto snap = pool.acquire();
-  snap->type = BookUpdateType::SNAPSHOT;
-  snap->bids = {{Price::fromDouble(100), Quantity::fromDouble(1)}};
-  snap->asks = {{Price::fromDouble(101), Quantity::fromDouble(1)}};
+  snap->update.type = BookUpdateType::SNAPSHOT;
+  snap->update.bids = {{Price::fromDouble(100), Quantity::fromDouble(1)}};
+  snap->update.asks = {{Price::fromDouble(101), Quantity::fromDouble(1)}};
   book->applyBookUpdate(*snap);
 
   auto delta = pool.acquire();
-  delta->type = BookUpdateType::DELTA;
-  delta->bids = {{Price::fromDouble(100), Quantity::fromDouble(0)}};
-  delta->asks = {{Price::fromDouble(101), Quantity::fromDouble(0)}};
+  delta->update.type = BookUpdateType::DELTA;
+  delta->update.bids = {{Price::fromDouble(100), Quantity::fromDouble(0)}};
+  delta->update.asks = {{Price::fromDouble(101), Quantity::fromDouble(0)}};
   book->applyBookUpdate(*delta);
 
   ASSERT_FALSE(book->bestBid().has_value());
@@ -124,13 +124,13 @@ TEST(WindowedOrderBookTest, DeltaAddsNewLevel)
 
   EventPool<BookUpdateEvent, 3> pool;
   auto snap = pool.acquire();
-  snap->type = BookUpdateType::SNAPSHOT;
-  snap->bids = {{Price::fromDouble(100.0), Quantity::fromDouble(1)}};
+  snap->update.type = BookUpdateType::SNAPSHOT;
+  snap->update.bids = {{Price::fromDouble(100.0), Quantity::fromDouble(1)}};
   book->applyBookUpdate(*snap);
 
   auto delta = pool.acquire();
-  delta->type = BookUpdateType::DELTA;
-  delta->bids = {{Price::fromDouble(99.9), Quantity::fromDouble(2)}};
+  delta->update.type = BookUpdateType::DELTA;
+  delta->update.bids = {{Price::fromDouble(99.9), Quantity::fromDouble(2)}};
   book->applyBookUpdate(*delta);
 
   ASSERT_EQ(book->bestBid(), Price::fromDouble(100.0));
@@ -145,14 +145,14 @@ TEST(WindowedOrderBookTest, DeltaRemovesLevel)
 
   EventPool<BookUpdateEvent, 3> pool;
   auto snap = pool.acquire();
-  snap->type = BookUpdateType::SNAPSHOT;
-  snap->bids = {{Price::fromDouble(100.0), Quantity::fromDouble(1)},
-                {Price::fromDouble(99.9), Quantity::fromDouble(2)}};
+  snap->update.type = BookUpdateType::SNAPSHOT;
+  snap->update.bids = {{Price::fromDouble(100.0), Quantity::fromDouble(1)},
+                       {Price::fromDouble(99.9), Quantity::fromDouble(2)}};
   book->applyBookUpdate(*snap);
 
   auto delta = pool.acquire();
-  delta->type = BookUpdateType::DELTA;
-  delta->bids = {{Price::fromDouble(100.0), Quantity::fromDouble(0)}};
+  delta->update.type = BookUpdateType::DELTA;
+  delta->update.bids = {{Price::fromDouble(100.0), Quantity::fromDouble(0)}};
   book->applyBookUpdate(*delta);
 
   ASSERT_EQ(book->bestBid(), Price::fromDouble(99.9));
@@ -166,13 +166,13 @@ TEST(WindowedOrderBookTest, DeltaModifiesLevel)
 
   EventPool<BookUpdateEvent, 3> pool;
   auto snap = pool.acquire();
-  snap->type = BookUpdateType::SNAPSHOT;
-  snap->bids = {{Price::fromDouble(100.0), Quantity::fromDouble(1)}};
+  snap->update.type = BookUpdateType::SNAPSHOT;
+  snap->update.bids = {{Price::fromDouble(100.0), Quantity::fromDouble(1)}};
   book->applyBookUpdate(*snap);
 
   auto delta = pool.acquire();
-  delta->type = BookUpdateType::DELTA;
-  delta->bids = {{Price::fromDouble(100.0), Quantity::fromDouble(5)}};
+  delta->update.type = BookUpdateType::DELTA;
+  delta->update.bids = {{Price::fromDouble(100.0), Quantity::fromDouble(5)}};
   book->applyBookUpdate(*delta);
 
   ASSERT_EQ(book->bidAtPrice(Price::fromDouble(100.0)), Quantity::fromDouble(5));
@@ -186,14 +186,14 @@ TEST(WindowedOrderBookTest, DeltaIsPartialUpdate)
 
   EventPool<BookUpdateEvent, 3> pool;
   auto snap = pool.acquire();
-  snap->type = BookUpdateType::SNAPSHOT;
-  snap->bids = {{Price::fromDouble(100.0), Quantity::fromDouble(1)},
-                {Price::fromDouble(99.9), Quantity::fromDouble(2)}};
+  snap->update.type = BookUpdateType::SNAPSHOT;
+  snap->update.bids = {{Price::fromDouble(100.0), Quantity::fromDouble(1)},
+                       {Price::fromDouble(99.9), Quantity::fromDouble(2)}};
   book->applyBookUpdate(*snap);
 
   auto delta = pool.acquire();
-  delta->type = BookUpdateType::DELTA;
-  delta->bids = {{Price::fromDouble(100.0), Quantity::fromDouble(3)}};
+  delta->update.type = BookUpdateType::DELTA;
+  delta->update.bids = {{Price::fromDouble(100.0), Quantity::fromDouble(3)}};
   book->applyBookUpdate(*delta);
 
   ASSERT_EQ(book->bidAtPrice(Price::fromDouble(100.0)), Quantity::fromDouble(3));
