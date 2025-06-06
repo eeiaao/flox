@@ -23,21 +23,6 @@
 namespace flox
 {
 
-enum class BookUpdateType
-{
-  SNAPSHOT,
-  DELTA
-};
-
-struct BookLevel
-{
-  Price price;
-  Quantity quantity;
-
-  BookLevel() = default;
-  BookLevel(Price p, Quantity q) : price(p), quantity(q) {}
-};
-
 struct BookUpdateEvent : public IMarketDataEvent
 {
   using Listener = IMarketDataSubscriber;
