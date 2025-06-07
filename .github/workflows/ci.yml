@@ -42,13 +42,16 @@ jobs:
               -DCMAKE_CXX_COMPILER=g++-13 \
               -DCMAKE_BUILD_TYPE=Debug \
               -DENABLE_TESTS=ON \
-              -DENABLE_BENCHMARK=ON
+              -DENABLE_BENCHMARK=ON \
+              -DENABLE_DEMO=ON
 
     - name: Build project
       run: cmake --build build -j$(nproc)
 
-    - name: Run tests
-      run: ctest --test-dir build --output-on-failure
+    - name: Run all tests and demo
+      run: |
+        ctest --output-on-failure --test-dir build
+        ./build/demo/flox_demo
 
     - name: Run benchmarks
       run: ./scripts/run-benchmarks.sh build/benchmarks
