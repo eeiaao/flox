@@ -7,10 +7,12 @@
  * license information.
  */
 
+#include "flox/aggregator/bus/candle_bus.h"
 #include "flox/aggregator/candle_aggregator.h"
 #include "flox/book/events/trade_event.h"
 #include "flox/common.h"
 #include "flox/engine/market_data_event_pool.h"
+#include "flox/strategy/abstract_strategy.h"
 
 #include <gtest/gtest.h>
 
@@ -41,14 +43,37 @@ TradeEvent makeTrade(SymbolId symbol, double price, double qty,
   return event;
 }
 
+class TestStrategy : public IStrategy
+{
+ public:
+  explicit TestStrategy(std::vector<Candle>& out, std::vector<SymbolId>* symOut = nullptr)
+      : _out(out), _symOut(symOut)
+  {
+  }
+
+  void onCandle(SymbolId symbol, const Candle& c) override
+  {
+    _out.push_back(c);
+    if (_symOut)
+      _symOut->push_back(symbol);
+  }
+
+ private:
+  std::vector<Candle>& _out;
+  std::vector<SymbolId>* _symOut;
+};
+
 }  // namespace
 
 TEST(CandleAggregatorTest, AggregatesTradesIntoCandles)
 {
   std::vector<Candle> result;
-  CandleAggregator aggregator(INTERVAL, [&](SymbolId, const Candle& c)
-                              { result.push_back(c); });
+  CandleBus bus;
+  CandleAggregator aggregator(INTERVAL, &bus);
+  auto strat = std::make_shared<TestStrategy>(result);
+  bus.subscribe(strat);
 
+  bus.start();
   aggregator.start();
 
   aggregator.onTrade(makeTrade(SYMBOL, 100, 1, 0));
@@ -57,6 +82,7 @@ TEST(CandleAggregatorTest, AggregatesTradesIntoCandles)
   aggregator.onTrade(makeTrade(SYMBOL, 101, 1, 30));
   aggregator.onTrade(makeTrade(SYMBOL, 102, 2, 65));  // triggers flush
 
+  bus.stop();
   ASSERT_EQ(result.size(), 1);
   EXPECT_EQ(result[0].open, Price::fromDouble(100.0));
   EXPECT_EQ(result[0].high, Price::fromDouble(105.0));
@@ -70,15 +96,18 @@ TEST(CandleAggregatorTest, AggregatesTradesIntoCandles)
 TEST(CandleAggregatorTest, FlushesFinalCandleOnStop)
 {
   std::vector<Candle> result;
-  CandleAggregator aggregator(INTERVAL, [&](SymbolId, const Candle& c)
-                              { result.push_back(c); });
-
+  CandleBus bus;
+  CandleAggregator aggregator(INTERVAL, &bus);
+  auto strat = std::make_shared<TestStrategy>(result);
+  bus.subscribe(strat);
+  bus.start();
   aggregator.start();
 
   aggregator.onTrade(makeTrade(SYMBOL, 100, 1, 0));
   aggregator.onTrade(makeTrade(SYMBOL, 105, 1, 30));
 
   aggregator.stop();  // flush remaining
+  bus.stop();
 
   ASSERT_EQ(result.size(), 1);
   EXPECT_EQ(result[0].open, Price::fromDouble(100.0));
@@ -91,13 +120,17 @@ TEST(CandleAggregatorTest, FlushesFinalCandleOnStop)
 TEST(CandleAggregatorTest, StartsNewCandleAfterGap)
 {
   std::vector<Candle> result;
-  CandleAggregator aggregator(INTERVAL, [&](SymbolId, const Candle& c)
-                              { result.push_back(c); });
+  CandleBus bus;
+  CandleAggregator aggregator(INTERVAL, &bus);
+  auto strat = std::make_shared<TestStrategy>(result);
+  bus.subscribe(strat);
+  bus.start();
   aggregator.start();
 
   aggregator.onTrade(makeTrade(SYMBOL, 110, 1, 0));
   aggregator.onTrade(makeTrade(SYMBOL, 120, 2, 130));  // gap → flush
 
+  bus.stop();
   ASSERT_EQ(result.size(), 1);
   EXPECT_EQ(result[0].startTime, ts(0));
   EXPECT_EQ(result[0].endTime, ts(60));
@@ -107,12 +140,15 @@ TEST(CandleAggregatorTest, StartsNewCandleAfterGap)
 TEST(CandleAggregatorTest, SingleTradeCandle)
 {
   std::vector<Candle> result;
-  CandleAggregator aggregator(INTERVAL, [&](SymbolId, const Candle& c)
-                              { result.push_back(c); });
-
+  CandleBus bus;
+  CandleAggregator aggregator(INTERVAL, &bus);
+  auto strat = std::make_shared<TestStrategy>(result);
+  bus.subscribe(strat);
+  bus.start();
   aggregator.start();
   aggregator.onTrade(makeTrade(SYMBOL, 123, 1, 5));
   aggregator.stop();  // flush
+  bus.stop();
 
   ASSERT_EQ(result.size(), 1);
   const auto& candle = result[0];
@@ -125,11 +161,13 @@ TEST(CandleAggregatorTest, SingleTradeCandle)
 
 TEST(CandleAggregatorTest, MultipleSymbolsAreAggregatedSeparately)
 {
-  std::vector<std::pair<SymbolId, Candle>> result;
-  CandleAggregator aggregator(
-      INTERVAL, [&](SymbolId symbol, const Candle& c)
-      { result.emplace_back(symbol, c); });
-
+  std::vector<Candle> candles;
+  std::vector<SymbolId> symbols;
+  CandleBus bus;
+  CandleAggregator aggregator(INTERVAL, &bus);
+  auto strat = std::make_shared<TestStrategy>(candles, &symbols);
+  bus.subscribe(strat);
+  bus.start();
   aggregator.start();
 
   aggregator.onTrade(makeTrade(1, 10, 1, 0));
@@ -138,32 +176,37 @@ TEST(CandleAggregatorTest, MultipleSymbolsAreAggregatedSeparately)
   aggregator.onTrade(makeTrade(2, 18, 1, 40));
 
   aggregator.stop();  // flush all
+  bus.stop();
 
-  ASSERT_EQ(result.size(), 2);
+  ASSERT_EQ(candles.size(), 2);
 
-  auto it1 = std::find_if(result.begin(), result.end(), [](const auto& p)
-                          { return p.first == 1; });
-  auto it2 = std::find_if(result.begin(), result.end(), [](const auto& p)
-                          { return p.first == 2; });
+  auto it1 = std::find_if(symbols.begin(), symbols.end(), [](SymbolId s)
+                          { return s == 1; });
+  auto it2 = std::find_if(symbols.begin(), symbols.end(), [](SymbolId s)
+                          { return s == 2; });
 
-  ASSERT_TRUE(it1 != result.end());
-  ASSERT_TRUE(it2 != result.end());
+  ASSERT_TRUE(it1 != symbols.end());
+  ASSERT_TRUE(it2 != symbols.end());
 
-  EXPECT_EQ(it1->second.volume, Volume::fromDouble(10 * 1 + 12 * 1));
-  EXPECT_EQ(it2->second.volume, Volume::fromDouble(20 * 2 + 18 * 1));
+  EXPECT_EQ(candles[0].volume + candles[1].volume,
+            Volume::fromDouble(10 * 1 + 12 * 1 + 20 * 2 + 18 * 1));
 }
 
 TEST(CandleAggregatorTest, DoubleStartClearsOldState)
 {
   std::vector<Candle> result;
-  CandleAggregator aggregator(INTERVAL, [&](SymbolId, const Candle& c)
-                              { result.push_back(c); });
+  CandleBus bus;
+  CandleAggregator aggregator(INTERVAL, &bus);
+  auto strat = std::make_shared<TestStrategy>(result);
+  bus.subscribe(strat);
+  bus.start();
 
   aggregator.start();
   aggregator.onTrade(makeTrade(SYMBOL, 100, 1, 0));
   aggregator.start();  // clears previous state
   aggregator.onTrade(makeTrade(SYMBOL, 105, 2, 65));
   aggregator.stop();
+  bus.stop();
 
   ASSERT_EQ(result.size(), 1);
   EXPECT_EQ(result[0].open, Price::fromDouble(105.0));

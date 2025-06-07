@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include "flox/aggregator/bus/candle_bus.h"
 #include "flox/book/candle.h"
 #include "flox/book/events/trade_event.h"
 #include "flox/common.h"
@@ -17,7 +18,6 @@
 #include "flox/engine/subsystem.h"
 
 #include <chrono>
-#include <functional>
 #include <unordered_map>
 
 namespace flox
@@ -26,9 +26,7 @@ namespace flox
 class CandleAggregator : public ISubsystem, public IMarketDataSubscriber
 {
  public:
-  using CandleCallback = std::move_only_function<void(SymbolId, const Candle&)>;
-
-  CandleAggregator(std::chrono::seconds interval, CandleCallback callback);
+  CandleAggregator(std::chrono::seconds interval, CandleBus* bus);
 
   void start() override;
   void stop() override;
@@ -46,7 +44,7 @@ class CandleAggregator : public ISubsystem, public IMarketDataSubscriber
   };
 
   std::chrono::seconds _interval;
-  CandleCallback _callback;
+  CandleBus* _bus = nullptr;
   std::unordered_map<SymbolId, PartialCandle> _candles;
 
   std::chrono::system_clock::time_point alignToInterval(std::chrono::system_clock::time_point tp);
