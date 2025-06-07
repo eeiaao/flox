@@ -9,6 +9,7 @@
 
 #include "flox/aggregator/bus/candle_bus.h"
 #include "flox/aggregator/candle_aggregator.h"
+#include "flox/aggregator/events/candle_event.h"
 #include "flox/book/events/trade_event.h"
 #include "flox/common.h"
 #include "flox/engine/market_data_event_pool.h"
@@ -51,11 +52,11 @@ class TestStrategy : public IStrategy
   {
   }
 
-  void onCandle(SymbolId symbol, const Candle& c) override
+  void onCandle(const CandleEvent& event) override
   {
-    _out.push_back(c);
+    _out.push_back(event.candle);
     if (_symOut)
-      _symOut->push_back(symbol);
+      _symOut->push_back(event.symbol);
   }
 
  private:

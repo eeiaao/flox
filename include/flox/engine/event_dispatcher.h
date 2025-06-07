@@ -42,9 +42,9 @@ struct EventDispatcher<TradeEvent>
 template <>
 struct EventDispatcher<CandleEvent>
 {
-  static void dispatch(const CandleEvent& ev, IStrategy& strat)
+  static void dispatch(const CandleEvent& ev, IMarketDataSubscriber& sub)
   {
-    strat.onCandle(ev.symbol, ev.candle);
+    sub.onCandle(ev);
   }
 };
 

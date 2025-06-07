@@ -6,6 +6,10 @@
 namespace flox
 {
 
+#ifdef USE_SYNC_MARKET_BUS
+using CandleBus = EventBus<CandleEvent, true, true>;
+#else
 using CandleBus = EventBus<CandleEvent, false, true>;
+#endif
 
 }  // namespace flox

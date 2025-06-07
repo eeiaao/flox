@@ -33,7 +33,7 @@ class IStrategy : public IMarketDataSubscriber
   virtual void onStop() {}
 
   // Event hooks
-  virtual void onCandle(SymbolId symbol, const Candle& candle) {}
+  virtual void onCandle(const CandleEvent& candle) override {}
   virtual void onTrade(const TradeEvent& trade) override {}
   virtual void onBookUpdate(const BookUpdateEvent& bookUpdate) override {}
 
