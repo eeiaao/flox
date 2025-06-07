@@ -28,6 +28,16 @@ void PositionManager::onOrderFilled(const Order& order)
   }
 }
 
+void PositionManager::onOrderPartiallyFilled(const Order& order, Quantity qty)
+{
+  if (order.symbol >= _positions.size())
+    return;
+
+  Order partial = order;
+  partial.quantity = qty;
+  onOrderFilled(partial);
+}
+
 void PositionManager::onOrderRejected(const Order&)
 {
   // no-op

@@ -28,7 +28,7 @@ class PositionManager : public IPositionManager, public IOrderExecutionListener,
   void stop() override {}
 
   void onOrderAccepted(const Order&) override {}
-  void onOrderPartiallyFilled(const Order&, Quantity) override {}
+  void onOrderPartiallyFilled(const Order& order, Quantity qty) override;
   void onOrderFilled(const Order& order) override;
   void onOrderCanceled(const Order&) override {}
   void onOrderExpired(const Order&) override {}

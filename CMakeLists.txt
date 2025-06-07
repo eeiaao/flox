@@ -57,6 +57,11 @@ if (ENABLE_TESTS)
   add_subdirectory(tests)
 endif()
 
+option(ENABLE_DEMO "Build demo application" ON)
+if (ENABLE_DEMO)
+  add_subdirectory(demo)
+endif()
+
 target_include_directories(flox PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>
