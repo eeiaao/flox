@@ -1,4 +1,5 @@
 #include "demo/demo_builder.h"
+
 #include <chrono>
 #include <iostream>
 #include <string>
@@ -15,7 +16,7 @@ std::unique_ptr<IEngine> DemoBuilder::build()
 
   auto execTracker = std::make_unique<ConsoleExecutionTracker>();
   auto pnlTracker = std::make_unique<SimplePnLTracker>();
-  auto posMgr = std::make_unique<PositionManager>();
+  auto posMgr = std::make_unique<SimplePositionManager>();
   auto storage = std::make_unique<StdoutStorageSink>();
   auto killSwitch = std::make_unique<SimpleKillSwitch>();
   auto riskMgr = std::make_unique<SimpleRiskManager>(killSwitch.get());
@@ -27,18 +28,19 @@ std::unique_ptr<IEngine> DemoBuilder::build()
   executor->setPositionManager(posMgr.get());
   executor->setListener(posMgr.get());
 
-  WindowedOrderBookFactory obFactory;
+  auto obFactory = std::make_unique<WindowedOrderBookFactory>();
   WindowedOrderBookConfig bookCfg(Price::fromDouble(0.01), Price::fromDouble(10));
 
   std::vector<std::shared_ptr<IStrategy>> strategies;
-  for (SymbolId sym = 0; sym < 2; ++sym)
+  for (SymbolId sym = 0; sym < 3; ++sym)
   {
-    std::unique_ptr<IOrderBook> book(obFactory.create(bookCfg));
-    auto strat = std::make_shared<DemoStrategy>(sym, std::move(book));
+    auto* book = obFactory->create(bookCfg);
+    auto strat = std::make_shared<DemoStrategy>(sym, book);
     strat->setOrderExecutor(executor.get());
     strat->setOrderValidator(validator.get());
     strat->setRiskManager(riskMgr.get());
     strat->setPositionManager(posMgr.get());
+    strat->setKillSwitch(killSwitch.get());
     strategies.push_back(std::move(strat));
   }
 
@@ -62,7 +64,10 @@ std::unique_ptr<IEngine> DemoBuilder::build()
       { std::cout << "[candle] close=" << c.close.toDouble() << '\n'; });
 
   for (auto& strat : strategies)
+  {
     mdb->get()->subscribe(strat);
+  }
+
   mdb->get()->subscribe(std::shared_ptr<IMarketDataSubscriber>(candleAgg.get(), [](auto*) {}));
 
   std::vector<std::shared_ptr<ExchangeConnector>> connectors;
@@ -82,6 +87,12 @@ std::unique_ptr<IEngine> DemoBuilder::build()
   subsystems.push_back(std::move(posMgr));
   subsystems.push_back(std::move(storage));
   subsystems.push_back(std::move(candleAgg));
+
+  subsystems.push_back(std::make_unique<Subsystem<WindowedOrderBookFactory>>(std::move(obFactory)));
+  subsystems.push_back(std::make_unique<Subsystem<IOrderValidator>>(std::move(validator)));
+  subsystems.push_back(std::make_unique<Subsystem<IExecutionTracker>>(std::move(execTracker)));
+  subsystems.push_back(std::make_unique<Subsystem<IPnLTracker>>(std::move(pnlTracker)));
+  subsystems.push_back(std::make_unique<Subsystem<IKillSwitch>>(std::move(killSwitch)));
 
   return std::make_unique<Engine>(_config, std::move(subsystems), std::move(connectors));
 }

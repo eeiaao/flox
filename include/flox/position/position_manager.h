@@ -14,8 +14,6 @@
 #include "flox/execution/abstract_execution_listener.h"
 #include "flox/position/abstract_position_manager.h"
 
-#include <cstdint>
-#include <iostream>
 #include <vector>
 
 namespace flox

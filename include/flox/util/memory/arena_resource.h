@@ -29,18 +29,21 @@ class ArenaResource : public std::pmr::memory_resource
  protected:
   void* do_allocate(std::size_t bytes, std::size_t alignment) override
   {
-    std::size_t current = reinterpret_cast<std::size_t>(_buffer) + _offset;
-    std::size_t aligned = align_up(current, alignment);
-    std::size_t padding = aligned - current;
-    std::size_t total = bytes + padding;
+    std::uintptr_t raw = reinterpret_cast<std::uintptr_t>(_buffer) + _offset;
+    std::uintptr_t aligned = (raw + alignment - 1) & ~(alignment - 1);
+    std::size_t adjustment = aligned - reinterpret_cast<std::uintptr_t>(_buffer);
 
-    if (_offset + total > _capacity)
+    if (adjustment + bytes > _capacity)
     {
       return _upstream->allocate(bytes, alignment);  // fallback
     }
 
-    void* ptr = _buffer + _offset + padding;
-    _offset += total;
+    void* ptr = reinterpret_cast<void*>(aligned);
+    _offset = adjustment + bytes;
+
+    // проверка: убеждаемся, что ptr выровнен
+    assert(reinterpret_cast<std::uintptr_t>(ptr) % alignment == 0 && "arena: bad alignment");
+
     return ptr;
   }
 

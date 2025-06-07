@@ -10,6 +10,8 @@
 #include "flox/position/position_manager.h"
 #include "flox/common.h"
 
+#include <iostream>
+
 namespace flox
 {
 

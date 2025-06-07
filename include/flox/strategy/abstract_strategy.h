@@ -15,6 +15,7 @@
 #include "flox/engine/abstract_market_data_subscriber.h"
 #include "flox/engine/events/market_data_event.h"
 #include "flox/execution/abstract_executor.h"
+#include "flox/killswitch/abstract_killswitch.h"
 #include "flox/position/abstract_position_manager.h"
 #include "flox/risk/abstract_risk_manager.h"
 #include "flox/validation/abstract_order_validator.h"
@@ -44,12 +45,14 @@ class IStrategy : public IMarketDataSubscriber
   void setPositionManager(IPositionManager* manager) { _positionManager = manager; }
   void setOrderExecutor(IOrderExecutor* executor) { _executor = executor; }
   void setOrderValidator(IOrderValidator* validator) { _validator = validator; }
+  void setKillSwitch(IKillSwitch* killSwitch) { _killSwitch = killSwitch; }
 
  protected:
   IRiskManager* GetRiskManager() { return _riskManager; }
   IPositionManager* GetPositionManager() { return _positionManager; }
   IOrderExecutor* GetOrderExecutor() { return _executor; }
   IOrderValidator* GetOrderValidator() { return _validator; }
+  IKillSwitch* GetKillSwitch() { return _killSwitch; }
 
  private:
   SubscriberId _subscriberId = reinterpret_cast<SubscriberId>(this);
@@ -58,6 +61,7 @@ class IStrategy : public IMarketDataSubscriber
   IPositionManager* _positionManager = nullptr;
   IOrderExecutor* _executor = nullptr;
   IOrderValidator* _validator = nullptr;
+  IKillSwitch* _killSwitch = nullptr;
 };
 
 }  // namespace flox

@@ -12,6 +12,7 @@
 
 #include <chrono>
 #include <iostream>
+#include <random>
 #include <string>
 #include <thread>
 
@@ -64,14 +65,12 @@ class SimpleOrderValidator : public IOrderValidator
  public:
   bool validate(const Order& order, std::string& reason) const override
   {
-    if (order.quantity.raw() <= 0)
+    static thread_local std::mt19937 rng(std::random_device{}());
+    static std::uniform_int_distribution<int> dist(0, 19);
+
+    if (dist(rng) == 0)
     {
-      reason = "qty";
-      return false;
-    }
-    if (order.price.raw() <= 0)
-    {
-      reason = "price";
+      reason = "random rejection";
       return false;
     }
     return true;
@@ -83,20 +82,34 @@ class SimpleKillSwitch : public IKillSwitch
  public:
   void check(const Order& order) override
   {
-    if (order.price.toDouble() > 200.0)
+    if (!_triggered && order.price.toDouble() > 200.0)
       trigger("price too high");
+
+    if (_triggered && std::chrono::steady_clock::now() - _since >= std::chrono::milliseconds(200))
+      reset();
   }
+
   void trigger(const std::string& r) override
   {
     _triggered = true;
     _reason = r;
+    _since = std::chrono::steady_clock::now();
   }
+
   bool isTriggered() const override { return _triggered; }
+
   std::string reason() const override { return _reason; }
 
  private:
+  void reset()
+  {
+    _triggered = false;
+    _reason.clear();
+  }
+
   bool _triggered = false;
   std::string _reason;
+  std::chrono::steady_clock::time_point _since{};
 };
 
 class SimpleRiskManager : public IRiskManager
@@ -107,8 +120,16 @@ class SimpleRiskManager : public IRiskManager
   void stop() override {}
   bool allow(const Order& order) const override
   {
-    _ks->check(order);
-    return !_ks->isTriggered();
+    static thread_local std::mt19937 rng(std::random_device{}());
+    static std::uniform_real_distribution<> dist(0.0, 1.0);
+
+    if (dist(rng) < 0.05)
+    {
+      std::cout << "[risk] rejected order id=" << order.id << " (random)\n";
+      return false;
+    }
+
+    return true;
   }
 
  private:
@@ -198,6 +219,60 @@ class SimpleOrderExecutor : public IOrderExecutor
   IPnLTracker* _pnlTracker{nullptr};
   StorageSink* _storage{nullptr};
   PositionManager* _posMgr{nullptr};
+};
+
+class SimplePositionManager : public PositionManager
+{
+ public:
+  void start() override
+  {
+    std::cout << "[position] start\n";
+  }
+
+  void stop() override
+  {
+    std::cout << "[position] stop\n";
+  }
+
+  void onOrderAccepted(const Order& order) override
+  {
+    std::cout << "[position] order accepted: id=" << order.id << '\n';
+  }
+
+  void onOrderPartiallyFilled(const Order& order, Quantity qty) override
+  {
+    std::cout << "[position] order partially filled: id=" << order.id
+              << ", qty=" << qty.toDouble() << '\n';
+    PositionManager::onOrderPartiallyFilled(order, qty);
+  }
+
+  void onOrderFilled(const Order& order) override
+  {
+    std::cout << "[position] order filled: id=" << order.id
+              << ", qty=" << order.quantity.toDouble() << '\n';
+    PositionManager::onOrderFilled(order);
+  }
+
+  void onOrderCanceled(const Order& order) override
+  {
+    std::cout << "[position] order canceled: id=" << order.id << '\n';
+  }
+
+  void onOrderExpired(const Order& order) override
+  {
+    std::cout << "[position] order expired: id=" << order.id << '\n';
+  }
+
+  void onOrderRejected(const Order& order) override
+  {
+    std::cout << "[position] order rejected: id=" << order.id << '\n';
+  }
+
+  void onOrderReplaced(const Order& oldOrder, const Order& newOrder) override
+  {
+    std::cout << "[position] order replaced: old_id=" << oldOrder.id
+              << ", new_id=" << newOrder.id << '\n';
+  }
 };
 
 }  // namespace demo

@@ -12,7 +12,7 @@ int main()
   DemoBuilder builder(cfg);
   auto engine = builder.build();
   engine->start();
-  std::this_thread::sleep_for(std::chrono::seconds(30));
+  std::this_thread::sleep_for(std::chrono::seconds(5));
   engine->stop();
   std::cout << "demo finished" << std::endl;
 }

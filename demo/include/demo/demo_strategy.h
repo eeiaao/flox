@@ -14,18 +14,18 @@ using namespace flox;
 class DemoStrategy : public IStrategy
 {
  public:
-  DemoStrategy(SymbolId symbol, std::unique_ptr<IOrderBook> book);
+  DemoStrategy(SymbolId symbol, IOrderBook* book);
 
   void onStart() override;
   void onStop() override;
   void onTrade(const TradeEvent& trade) override;
   void onBookUpdate(const BookUpdateEvent& book) override;
 
-  IOrderBook* book() const { return _book.get(); }
+  IOrderBook* book() const { return _book; }
 
  private:
   SymbolId _symbol;
-  std::unique_ptr<IOrderBook> _book;
+  IOrderBook* _book;
   OrderId _nextId{0};
 };
 
