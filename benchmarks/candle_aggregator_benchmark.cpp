@@ -7,6 +7,7 @@
  * license information.
  */
 
+#include "flox/aggregator/bus/candle_bus.h"
 #include "flox/aggregator/candle_aggregator.h"
 #include "flox/book/events/trade_event.h"
 #include "flox/common.h"
@@ -21,8 +22,9 @@ static void BM_CandleAggregator_OnTrade(benchmark::State& state)
   constexpr SymbolId SYMBOL = 42;
   constexpr std::chrono::seconds INTERVAL(60);
 
-  // Create aggregator with no-op callback
-  CandleAggregator aggregator(INTERVAL, [](SymbolId, const Candle&) {});
+  CandleBus bus;
+  CandleAggregator aggregator(INTERVAL, &bus);
+  bus.start();
   aggregator.start();
 
   std::mt19937 rng(42);
@@ -46,6 +48,7 @@ static void BM_CandleAggregator_OnTrade(benchmark::State& state)
   }
 
   aggregator.stop();
+  bus.stop();
 }
 
 // Registers the benchmark with 1M iterations

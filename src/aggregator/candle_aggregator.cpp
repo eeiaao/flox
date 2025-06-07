@@ -16,8 +16,8 @@
 namespace flox
 {
 
-CandleAggregator::CandleAggregator(std::chrono::seconds interval, CandleCallback callback)
-    : _interval(interval), _callback(std::move(callback))
+CandleAggregator::CandleAggregator(std::chrono::seconds interval, CandleBus* bus)
+    : _interval(interval), _bus(bus)
 {
 }
 
@@ -32,7 +32,11 @@ void CandleAggregator::stop()
                                      { return kv.second.initialized; }))
   {
     pc.candle.endTime = pc.candle.startTime + _interval;
-    _callback(symbol, pc.candle);
+    if (_bus)
+    {
+      CandleEvent ev{symbol, pc.candle};
+      _bus->publish(ev);
+    }
   }
   _candles.clear();
 }
@@ -47,7 +51,11 @@ void CandleAggregator::onTrade(const TradeEvent& event)
     if (partial.initialized)
     {
       partial.candle.endTime = partial.candle.startTime + _interval;
-      _callback(event.trade.symbol, partial.candle);
+      if (_bus)
+      {
+        CandleEvent ev{event.trade.symbol, partial.candle};
+        _bus->publish(ev);
+      }
     }
     partial.candle =
         Candle(ts, event.trade.price,

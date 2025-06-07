@@ -1,5 +1,6 @@
 #pragma once
 
+#include "flox/aggregator/events/candle_event.h"
 #include "flox/book/events/book_update_event.h"
 #include "flox/book/events/trade_event.h"
 #include "flox/engine/abstract_market_data_subscriber.h"
@@ -35,6 +36,15 @@ struct EventDispatcher<TradeEvent>
   static void dispatch(const TradeEvent& ev, IMarketDataSubscriber& sub)
   {
     sub.onTrade(ev);
+  }
+};
+
+template <>
+struct EventDispatcher<CandleEvent>
+{
+  static void dispatch(const CandleEvent& ev, IMarketDataSubscriber& sub)
+  {
+    sub.onCandle(ev);
   }
 };
 
