@@ -9,9 +9,8 @@
 
 #pragma once
 
+#include "flox/book/events/book_update_event.h"
 #include "flox/common.h"
-
-#include "flox/engine/events/book_update_event.h"
 
 namespace flox
 {

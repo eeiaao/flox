@@ -12,13 +12,10 @@
 #include "flox/book/abstract_order_book_factory.h"
 #include "flox/book/windowed_order_book.h"
 #include "flox/common.h"
-#include "flox/util/arena_resource.h"
+#include "flox/util/memory/arena_resource.h"
 
 #include <cstddef>
 #include <memory>
-#include <new>
-#include <utility>
-#include <vector>
 
 namespace flox
 {

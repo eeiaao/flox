@@ -11,9 +11,9 @@
 #include <atomic>
 #include <memory>
 
-#include "flox/book/order.h"
-#include "flox/execution/order_event.h"
-#include "flox/execution/order_execution_bus.h"
+#include "flox/execution/bus/order_execution_bus.h"
+#include "flox/execution/events/order_event.h"
+#include "flox/execution/order.h"
 
 using namespace flox;
 

@@ -10,15 +10,14 @@
 #pragma once
 
 #include "flox/book/candle.h"
+#include "flox/book/events/trade_event.h"
 #include "flox/common.h"
 #include "flox/engine/abstract_market_data_subscriber.h"
 #include "flox/engine/events/market_data_event.h"
-#include "flox/engine/events/trade_event.h"
 #include "flox/engine/subsystem.h"
 
 #include <chrono>
 #include <functional>
-#include <string>
 #include <unordered_map>
 
 namespace flox

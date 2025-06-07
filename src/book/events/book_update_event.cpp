@@ -7,8 +7,7 @@
  * license information.
  */
 
-#include "flox/engine/events/book_update_event.h"
-#include "flox/engine/market_data_bus.h"
+#include "flox/book/events/book_update_event.h"
 
 namespace flox
 {

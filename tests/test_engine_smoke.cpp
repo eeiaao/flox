@@ -7,11 +7,11 @@
  * license information.
  */
 
+#include "flox/book/events/book_update_event.h"
+#include "flox/book/events/trade_event.h"
 #include "flox/common.h"
 #include "flox/engine/abstract_engine_builder.h"
-#include "flox/engine/events/book_update_event.h"
-#include "flox/engine/events/trade_event.h"
-#include "flox/engine/market_data_bus.h"
+#include "flox/engine/bus/market_data_bus.h"
 #include "flox/engine/market_data_event_pool.h"
 #include "flox/strategy/abstract_strategy.h"
 

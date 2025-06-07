@@ -12,7 +12,6 @@
 #include "flox/execution/abstract_execution_listener.h"
 
 #include <algorithm>
-#include <ranges>
 #include <vector>
 
 namespace flox

@@ -11,7 +11,7 @@
 
 #include "flox/engine/abstract_event_pool.h"
 #include "flox/engine/market_data_event_pool.h"
-#include "flox/util/ref_countable.h"
+#include "flox/util/base/ref_countable.h"
 
 namespace flox
 {

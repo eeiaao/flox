@@ -9,8 +9,8 @@
 
 #pragma once
 
-#include "flox/engine/events/book_update_event.h"
-#include "flox/engine/events/trade_event.h"
+#include "flox/book/events/book_update_event.h"
+#include "flox/book/events/trade_event.h"
 
 #include <functional>
 #include <string>

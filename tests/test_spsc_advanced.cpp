@@ -7,12 +7,11 @@
  * license information.
  */
 
-#include "flox/util/spsc_queue.h"
+#include "flox/util/concurrency/spsc_queue.h"
 
 #include <gtest/gtest.h>
 #include <atomic>
 #include <cstdio>
-#include <memory>
 #include <thread>
 
 using namespace flox;

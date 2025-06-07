@@ -7,8 +7,8 @@
  * license information.
  */
 
-#include "flox/engine/events/trade_event.h"
-#include "flox/engine/market_data_bus.h"
+#include "flox/book/events/trade_event.h"
+#include "flox/engine/abstract_market_data_subscriber.h"
 
 namespace flox
 {

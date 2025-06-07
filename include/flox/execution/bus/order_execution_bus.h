@@ -1,7 +1,7 @@
 #pragma once
 
-#include "flox/execution/order_event.h"
-#include "flox/util/event_bus.h"
+#include "flox/execution/events/order_event.h"
+#include "flox/util/eventing/event_bus.h"
 
 namespace flox
 {

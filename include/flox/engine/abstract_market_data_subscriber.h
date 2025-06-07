@@ -9,7 +9,6 @@
 
 #pragma once
 
-#include "flox/common.h"
 #include "flox/engine/events/market_data_event.h"
 
 namespace flox

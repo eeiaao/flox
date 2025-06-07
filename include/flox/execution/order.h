@@ -12,7 +12,6 @@
 #include "flox/common.h"
 
 #include <chrono>
-#include <cstdint>
 #include <optional>
 
 namespace flox

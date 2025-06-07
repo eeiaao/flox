@@ -9,7 +9,6 @@
 
 #include <gtest/gtest.h>
 #include <atomic>
-#include <chrono>
 #include <map>
 #include <memory>
 #include <mutex>
@@ -17,10 +16,10 @@
 #include <thread>
 #include <vector>
 
+#include "flox/book/events/book_update_event.h"
 #include "flox/engine/abstract_market_data_subscriber.h"
-#include "flox/engine/events/book_update_event.h"
+#include "flox/engine/bus/market_data_bus.h"
 #include "flox/engine/events/market_data_event.h"
-#include "flox/engine/market_data_bus.h"
 #include "flox/engine/market_data_event_pool.h"
 
 using namespace flox;

@@ -1,21 +1,11 @@
-include(FetchContent)
-
-FetchContent_Declare(
-  nlohmann_json
-  GIT_REPOSITORY https://github.com/nlohmann/json.git
-  GIT_TAG v3.11.2
-)
-FetchContent_MakeAvailable(nlohmann_json)
-
 find_package(GTest REQUIRED)
 
 function(add_flox_test name)
   add_executable(${name} ${name}.cpp)
   target_include_directories(${name}
     PRIVATE
-        include
-        ${nlohmann_json_SOURCE_DIR}/include
-)
+        include()
+  )
   target_link_libraries(${name}
     PRIVATE ${FLOX}
     GTest::gtest
@@ -23,7 +13,6 @@ function(add_flox_test name)
     GTest::gmock
     GTest::gmock_main
     Threads::Threads
-    nlohmann_json::nlohmann_json
   )
   add_test(NAME ${name} COMMAND ${name})
 endfunction()
@@ -33,8 +22,7 @@ function(add_flox_sync_test name)
   target_include_directories(${name}
     PRIVATE
         include
-        ${nlohmann_json_SOURCE_DIR}/include
-)
+  )
   target_link_libraries(${name}
     PRIVATE ${FLOX_SYNC}
     GTest::gtest
@@ -42,7 +30,6 @@ function(add_flox_sync_test name)
     GTest::gmock
     GTest::gmock_main
     Threads::Threads
-    nlohmann_json::nlohmann_json
   )
   add_test(NAME ${name} COMMAND ${name})
 endfunction()

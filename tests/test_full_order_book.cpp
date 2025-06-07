@@ -7,9 +7,9 @@
  * license information.
  */
 
+#include "flox/book/events/book_update_event.h"
 #include "flox/book/full_order_book.h"
 #include "flox/common.h"
-#include "flox/engine/events/book_update_event.h"
 #include "flox/engine/market_data_event_pool.h"
 
 #include <gtest/gtest.h>

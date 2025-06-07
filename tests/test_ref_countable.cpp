@@ -7,7 +7,7 @@
  * license information.
  */
 
-#include "flox/util/ref_countable.h"
+#include "flox/util/base/ref_countable.h"
 
 #include <gtest/gtest.h>
 

@@ -10,10 +10,10 @@
 #pragma once
 
 #include "flox/book/candle.h"
+#include "flox/book/events/book_update_event.h"
+#include "flox/book/events/trade_event.h"
 #include "flox/engine/abstract_market_data_subscriber.h"
-#include "flox/engine/events/book_update_event.h"
 #include "flox/engine/events/market_data_event.h"
-#include "flox/engine/events/trade_event.h"
 #include "flox/execution/abstract_executor.h"
 #include "flox/position/abstract_position_manager.h"
 #include "flox/risk/abstract_risk_manager.h"

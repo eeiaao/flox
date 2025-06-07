@@ -9,7 +9,7 @@
 
 #pragma once
 
-#include "flox/util/decimal.h"
+#include "flox/util/base/decimal.h"
 
 #include <cstdint>
 

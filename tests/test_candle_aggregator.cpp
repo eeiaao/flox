@@ -8,8 +8,8 @@
  */
 
 #include "flox/aggregator/candle_aggregator.h"
+#include "flox/book/events/trade_event.h"
 #include "flox/common.h"
-#include "flox/engine/events/trade_event.h"
 #include "flox/engine/market_data_event_pool.h"
 
 #include <gtest/gtest.h>

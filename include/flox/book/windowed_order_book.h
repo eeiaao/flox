@@ -11,8 +11,8 @@
 
 #include "flox/book/abstract_order_book.h"
 #include "flox/book/book_side.h"
+#include "flox/book/events/book_update_event.h"
 #include "flox/common.h"
-#include "flox/engine/events/book_update_event.h"
 
 #include <algorithm>
 #include <cmath>

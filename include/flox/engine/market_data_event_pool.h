@@ -10,13 +10,12 @@
 #pragma once
 
 #include "flox/engine/abstract_event_pool.h"
-#include "flox/util/spsc_queue.h"
+#include "flox/util/concurrency/spsc_queue.h"
 
 #include <array>
 #include <cassert>
 #include <cstddef>
 #include <memory_resource>
-#include <new>
 
 namespace flox
 {
