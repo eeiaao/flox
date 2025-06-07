@@ -46,17 +46,19 @@ class MockExchangeConnector : public ExchangeConnector
     if (_bookCb && _tradeCb)
     {
       EventPool<BookUpdateEvent, 3> bookUpdatePool;
-      EventPool<TradeEvent, 3> tradePool;
 
-      auto bu = bookUpdatePool.acquire();
+      auto buOpt = bookUpdatePool.acquire();
+      assert(buOpt);
+
+      auto& bu = *buOpt;
       bu->update.symbol = 42;
 
-      auto tr = tradePool.acquire();
-      tr->trade.symbol = 42;
-      tr->trade.price = Price::fromDouble(3.14);
+      TradeEvent tradeEvent;
+      tradeEvent.trade.symbol = 42;
+      tradeEvent.trade.price = Price::fromDouble(3.14);
 
-      _bookCb(bu.get());
-      _tradeCb(tr.get());
+      _bookCb(*bu);
+      _tradeCb(tradeEvent);
     }
   }
 };
@@ -79,16 +81,15 @@ TEST(ConnectorManagerTest, RegisterAndStartAll)
   bool tradeCalled = false;
 
   manager.startAll(
-      [&](BookUpdateEvent* bu)
+      [&](const BookUpdateEvent& event)
       {
-        ASSERT_NE(bu, nullptr);
-        EXPECT_EQ(bu->update.symbol, 42);
+        EXPECT_EQ(event.update.symbol, 42);
         bookUpdateCalled = true;
       },
-      [&](TradeEvent* tr)
+      [&](const TradeEvent& event)
       {
-        EXPECT_EQ(tr->trade.symbol, 42);
-        EXPECT_EQ(tr->trade.price, Price::fromDouble(3.14));
+        EXPECT_EQ(event.trade.symbol, 42);
+        EXPECT_EQ(event.trade.price, Price::fromDouble(3.14));
         tradeCalled = true;
       });
 

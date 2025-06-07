@@ -26,21 +26,25 @@ class FullOrderBookTest : public ::testing::Test
   EventHandle<BookUpdateEvent> makeSnapshot(const std::vector<BookLevel>& bids,
                                             const std::vector<BookLevel>& asks)
   {
-    auto u = pool.acquire();
+    auto opt = pool.acquire();
+    assert(opt);
+    auto& u = *opt;
     u->update.type = BookUpdateType::SNAPSHOT;
     u->update.bids.assign(bids.begin(), bids.end());
     u->update.asks.assign(asks.begin(), asks.end());
-    return u;
+    return std::move(u);
   }
 
   EventHandle<BookUpdateEvent> makeDelta(const std::vector<BookLevel>& bids,
                                          const std::vector<BookLevel>& asks)
   {
-    auto u = pool.acquire();
+    auto opt = pool.acquire();
+    assert(opt);
+    auto& u = *opt;
     u->update.type = BookUpdateType::DELTA;
     u->update.bids.assign(bids.begin(), bids.end());
     u->update.asks.assign(asks.begin(), asks.end());
-    return u;
+    return std::move(u);
   }
 };
 

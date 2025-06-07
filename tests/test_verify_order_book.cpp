@@ -30,8 +30,9 @@ class WindowedOrderBookTestFixture : public ::testing::Test
 
   BookUpdateEvent* acquireSnapshot()
   {
-    auto handle = _pool.acquire();
-    EXPECT_TRUE(handle);
+    auto opt = _pool.acquire();
+    EXPECT_TRUE(opt.has_value());
+    auto& handle = *opt;
     handle->update.type = BookUpdateType::SNAPSHOT;
     _handles.emplace_back(std::move(handle));
     return _handles.back().get();
@@ -39,8 +40,9 @@ class WindowedOrderBookTestFixture : public ::testing::Test
 
   BookUpdateEvent* acquireDelta()
   {
-    auto handle = _pool.acquire();
-    EXPECT_TRUE(handle);
+    auto opt = _pool.acquire();
+    EXPECT_TRUE(opt.has_value());
+    auto& handle = *opt;
     handle->update.type = BookUpdateType::DELTA;
     _handles.emplace_back(std::move(handle));
     return _handles.back().get();

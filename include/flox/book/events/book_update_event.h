@@ -10,7 +10,6 @@
 #pragma once
 
 #include "flox/book/book_update.h"
-#include "flox/engine/abstract_market_data_subscriber.h"
 #include "flox/engine/events/market_data_event.h"
 
 #include <memory_resource>
@@ -29,8 +28,6 @@ struct BookUpdateEvent : public IMarketDataEvent
     assert(res != nullptr && "pmr::memory_resource is null!");
   }
 
-  MarketDataEventType eventType() const noexcept override;
-  void dispatchTo(IMarketDataSubscriber& sub) const override;
   void clear() override
   {
     update.bids.clear();

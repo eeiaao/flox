@@ -23,8 +23,8 @@ class ExchangeConnector
  public:
   virtual ~ExchangeConnector() = default;
 
-  using BookUpdateCallback = std::move_only_function<void(BookUpdateEvent*)>;
-  using TradeCallback = std::move_only_function<void(TradeEvent*)>;
+  using BookUpdateCallback = std::move_only_function<void(const BookUpdateEvent&)>;
+  using TradeCallback = std::move_only_function<void(const TradeEvent&)>;
 
   virtual void start() = 0;
   virtual void stop() = 0;
@@ -38,13 +38,13 @@ class ExchangeConnector
   }
 
  protected:
-  void emitBookUpdate(BookUpdateEvent* bu)
+  void emitBookUpdate(const BookUpdateEvent& bu)
   {
     if (_onBookUpdate)
       _onBookUpdate(bu);
   }
 
-  void emitTrade(TradeEvent* t)
+  void emitTrade(const TradeEvent& t)
   {
     if (_onTrade)
       _onTrade(t);

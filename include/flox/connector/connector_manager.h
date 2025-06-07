@@ -28,15 +28,15 @@ class ConnectorManager
     connectors[id] = connector;
   }
 
-  void startAll(std::function<void(BookUpdateEvent*)> onBookUpdate,
-                std::function<void(TradeEvent*)> onTrade)
+  void startAll(ExchangeConnector::BookUpdateCallback onBookUpdate,
+                ExchangeConnector::TradeCallback onTrade)
   {
     for (auto& [symbol, connector] : connectors)
     {
       std::cout << "[ConnectorManager] starting: " << symbol << std::endl;
-      connector->setCallbacks([onBookUpdate](BookUpdateEvent* update)
+      connector->setCallbacks([onBookUpdate = std::move(onBookUpdate)](const BookUpdateEvent& update) mutable
                               { onBookUpdate(update); },
-                              [onTrade](TradeEvent* trade)
+                              [onTrade = std::move(onTrade)](const TradeEvent& trade) mutable
                               { onTrade(trade); });
       connector->start();
     }

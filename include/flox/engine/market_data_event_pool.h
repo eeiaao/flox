@@ -25,17 +25,31 @@ template <typename EventT>
 class EventHandle
 {
  public:
-  EventHandle() noexcept : _event(nullptr) {}
+  EventHandle() = delete;
 
-  explicit EventHandle(EventT* event) noexcept : _event(event) {}
+  explicit EventHandle(EventT* event) noexcept : _event(event)
+  {
+    assert(event && "EventHandle constructed with nullptr");
+    _event->retain();
+  }
 
-  EventHandle(const EventHandle&) = delete;
+  EventHandle(const EventHandle& other) noexcept : _event(other._event)
+  {
+    assert(_event && "EventHandle copy from nullptr");
+    _event->retain();
+  }
+
   EventHandle& operator=(const EventHandle&) = delete;
 
-  EventHandle(EventHandle&& other) noexcept : _event(other._event) { other._event = nullptr; }
+  EventHandle(EventHandle&& other) noexcept : _event(other._event)
+  {
+    assert(_event && "EventHandle moved from invalid source");
+    other._event = nullptr;
+  }
 
   EventHandle& operator=(EventHandle&& other) noexcept
   {
+    assert(other._event && "EventHandle assigned from invalid source");
     if (this != &other)
     {
       release();
@@ -45,34 +59,35 @@ class EventHandle
     return *this;
   }
 
-  ~EventHandle() { release(); }
+  ~EventHandle()
+  {
+    release();
+  }
 
   EventT* get() const noexcept { return _event; }
   EventT* operator->() const noexcept { return _event; }
   EventT& operator*() const noexcept { return *_event; }
 
-  explicit operator bool() const noexcept { return _event != nullptr; }
+  explicit operator bool() const = delete;
 
   template <typename U>
   EventHandle<U> upcast() const
   {
     static_assert(std::is_base_of_v<U, EventT>, "Can only upcast to base type");
-    if (_event)
-    {
-      _event->retain();
-    }
-
+    _event->retain();  // safe: _event always non-null
     return EventHandle<U>(_event);
   }
 
  private:
   void release()
   {
-    if (_event && _event->release())
+    if (_event)
     {
-      _event->releaseToPool();
+      if (_event->release())
+      {
+        _event->releaseToPool();
+      }
     }
-
     _event = nullptr;
   }
 
@@ -94,12 +109,12 @@ class EventPool : public IEventPool
     }
   }
 
-  EventHandle<EventT> acquire()
+  std::optional<EventHandle<EventT>> acquire()
   {
     EventT* event = nullptr;
     if (_queue.pop(event))
     {
-      event->resetRefCount();  // refCount = 1
+      event->resetRefCount(0);  // refCount = 1
       event->setPool(this);
 
       ++_acquired;
@@ -107,7 +122,7 @@ class EventPool : public IEventPool
       return EventHandle(event);
     }
 
-    return {};  // null
+    return {};
   }
 
   void release(IMarketDataEvent* base) override

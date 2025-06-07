@@ -11,6 +11,7 @@
 
 #include <cassert>
 #include <ranges>
+#include "flox/engine/market_data_event_pool.h"
 
 namespace flox
 {
@@ -36,39 +37,31 @@ void CandleAggregator::stop()
   _candles.clear();
 }
 
-void CandleAggregator::onMarketData(const IMarketDataEvent& event)
+void CandleAggregator::onTrade(const TradeEvent& event)
 {
-  if (event.eventType() == MarketDataEventType::TRADE)
-  {
-    onTrade(static_cast<TradeEvent*>(const_cast<IMarketDataEvent*>(&event)));
-  }
-}
-
-void CandleAggregator::onTrade(TradeEvent* trade)
-{
-  auto ts = alignToInterval(trade->trade.timestamp);
-  auto& partial = _candles[trade->trade.symbol];
+  auto ts = alignToInterval(event.trade.timestamp);
+  auto& partial = _candles[event.trade.symbol];
 
   if (!partial.initialized || partial.candle.startTime != ts)
   {
     if (partial.initialized)
     {
       partial.candle.endTime = partial.candle.startTime + _interval;
-      _callback(trade->trade.symbol, partial.candle);
+      _callback(event.trade.symbol, partial.candle);
     }
     partial.candle =
-        Candle(ts, trade->trade.price,
-               Volume::fromDouble(trade->trade.price.toDouble() * trade->trade.quantity.toDouble()));
+        Candle(ts, event.trade.price,
+               Volume::fromDouble(event.trade.price.toDouble() * event.trade.quantity.toDouble()));
     partial.candle.endTime = ts + _interval;
     partial.initialized = true;
     return;
   }
 
   auto& c = partial.candle;
-  c.high = std::max(c.high, trade->trade.price);
-  c.low = std::min(c.low, trade->trade.price);
-  c.close = trade->trade.price;
-  c.volume += Volume::fromDouble(trade->trade.price.toDouble() * trade->trade.quantity.toDouble());
+  c.high = std::max(c.high, event.trade.price);
+  c.low = std::min(c.low, event.trade.price);
+  c.close = event.trade.price;
+  c.volume += Volume::fromDouble(event.trade.price.toDouble() * event.trade.quantity.toDouble());
   c.endTime = partial.candle.startTime + _interval;
 }
 

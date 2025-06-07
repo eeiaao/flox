@@ -22,14 +22,14 @@ class MarketDataBus
 
   Queue* getQueue(SubscriberId id) { return _bookBus.getQueue(id); }
 
-  template <typename T>
-  void publish(EventHandle<T> event)
-    requires std::is_same_v<T, BookUpdateEvent> || std::is_same_v<T, TradeEvent>
+  void publish(EventHandle<BookUpdateEvent> ev)
   {
-    if constexpr (std::is_same_v<T, BookUpdateEvent>)
-      _bookBus.publish(event);
-    else
-      _tradeBus.publish(event);
+    _bookBus.publish(std::move(ev));
+  }
+
+  void publish(const TradeEvent& ev)
+  {
+    _tradeBus.publish(ev);
   }
 
   void start()

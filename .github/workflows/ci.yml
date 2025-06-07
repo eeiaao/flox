@@ -49,3 +49,6 @@ jobs:
 
     - name: Run tests
       run: ctest --test-dir build --output-on-failure
+
+    - name: Run benchmarks
+      run: ./scripts/run_benchmarks.sh build/benchmarks

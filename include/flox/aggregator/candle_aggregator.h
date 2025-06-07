@@ -33,13 +33,12 @@ class CandleAggregator : public ISubsystem, public IMarketDataSubscriber
   void start() override;
   void stop() override;
 
-  void onMarketData(const IMarketDataEvent& event) override;
   SubscriberId id() const override { return reinterpret_cast<SubscriberId>(this); }
   SubscriberMode mode() const override { return SubscriberMode::PUSH; }
 
- private:
-  void onTrade(TradeEvent* trade);
+  void onTrade(const TradeEvent& trade) override;
 
+ private:
   struct PartialCandle
   {
     Candle candle;

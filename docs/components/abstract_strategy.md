@@ -22,11 +22,8 @@ public:
 
   // Market data events
   virtual void onCandle(SymbolId symbol, const Candle &candle);
-  virtual void onTrade(TradeEvent *trade);
-  virtual void onBookUpdate(BookUpdateEvent *bookUpdate);
-
-  // Dispatcher
-  void onMarketData(const IMarketDataEvent &event) override;
+  virtual void onTrade(TradeEvent *trade) override;
+  virtual void onBookUpdate(BookUpdateEvent *bookUpdate) override;
 
   // Subscription identity
   SubscriberId id() const override;

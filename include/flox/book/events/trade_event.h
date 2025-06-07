@@ -9,25 +9,17 @@
 
 #pragma once
 
-#include <chrono>
-#include <string>
-
 #include "flox/book/trade.h"
 #include "flox/engine/events/market_data_event.h"
 
 namespace flox
 {
 
-struct TradeEvent : public IMarketDataEvent
+struct TradeEvent
 {
   using Listener = IMarketDataSubscriber;
 
   Trade trade{};
-
-  TradeEvent(std::pmr::memory_resource*) {}
-
-  MarketDataEventType eventType() const noexcept override;
-  void dispatchTo(IMarketDataSubscriber& sub) const override;
 };
 
 }  // namespace flox

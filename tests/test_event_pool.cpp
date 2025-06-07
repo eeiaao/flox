@@ -24,13 +24,6 @@ class DummyEvent : public IMarketDataEvent
 
   void clear() override { cleared = true; }
 
-  MarketDataEventType eventType() const noexcept override { return MarketDataEventType::BOOK; }
-
-  void dispatchTo(IMarketDataSubscriber&) const override
-  {
-    // No-op for test
-  }
-
   bool cleared = false;
 };
 
@@ -41,8 +34,8 @@ TEST(EventPoolTest, AcquireReturnsValidHandle)
   EventPool<DummyEvent, 3> pool;
 
   auto h = pool.acquire();
-  EXPECT_TRUE(h);
-  EXPECT_NE(h.get(), nullptr);
+  EXPECT_TRUE(h.has_value());
+  EXPECT_NE(h.value().get(), nullptr);
 }
 
 TEST(EventPoolTest, ReleasingReturnsToPool)
@@ -50,13 +43,13 @@ TEST(EventPoolTest, ReleasingReturnsToPool)
   EventPool<DummyEvent, 1> pool;
 
   auto h1 = pool.acquire();
-  EXPECT_TRUE(h1);
+  EXPECT_TRUE(h1.has_value());
 
-  DummyEvent* raw = h1.get();
-  h1 = {};  // handle released
+  DummyEvent* raw = h1.value().get();
+  h1.reset();  // handle released
 
   auto h2 = pool.acquire();
-  EXPECT_EQ(h2.get(), raw);  // reused
+  EXPECT_EQ(h2.value().get(), raw);  // reused
 }
 
 TEST(EventPoolTest, InUseIsTrackedCorrectly)
@@ -71,10 +64,10 @@ TEST(EventPoolTest, InUseIsTrackedCorrectly)
   auto h2 = pool.acquire();
   EXPECT_EQ(pool.inUse(), 2u);
 
-  h1 = {};
+  h1.reset();
   EXPECT_EQ(pool.inUse(), 1u);
 
-  h2 = {};
+  h2.reset();
   EXPECT_EQ(pool.inUse(), 0u);
 }
 
@@ -84,12 +77,6 @@ TEST(EventHandleTest, UpcastRetainsReference)
   {
    public:
     explicit Base(std::pmr::memory_resource*) {}
-    void clear() override {}
-    MarketDataEventType eventType() const noexcept override { return MarketDataEventType::BOOK; }
-    void dispatchTo(IMarketDataSubscriber&) const override
-    {
-      // No-op for test
-    }
   };
 
   class Derived : public Base
@@ -100,50 +87,65 @@ TEST(EventHandleTest, UpcastRetainsReference)
 
   EventPool<Derived, 1> pool;
   auto handle = pool.acquire();
-  auto upcasted = handle.upcast<Base>();
+  auto upcasted = handle.value().upcast<Base>();
 
-  EXPECT_TRUE(upcasted);
   EXPECT_NE(upcasted.get(), nullptr);
 }
 
 TEST(EventHandleTest, MoveReleasesPrevious)
 {
   EventPool<DummyEvent, 1> pool;
-
-  EventHandle<DummyEvent> h1 = pool.acquire();
-  DummyEvent* ptr = h1.get();
-  EXPECT_NE(ptr, nullptr);
+  auto h1 = pool.acquire();
+  DummyEvent* ptr = h1->get();
+  EXPECT_EQ(ptr->refCount(), 1);
 
   {
-    EventHandle<DummyEvent> h2 = std::move(h1);
-    EXPECT_EQ(h1.get(), nullptr);
+    EventHandle<DummyEvent> h2 = std::move(*h1);
+    EXPECT_EQ(h1->get(), nullptr);
     EXPECT_EQ(h2.get(), ptr);
+    EXPECT_EQ(ptr->refCount(), 1);
   }
 
-  // After h2 destroyed, object returned to pool
   EXPECT_EQ(pool.inUse(), 0u);
 }
 
 TEST(EventHandleTest, DoubleMoveStillValid)
 {
   EventPool<DummyEvent, 1> pool;
+  std::optional<EventHandle<DummyEvent>> h1 = pool.acquire();
 
-  EventHandle<DummyEvent> h1 = pool.acquire();
-  DummyEvent* ptr = h1.get();
+  EXPECT_TRUE(h1.has_value());
+  DummyEvent* ptr = h1->get();
 
-  EventHandle<DummyEvent> h2 = std::move(h1);
+  EventHandle<DummyEvent> h2 = std::move(*h1);
   EventHandle<DummyEvent> h3 = std::move(h2);
 
-  EXPECT_EQ(h1.get(), nullptr);
-  EXPECT_EQ(h2.get(), nullptr);
   EXPECT_EQ(h3.get(), ptr);
+  EXPECT_EQ(pool.inUse(), 1u);
+
+  h3.~EventHandle();
+  EXPECT_EQ(pool.inUse(), 0u);
 }
 
 TEST(EventHandleTest, NullHandleIsSafe)
 {
-  EventHandle<DummyEvent> h;
-  EXPECT_FALSE(h);
+  std::optional<EventHandle<DummyEvent>> h;
+  EXPECT_FALSE(h.has_value());
 
   // Should not crash:
-  h = {};  // reassignment of nullptr
+  h.reset();  // reassignment of nullptr
+}
+
+TEST(EventPoolTest, ClearIsCalledOnRelease)
+{
+  EventPool<DummyEvent, 1> pool;
+
+  auto h = pool.acquire();
+  DummyEvent* raw = h.value().get();
+  EXPECT_FALSE(raw->cleared);
+
+  h.reset();
+
+  auto reused = pool.acquire();
+  EXPECT_TRUE(reused.value().get()->cleared);
 }

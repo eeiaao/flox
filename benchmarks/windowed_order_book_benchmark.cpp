@@ -13,6 +13,7 @@
 #include "flox/engine/market_data_event_pool.h"
 
 #include <benchmark/benchmark.h>
+#include <cassert>
 #include <random>
 
 using namespace flox;
@@ -34,7 +35,10 @@ static void BM_ApplyBookUpdate(benchmark::State& state)
 
   for (auto _ : state)
   {
-    auto update = pool.acquire();
+    auto opt = pool.acquire();
+    assert(opt);
+
+    auto& update = *opt;
     update->update.type = BookUpdateType::DELTA;
     update->update.timestamp = std::chrono::system_clock::now();
     update->update.bids.clear();
@@ -64,7 +68,10 @@ static void BM_BestBid(benchmark::State& state)
   auto* book = factory.create(WindowedOrderBookConfig{tickSize, expectedDeviation});
   BookUpdatePool pool;
 
-  auto update = pool.acquire();
+  auto opt = pool.acquire();
+  assert(opt);
+
+  auto& update = *opt;
   update->update.type = BookUpdateType::SNAPSHOT;
   update->update.timestamp = std::chrono::system_clock::now();
   update->update.asks.clear();
@@ -94,7 +101,11 @@ static void BM_BestAsk(benchmark::State& state)
   auto* book = factory.create(WindowedOrderBookConfig{tickSize, expectedDeviation});
   BookUpdatePool pool;
 
-  auto update = pool.acquire();
+  auto opt = pool.acquire();
+  assert(opt);
+
+  auto& update = *opt;
+
   update->update.type = BookUpdateType::SNAPSHOT;
   update->update.timestamp = std::chrono::system_clock::now();
   update->update.bids.clear();

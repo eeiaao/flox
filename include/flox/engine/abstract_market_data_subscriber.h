@@ -9,6 +9,8 @@
 
 #pragma once
 
+#include "flox/book/events/book_update_event.h"
+#include "flox/book/events/trade_event.h"
 #include "flox/engine/events/market_data_event.h"
 
 namespace flox
@@ -25,7 +27,9 @@ class IMarketDataSubscriber
 {
  public:
   virtual ~IMarketDataSubscriber() = default;
-  virtual void onMarketData(const IMarketDataEvent& event) = 0;
+
+  virtual void onBookUpdate(const BookUpdateEvent& ev) {}
+  virtual void onTrade(const TradeEvent& ev) {}
 
   virtual SubscriberId id() const = 0;
   virtual SubscriberMode mode() const { return SubscriberMode::PUSH; }

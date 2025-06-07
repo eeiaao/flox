@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "flox/engine/abstract_market_data_subscriber.h"
+#include "flox/engine/event_dispatcher.h"
 #include "flox/engine/tick_barrier.h"
 #include "flox/engine/tick_guard.h"
 #include "flox/util/concurrency/spsc_queue.h"
@@ -100,7 +101,7 @@ class EventBus<Event, true, WithQueue>
           if (opt) {
             auto& [ev, barrier] = opt->get();
             TickGuard guard(*barrier);
-            ev->dispatchTo(*listener);
+            EventDispatcher<Event>::dispatch(ev, *listener);
           } else {
             std::this_thread::yield();
           }
@@ -132,16 +133,7 @@ class EventBus<Event, true, WithQueue>
     TickBarrier barrier(_subs.size());
     for (auto& entry : _subs)
     {
-      if constexpr (std::is_copy_constructible_v<Event>)
-      {
-        entry.queue->emplace(QueueItem{event, &barrier});
-      }
-      else
-      {
-        if (event.get())
-          event->retain();
-        entry.queue->emplace(QueueItem{Event(event.get()), &barrier});
-      }
+      entry.queue->push(QueueItem{event, &barrier});
     }
     barrier.wait();
   }
@@ -205,14 +197,7 @@ class EventBus<Event, false, false>
     {
       if (l)
       {
-        if constexpr (requires { event.dispatchTo(*l); })
-        {
-          event.dispatchTo(*l);
-        }
-        else
-        {
-          event->dispatchTo(*l);
-        }
+        EventDispatcher<Event>::dispatch(event, *l);
       }
     }
   }
@@ -270,6 +255,15 @@ class EventBus<Event, false, true>
   void stop()
   {
     std::lock_guard<std::mutex> lock(_mutex);
+    for (auto& [_, sub] : _subs)
+    {
+      if (sub.queue)
+      {
+        while (sub.queue->try_pop_ref())
+        {
+        }
+      }
+    }
     _subs.clear();
   }
 
@@ -280,20 +274,11 @@ class EventBus<Event, false, true>
     {
       if (sub.mode == SubscriberMode::PUSH && sub.subscriber)
       {
-        event->dispatchTo(*sub.subscriber);
+        EventDispatcher<Event>::dispatch(event, *sub.subscriber);
       }
       else if (sub.mode == SubscriberMode::PULL && sub.queue)
       {
-        if constexpr (std::is_copy_constructible_v<Event>)
-        {
-          sub.queue->emplace(event);
-        }
-        else
-        {
-          if (event.get())
-            event->retain();
-          sub.queue->emplace(Event(event.get()));
-        }
+        sub.queue->push(event);
       }
     }
   }

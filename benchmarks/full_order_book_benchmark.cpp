@@ -30,7 +30,10 @@ static void BM_ApplyBookUpdate(benchmark::State& state)
 
   for (auto _ : state)
   {
-    auto update = pool.acquire();
+    auto opt = pool.acquire();
+    assert(opt);
+
+    auto& update = *opt;
     update->update.type = BookUpdateType::DELTA;
     update->update.timestamp = std::chrono::system_clock::now();
 
@@ -57,7 +60,10 @@ static void BM_BestBid(benchmark::State& state)
   FullOrderBook book{Price::fromDouble(0.1)};
   BookUpdatePool pool;
 
-  auto update = pool.acquire();
+  auto opt = pool.acquire();
+  assert(opt);
+
+  auto& update = *opt;
   update->update.type = BookUpdateType::SNAPSHOT;
   update->update.bids.reserve(100000);
   update->update.asks.clear();
@@ -83,7 +89,13 @@ static void BM_BestAsk(benchmark::State& state)
   FullOrderBook book{Price::fromDouble(0.1)};
   BookUpdatePool pool;
 
-  auto update = pool.acquire();
+  auto opt = pool.acquire();
+  if (!opt)
+  {
+    return;
+  }
+
+  auto& update = *opt;
   update->update.type = BookUpdateType::SNAPSHOT;
   update->update.asks.reserve(100000);
   update->update.bids.clear();

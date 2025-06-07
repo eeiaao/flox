@@ -36,13 +36,14 @@ class SyncTestSubscriber : public IMarketDataSubscriber
   {
   }
 
-  void onMarketData(const IMarketDataEvent& event) override
+  void onBookUpdate(const BookUpdateEvent& book) override
   {
-    const auto& book = static_cast<const BookUpdateEvent&>(event);
     std::this_thread::sleep_for(10ms);  // simulate work
     ++_counter;
     if (!book.update.bids.empty())
+    {
       _lastPrice.store(book.update.bids[0].price.toDouble());
+    }
   }
 
   SubscriberId id() const override { return _id; };
@@ -74,8 +75,9 @@ TEST(SyncMarketDataBusTest, AllSubscribersProcessEachTick)
 
   for (int i = 0; i < 5; ++i)
   {
-    auto handle = pool.acquire();
-    ASSERT_TRUE(handle);
+    auto handleOpt = pool.acquire();
+    EXPECT_TRUE(handleOpt.has_value());
+    auto& handle = *handleOpt;
     handle->update.type = BookUpdateType::SNAPSHOT;
     handle->update.bids = {{Price::fromDouble(100.0 + i), Quantity::fromDouble(1.0)}};
     bus.publish(std::move(handle));
@@ -112,9 +114,8 @@ TEST(SyncMarketDataBusTest, AllSubscribersProcessEachTickSynchronously)
     {
     }
 
-    void onMarketData(const IMarketDataEvent& event) override
+    void onBookUpdate(const BookUpdateEvent& book) override
     {
-      const auto& book = static_cast<const BookUpdateEvent&>(event);
       std::this_thread::sleep_for(10ms);  // simulate work
       if (!book.update.bids.empty())
       {
@@ -143,8 +144,9 @@ TEST(SyncMarketDataBusTest, AllSubscribersProcessEachTickSynchronously)
   for (int tick = 0; tick < numTicks; ++tick)
   {
     {
-      auto handle = pool.acquire();
-      ASSERT_TRUE(handle);
+      auto handleOpt = pool.acquire();
+      EXPECT_TRUE(handleOpt.has_value());
+      auto& handle = *handleOpt;
       handle->update.type = BookUpdateType::SNAPSHOT;
       handle->update.bids = {{Price::fromDouble(static_cast<double>(tick)), Quantity::fromDouble(1.0)}};
       bus.publish(std::move(handle));
