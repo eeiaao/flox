@@ -1,5 +1,6 @@
 #pragma once
 
+#include "flox/engine/abstract_subscriber.h"
 #include "flox/execution/abstract_executor.h"
 #include "flox/execution/bus/order_execution_bus.h"
 #include "flox/killswitch/abstract_killswitch.h"
@@ -224,6 +225,9 @@ class SimpleOrderExecutor : public IOrderExecutor
 class SimplePositionManager : public PositionManager
 {
  public:
+  SimplePositionManager(SubscriberId id)
+      : PositionManager(id) {}
+
   void start() override
   {
     std::cout << "[position] start\n";

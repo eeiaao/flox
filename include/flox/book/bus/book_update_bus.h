@@ -7,9 +7,9 @@ namespace flox
 {
 
 #ifdef USE_SYNC_MARKET_BUS
-using BookUpdateBus = EventBus<EventHandle<BookUpdateEvent>, true, true>;
+using BookUpdateBus = EventBus<EventHandle<BookUpdateEvent>, true>;
 #else
-using BookUpdateBus = EventBus<EventHandle<BookUpdateEvent>, false, true>;
+using BookUpdateBus = EventBus<EventHandle<BookUpdateEvent>, false>;
 #endif
 
 }  // namespace flox

@@ -11,7 +11,6 @@
 
 #include <cassert>
 #include <ranges>
-#include "flox/engine/market_data_event_pool.h"
 
 namespace flox
 {

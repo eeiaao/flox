@@ -16,7 +16,7 @@ std::unique_ptr<IEngine> DemoBuilder::build()
 
   auto execTracker = std::make_unique<ConsoleExecutionTracker>();
   auto pnlTracker = std::make_unique<SimplePnLTracker>();
-  auto posMgr = std::make_unique<SimplePositionManager>();
+  auto posMgr = std::make_unique<SimplePositionManager>(100);
   auto storage = std::make_unique<StdoutStorageSink>();
   auto killSwitch = std::make_unique<SimpleKillSwitch>();
   auto riskMgr = std::make_unique<SimpleRiskManager>(killSwitch.get());

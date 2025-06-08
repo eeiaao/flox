@@ -23,6 +23,8 @@ struct BookUpdateEvent : public IMarketDataEvent
 
   BookUpdate update;
 
+  uint64_t tickSequence = 0;
+
   BookUpdateEvent(std::pmr::memory_resource* res) : update(res)
   {
     assert(res != nullptr && "pmr::memory_resource is null!");

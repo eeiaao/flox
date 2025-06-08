@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include "flox/engine/abstract_subscriber.h"
 #include "flox/execution/abstract_execution_listener.h"
 
 #include <algorithm>
@@ -20,6 +21,8 @@ namespace flox
 class MultiExecutionListener : public IOrderExecutionListener
 {
  public:
+  MultiExecutionListener(SubscriberId id) : IOrderExecutionListener(id) {}
+
   void addListener(IOrderExecutionListener* listener)
   {
     if (listener && std::ranges::find(_listeners, listener) == _listeners.end())

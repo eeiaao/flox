@@ -11,6 +11,7 @@
 #include <atomic>
 #include <memory>
 
+#include "flox/engine/abstract_subscriber.h"
 #include "flox/execution/bus/order_execution_bus.h"
 #include "flox/execution/events/order_event.h"
 #include "flox/execution/order.h"
@@ -23,7 +24,8 @@ namespace
 class CountingListener : public IOrderExecutionListener
 {
  public:
-  explicit CountingListener(std::atomic<int>& c) : _counter(c) {}
+  explicit CountingListener(SubscriberId id, std::atomic<int>& c)
+      : IOrderExecutionListener(id), _counter(c) {}
 
   void onOrderAccepted(const Order&) override {}
   void onOrderPartiallyFilled(const Order&, Quantity) override {}
@@ -49,8 +51,8 @@ TEST(OrderExecutionBusTest, SubscribersReceiveFill)
 {
   OrderExecutionBus bus;
   std::atomic<int> c1{0}, c2{0};
-  auto l1 = std::make_shared<CountingListener>(c1);
-  auto l2 = std::make_shared<CountingListener>(c2);
+  auto l1 = std::make_shared<CountingListener>(1, c1);
+  auto l2 = std::make_shared<CountingListener>(2, c2);
   bus.subscribe(l1);
   bus.subscribe(l2);
 

@@ -1,7 +1,6 @@
 #pragma once
 
 #include <memory>
-#include <type_traits>
 
 #include "flox/book/bus/book_update_bus.h"
 #include "flox/book/bus/trade_bus.h"

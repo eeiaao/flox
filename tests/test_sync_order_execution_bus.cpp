@@ -11,9 +11,14 @@
 #include <atomic>
 #include <memory>
 
+#include "flox/engine/abstract_subscriber.h"
 #include "flox/execution/bus/order_execution_bus.h"
 #include "flox/execution/events/order_event.h"
 #include "flox/execution/order.h"
+
+#ifndef USE_SYNC_ORDER_BUS
+#error "Test requires USE_SYNC_ORDER_BUS to be defined"
+#endif
 
 using namespace flox;
 
@@ -23,7 +28,8 @@ namespace
 class SyncListener : public IOrderExecutionListener
 {
  public:
-  explicit SyncListener(std::atomic<int>& c) : _counter(c) {}
+  explicit SyncListener(SubscriberId id, std::atomic<int>& c)
+      : IOrderExecutionListener(id), _counter(c) {}
 
   void onOrderAccepted(const Order&) override {}
   void onOrderPartiallyFilled(const Order&, Quantity) override {}
@@ -49,8 +55,8 @@ TEST(SyncOrderExecutionBusTest, WaitsForAllSubscribers)
 {
   OrderExecutionBus bus;
   std::atomic<int> counter{0};
-  auto l1 = std::make_shared<SyncListener>(counter);
-  auto l2 = std::make_shared<SyncListener>(counter);
+  auto l1 = std::make_shared<SyncListener>(1, counter);
+  auto l2 = std::make_shared<SyncListener>(2, counter);
   bus.subscribe(l1);
   bus.subscribe(l2);
 

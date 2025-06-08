@@ -10,6 +10,7 @@
 #pragma once
 
 #include "flox/common.h"
+#include "flox/engine/abstract_subscriber.h"
 #include "flox/engine/subsystem.h"
 #include "flox/execution/abstract_execution_listener.h"
 #include "flox/position/abstract_position_manager.h"
@@ -22,6 +23,8 @@ namespace flox
 class PositionManager : public IPositionManager, public IOrderExecutionListener, public ISubsystem
 {
  public:
+  PositionManager(SubscriberId id) : IOrderExecutionListener(id) {}
+
   void start() override {}
   void stop() override {}
 

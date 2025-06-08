@@ -32,14 +32,14 @@ static Order makeOrder(SymbolId symbol, Side side, double qty)
 
 TEST(PositionManager, IncreasesOnBuy)
 {
-  PositionManager pm;
+  PositionManager pm(100);
   pm.onOrderFilled(makeOrder(BTC, Side::BUY, 1.234567));
   EXPECT_EQ(pm.getPosition(BTC), Quantity::fromDouble(1.234567));
 }
 
 TEST(PositionManager, DecreasesOnSell)
 {
-  PositionManager pm;
+  PositionManager pm(100);
   pm.onOrderFilled(makeOrder(BTC, Side::BUY, 2.0));
   pm.onOrderFilled(makeOrder(BTC, Side::SELL, 0.5));
   EXPECT_EQ(pm.getPosition(BTC), Quantity::fromDouble(1.5));
@@ -47,20 +47,20 @@ TEST(PositionManager, DecreasesOnSell)
 
 TEST(PositionManager, CanBeNegative)
 {
-  PositionManager pm;
+  PositionManager pm(100);
   pm.onOrderFilled(makeOrder(BTC, Side::SELL, 0.25));
   EXPECT_EQ(pm.getPosition(BTC), Quantity::fromDouble(-0.25));
 }
 
 TEST(PositionManager, UnknownSymbolIsZero)
 {
-  PositionManager pm;
+  PositionManager pm(100);
   EXPECT_EQ(pm.getPosition(ETH), Quantity::fromRaw(0));
 }
 
 TEST(PositionManager, MultipleSymbols)
 {
-  PositionManager pm;
+  PositionManager pm(100);
   pm.onOrderFilled(makeOrder(BTC, Side::BUY, 1.0));
   pm.onOrderFilled(makeOrder(ETH, Side::BUY, 2.0));
   pm.onOrderFilled(makeOrder(BTC, Side::SELL, 0.5));

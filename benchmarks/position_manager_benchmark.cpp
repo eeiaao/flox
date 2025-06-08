@@ -32,7 +32,7 @@ static Order makeOrder(SymbolId symbol, Side side, double qty)
 
 static void BM_PositionManager_OnOrderFilled(benchmark::State& state)
 {
-  PositionManager pm;
+  PositionManager pm(100);
   pm.start();
 
   std::mt19937 rng(42);

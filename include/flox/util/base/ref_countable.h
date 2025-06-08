@@ -31,7 +31,7 @@ class RefCountable
     return prev == 1;
   }
 
-  void resetRefCount(uint32_t value = 1) noexcept
+  void resetRefCount(uint32_t value = 0) noexcept
   {
     _refCount.store(value, std::memory_order_relaxed);
   }

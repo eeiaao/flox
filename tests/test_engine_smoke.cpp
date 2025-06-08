@@ -129,8 +129,14 @@ class SmokeEngineBuilder : public IEngineBuilder
     {
     }
 
-    void start() override {}
-    void stop() override {}
+    void start() override
+    {
+      _bus.start();
+    }
+    void stop() override
+    {
+      _bus.stop();
+    }
 
     void runTrade(Price price, Quantity qty) { _connector.publishTrade(price, qty); }
     void runBook(Price price, Quantity qty) { _connector.publishBook(price, qty); }

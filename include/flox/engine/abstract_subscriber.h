@@ -9,19 +9,22 @@
 
 #pragma once
 
-#include "flox/book/trade.h"
-#include "flox/engine/events/market_data_event.h"
+#include <cstdint>
 
 namespace flox
 {
 
-struct TradeEvent
+using SubscriberId = uint64_t;
+enum class SubscriberMode
 {
-  using Listener = IMarketDataSubscriber;
+  PUSH,
+  PULL
+};
 
-  Trade trade{};
-
-  uint64_t tickSequence = 0;
+struct ISubscriber
+{
+  virtual SubscriberId id() const = 0;
+  virtual SubscriberMode mode() const { return SubscriberMode::PUSH; }
 };
 
 }  // namespace flox

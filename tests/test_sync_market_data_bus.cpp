@@ -8,11 +8,9 @@
  */
 
 #include <gtest/gtest.h>
-#include <atomic>
 #include <map>
 #include <memory>
 #include <mutex>
-#include <set>
 #include <thread>
 #include <vector>
 
@@ -25,156 +23,97 @@
 using namespace flox;
 using namespace std::chrono_literals;
 
+#ifndef USE_SYNC_MARKET_BUS
+#error "Test requires USE_SYNC_ORDER_BUS to be defined"
+#endif
+
 namespace
 {
 
-class SyncTestSubscriber : public IMarketDataSubscriber
-{
- public:
-  explicit SyncTestSubscriber(SubscriberId id, std::atomic<int>& counter)
-      : _id(id), _counter(counter)
-  {
-  }
-
-  void onBookUpdate(const BookUpdateEvent& book) override
-  {
-    std::this_thread::sleep_for(10ms);  // simulate work
-    ++_counter;
-    if (!book.update.bids.empty())
-    {
-      _lastPrice.store(book.update.bids[0].price.toDouble());
-    }
-  }
-
-  SubscriberId id() const override { return _id; };
-  double lastPrice() const { return _lastPrice.load(); }
-
- private:
-  SubscriberId _id;
-  std::atomic<int>& _counter;
-  std::atomic<double> _lastPrice{-1.0};
-};
-
-constexpr size_t PoolCapacity = 7;
+constexpr size_t PoolCapacity = 15;
 using BookUpdatePool = EventPool<BookUpdateEvent, PoolCapacity>;
 
-TEST(SyncMarketDataBusTest, AllSubscribersProcessEachTick)
+struct TickLogEntry
+{
+  uint64_t tickId;
+  SubscriberId subscriberId;
+  std::chrono::steady_clock::time_point timestamp;
+};
+
+TEST(SyncMarketDataBusTest, DetectsAsyncBehaviorWithTimingGaps)
 {
   MarketDataBus bus;
   BookUpdatePool pool;
 
-  std::atomic<int> c1{0}, c2{0}, c3{0};
-  auto s1 = std::make_shared<SyncTestSubscriber>(1, c1);
-  auto s2 = std::make_shared<SyncTestSubscriber>(2, c2);
-  auto s3 = std::make_shared<SyncTestSubscriber>(3, c3);
+  constexpr int numTicks = 5;
 
-  bus.subscribe(s1);
-  bus.subscribe(s2);
-  bus.subscribe(s3);
+  std::mutex logMutex;
+  std::vector<TickLogEntry> tickLog;
+
+  struct TimingSubscriber : public IMarketDataSubscriber
+  {
+    TimingSubscriber(SubscriberId id, std::mutex& mutex, std::vector<TickLogEntry>& log, int sleepMs)
+        : _id(id), _mutex(mutex), _log(log), _sleepMs(sleepMs) {}
+
+    void onBookUpdate(const BookUpdateEvent& ev) override
+    {
+      std::this_thread::sleep_for(std::chrono::milliseconds(_sleepMs));
+      TickLogEntry entry{ev.tickSequence, _id, std::chrono::steady_clock::now()};
+      std::lock_guard<std::mutex> lock(_mutex);
+      _log.push_back(entry);
+    }
+
+    SubscriberId id() const override { return _id; }
+
+    SubscriberId _id;
+    std::mutex& _mutex;
+    std::vector<TickLogEntry>& _log;
+    int _sleepMs;
+  };
+
+  auto fast = std::make_shared<TimingSubscriber>(1, logMutex, tickLog, 10);
+  auto mid = std::make_shared<TimingSubscriber>(2, logMutex, tickLog, 30);
+  auto slow = std::make_shared<TimingSubscriber>(3, logMutex, tickLog, 60);
+
+  bus.subscribe(fast);
+  bus.subscribe(mid);
+  bus.subscribe(slow);
+
   bus.start();
 
-  for (int i = 0; i < 5; ++i)
+  for (int i = 0; i < numTicks; ++i)
   {
     auto handleOpt = pool.acquire();
-    EXPECT_TRUE(handleOpt.has_value());
+    ASSERT_TRUE(handleOpt.has_value());
     auto& handle = *handleOpt;
+
     handle->update.type = BookUpdateType::SNAPSHOT;
     handle->update.bids = {{Price::fromDouble(100.0 + i), Quantity::fromDouble(1.0)}};
+
     bus.publish(std::move(handle));
   }
 
   bus.stop();
 
-  EXPECT_EQ(c1, 5);
-  EXPECT_EQ(c2, 5);
-  EXPECT_EQ(c3, 5);
-  EXPECT_NE(s1->lastPrice(), -1.0);
-  EXPECT_NE(s2->lastPrice(), -1.0);
-  EXPECT_NE(s3->lastPrice(), -1.0);
-  EXPECT_EQ(pool.inUse(), 0);
-}
+  std::map<uint64_t, std::vector<std::chrono::steady_clock::time_point>> timestampsByTick;
 
-TEST(SyncMarketDataBusTest, AllSubscribersProcessEachTickSynchronously)
-{
-  MarketDataBus bus;
-  BookUpdatePool pool;
-
-  constexpr int numSubscribers = 3;
-  constexpr int numTicks = 5;
-
-  std::mutex logMutex;
-  std::map<int, std::set<SubscriberId>> tickLog;
-
-  class StrictSyncSubscriber : public IMarketDataSubscriber
+  for (const auto& entry : tickLog)
   {
-   public:
-    StrictSyncSubscriber(SubscriberId id, std::mutex& logMutex,
-                         std::map<int, std::set<SubscriberId>>& tickLog)
-        : _id(id), _logMutex(logMutex), _tickLog(tickLog)
-    {
-    }
-
-    void onBookUpdate(const BookUpdateEvent& book) override
-    {
-      std::this_thread::sleep_for(10ms);  // simulate work
-      if (!book.update.bids.empty())
-      {
-        const int seq = static_cast<int>(book.update.bids[0].price.toDouble());
-        std::lock_guard<std::mutex> lock(_logMutex);
-        _tickLog[seq].insert(_id);
-      }
-    }
-
-    SubscriberId id() const override { return _id; }
-
-   private:
-    SubscriberId _id;
-    std::mutex& _logMutex;
-    std::map<int, std::set<SubscriberId>>& _tickLog;
-  };
-
-  for (int i = 0; i < numSubscribers; ++i)
-  {
-    auto s = std::make_shared<StrictSyncSubscriber>(i + 1, logMutex, tickLog);
-    bus.subscribe(s);
+    timestampsByTick[entry.tickId].push_back(entry.timestamp);
   }
 
-  bus.start();
-
-  for (int tick = 0; tick < numTicks; ++tick)
+  for (uint64_t tick = 1; tick < numTicks; ++tick)
   {
-    {
-      auto handleOpt = pool.acquire();
-      EXPECT_TRUE(handleOpt.has_value());
-      auto& handle = *handleOpt;
-      handle->update.type = BookUpdateType::SNAPSHOT;
-      handle->update.bids = {{Price::fromDouble(static_cast<double>(tick)), Quantity::fromDouble(1.0)}};
-      bus.publish(std::move(handle));
-    }
+    const auto& prev = timestampsByTick[tick - 1];
+    const auto& curr = timestampsByTick[tick];
 
-    for (int i = 0; i < 100; ++i)
-    {
-      std::this_thread::sleep_for(1ms);
-      std::lock_guard<std::mutex> lock(logMutex);
-      if (tickLog[tick].size() == static_cast<size_t>(numSubscribers))
-      {
-        break;
-      }
-    }
+    ASSERT_EQ(prev.size(), 3);
+    ASSERT_EQ(curr.size(), 3);
 
-    {
-      std::lock_guard<std::mutex> lock(logMutex);
-      ASSERT_EQ(tickLog[tick].size(), static_cast<size_t>(numSubscribers))
-          << "Tick " << tick << " was not fully processed.";
-    }
-  }
+    auto maxPrev = *std::max_element(prev.begin(), prev.end());
+    auto minCurr = *std::min_element(curr.begin(), curr.end());
 
-  bus.stop();
-
-  for (int tick = 0; tick < numTicks; ++tick)
-  {
-    ASSERT_EQ(tickLog[tick].size(), static_cast<size_t>(numSubscribers))
-        << "Tick " << tick << " incomplete at final check";
+    EXPECT_GE(minCurr, maxPrev) << "Tick " << tick << " started before previous was fully processed";
   }
 
   EXPECT_EQ(pool.inUse(), 0);

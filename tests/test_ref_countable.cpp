@@ -26,9 +26,9 @@ TEST(RefCountableTest, InitialCountIsZero)
 TEST(RefCountableTest, RetainIncrementsRefCount)
 {
   TestRefCountable obj;
-  obj.resetRefCount();  // -> 1
-  obj.retain();         // -> 2
-  obj.retain();         // -> 3
+  obj.resetRefCount(1);  // -> 1
+  obj.retain();          // -> 2
+  obj.retain();          // -> 3
   EXPECT_EQ(obj.refCount(), 3u);
 }
 

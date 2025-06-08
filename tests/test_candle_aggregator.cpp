@@ -84,6 +84,7 @@ TEST(CandleAggregatorTest, AggregatesTradesIntoCandles)
   aggregator.onTrade(makeTrade(SYMBOL, 102, 2, 65));  // triggers flush
 
   bus.stop();
+
   ASSERT_EQ(result.size(), 1);
   EXPECT_EQ(result[0].open, Price::fromDouble(100.0));
   EXPECT_EQ(result[0].high, Price::fromDouble(105.0));

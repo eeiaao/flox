@@ -9,15 +9,22 @@
 
 #pragma once
 
+#include "flox/engine/abstract_subscriber.h"
 #include "flox/execution/order.h"
 
 namespace flox
 {
 
-class IOrderExecutionListener
+class IOrderExecutionListener : public ISubscriber
 {
+  SubscriberId _id{};
+
  public:
+  IOrderExecutionListener(SubscriberId id) : _id(id) {}
+
   virtual ~IOrderExecutionListener() = default;
+
+  SubscriberId id() const override { return _id; };
 
   virtual void onOrderAccepted(const Order& order) = 0;
   virtual void onOrderPartiallyFilled(const Order& order, Quantity fillQty) = 0;

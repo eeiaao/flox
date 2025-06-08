@@ -127,6 +127,18 @@ class SPSCQueue
     return std::ref(*ptr);
   }
 
+  void clear() noexcept
+  {
+    while (!empty())
+    {
+      const size_t tail = _tail.load(std::memory_order_relaxed);
+      T* ptr = reinterpret_cast<T*>(&_buffer[tail]);
+      ptr->~T();
+      const size_t next = (tail + 1) & MASK;
+      _tail.store(next, std::memory_order_release);
+    }
+  }
+
   bool empty() const noexcept
   {
     return _head.load(std::memory_order_acquire) == _tail.load(std::memory_order_acquire);

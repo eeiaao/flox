@@ -13,6 +13,8 @@ struct CandleEvent
 
   SymbolId symbol{};
   Candle candle{};
+
+  uint64_t tickSequence = 0;
 };
 
 }  // namespace flox

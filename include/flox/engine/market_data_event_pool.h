@@ -88,6 +88,7 @@ class EventHandle
         _event->releaseToPool();
       }
     }
+
     _event = nullptr;
   }
 
@@ -114,7 +115,7 @@ class EventPool : public IEventPool
     EventT* event = nullptr;
     if (_queue.pop(event))
     {
-      event->resetRefCount(0);  // refCount = 1
+      event->resetRefCount();
       event->setPool(this);
 
       ++_acquired;

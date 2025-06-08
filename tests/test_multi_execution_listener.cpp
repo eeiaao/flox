@@ -9,6 +9,8 @@
 
 #include <gtest/gtest.h>
 #include "flox/common.h"
+#include "flox/engine/abstract_subscriber.h"
+#include "flox/execution/abstract_execution_listener.h"
 #include "flox/execution/multi_execution_listener.h"
 
 using namespace flox;
@@ -26,6 +28,8 @@ class MockExecutionListener : public IOrderExecutionListener
   Order lastOrder;
   Order replacedOld;
   Order replacedNew;
+
+  MockExecutionListener(SubscriberId id) : IOrderExecutionListener(id) {}
 
   void onOrderAccepted(const Order& order) override
   {
@@ -73,8 +77,8 @@ class MockExecutionListener : public IOrderExecutionListener
 
 TEST(MultiExecutionListenerTest, CallsAllListeners)
 {
-  MultiExecutionListener multi;
-  MockExecutionListener l1, l2;
+  MultiExecutionListener multi(1);
+  MockExecutionListener l1(2), l2(3);
 
   multi.addListener(&l1);
   multi.addListener(&l2);
@@ -93,8 +97,8 @@ TEST(MultiExecutionListenerTest, CallsAllListeners)
 
 TEST(MultiExecutionListenerTest, ForwardsLifecycleCallbacks)
 {
-  MultiExecutionListener multi;
-  MockExecutionListener listener;
+  MultiExecutionListener multi(1);
+  MockExecutionListener listener(2);
 
   multi.addListener(&listener);
 
@@ -130,8 +134,8 @@ TEST(MultiExecutionListenerTest, ForwardsLifecycleCallbacks)
 
 TEST(MultiExecutionListenerTest, PreventsDuplicateListeners)
 {
-  MultiExecutionListener multi;
-  MockExecutionListener l1;
+  MultiExecutionListener multi(100);
+  MockExecutionListener l1(101);
 
   multi.addListener(&l1);
   multi.addListener(&l1);  // Duplicate

@@ -61,6 +61,8 @@ TEST(MarketDataBusTest, SingleSubscriberReceivesUpdates)
   auto subscriber = std::make_shared<TestSubscriber>(1, receivedCount);
   bus.subscribe(subscriber);
 
+  bus.start();
+
   BookUpdatePool pool;
   for (int i = 0; i < 1; ++i)
   {
@@ -94,6 +96,8 @@ TEST(MarketDataBusTest, MultipleSubscribersReceiveAll)
   bus.subscribe(sub1);
   bus.subscribe(sub2);
 
+  bus.start();
+
   BookUpdatePool pool;
   for (int i = 0; i < 20; ++i)
   {
@@ -122,6 +126,8 @@ TEST(MarketDataBusTest, GracefulStopDoesNotLeak)
   MarketDataBus bus;
   std::atomic<int> count{0};
   bus.subscribe(std::make_shared<TestSubscriber>(1, count));
+
+  bus.start();
 
   BookUpdatePool pool;
   for (int i = 0; i < 5; ++i)

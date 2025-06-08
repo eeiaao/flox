@@ -86,6 +86,8 @@ TEST(MarketDataBusTest, PullSubscriberProcessesEvent)
   bus.subscribe(sub);
   ASSERT_NE(bus.getQueue(42), nullptr);
 
+  bus.start();
+
   EventPool<BookUpdateEvent, 3> pool;
   auto eventOpt = pool.acquire();
   EXPECT_TRUE(eventOpt.has_value());
@@ -133,6 +135,8 @@ TEST(MarketDataBusTest, PushSubscriberReceivesAllEvents)
   auto sub = std::make_shared<PushTestSubscriber>(7, counter);
   bus.subscribe(sub);
 
+  bus.start();
+
   EventPool<BookUpdateEvent, 3> pool;
   for (int i = 0; i < 3; ++i)
   {
@@ -144,7 +148,6 @@ TEST(MarketDataBusTest, PushSubscriberReceivesAllEvents)
     bus.publish(std::move(handle));
   }
 
-  std::this_thread::sleep_for(10ms);
   bus.stop();
 
   EXPECT_EQ(counter.load(), 3);
@@ -165,6 +168,8 @@ TEST(MarketDataBusTest, MixedPushAndPullWorkTogether)
 
   bus.subscribe(push);
   bus.subscribe(pull);
+
+  bus.start();
 
   auto handleOpt = pool.acquire();
   EXPECT_TRUE(handleOpt.has_value());

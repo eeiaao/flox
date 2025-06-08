@@ -25,6 +25,8 @@ struct OrderEvent
   Order newOrder{};
   Quantity fillQty{0};
 
+  uint64_t tickSequence = 0;
+
   void dispatchTo(IOrderExecutionListener& listener) const
   {
     switch (type)
