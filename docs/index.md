@@ -14,3 +14,5 @@ It provides a clean separation between abstract interfaces and optimized impleme
 - Fast in-memory order books
 - Strategy engine with lifecycle control
 - Unified subscription bus for market data
+- Dedicated buses for book, trade, candle, and order events
+- Generic `EventBus` powers all event dispatch

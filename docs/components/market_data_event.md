@@ -15,27 +15,21 @@ class IMarketDataEvent : public RefCountable {
 public:
   virtual ~IMarketDataEvent() = default;
 
-  virtual MarketDataEventType eventType() const noexcept = 0;
-  virtual void dispatchTo(IMarketDataSubscriber &sub) const = 0;
-
   void setPool(IEventPool *pool);
   virtual void releaseToPool();
-  virtual EventHandle<IMarketDataEvent> wrap();
   virtual void clear();
 };
 ```
 
 ## Responsibilities
 
-- Identify the event type (book, trade, candle)
-- Dispatch itself to any `IMarketDataSubscriber`
+- Provide a common base for all market data events
 - Participate in pooled memory management via `IEventPool`
 
 ## Pooling & Lifecycle
 
 - Inherits from `RefCountable` to track references
 - Implements `releaseToPool()` to return itself to the originating pool
-- `wrap()` is used to safely create an `EventHandle`
 
 ## Notes
 

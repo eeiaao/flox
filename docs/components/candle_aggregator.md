@@ -29,6 +29,7 @@ public:
 - Aggregates OHLCV values within a time interval (`_interval`)
 - Calls the registered `CandleCallback` when a new candle is completed
 - Tracks per-symbol candle state internally
+- Publishes completed candles to `CandleBus`
 
 ## Internal Design
 

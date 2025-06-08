@@ -20,6 +20,7 @@ nav:
       - Running Engine: usage/running_engine.md
       - Config: usage/config.md
       - Strategies: usage/strategies.md
+      - Demo: usage/demo.md
   - Abstract Layer:
       - Core Interfaces:
           - Subsystem: components/subsystem.md
@@ -46,7 +47,12 @@ nav:
           - Candle: components/candle.md
           - Trade: components/trade_event.md
           - CandleAggregator: components/candle_aggregator.md
+          - EventBus: components/event_bus.md
           - MarketDataBus: components/market_data_bus.md
+          - BookUpdateBus: components/book_update_bus.md
+          - TradeBus: components/trade_bus.md
+          - CandleBus: components/candle_bus.md
+          - OrderExecutionBus: components/order_execution_bus.md
           - MarketDataEvent: components/market_data_event.md
           - MarketDataEventPool: components/market_event_pool.md
           - TickBarrier: components/tick_barrier.md

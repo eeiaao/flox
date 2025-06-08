@@ -34,14 +34,13 @@ Defines **pure interfaces** with no internal state. These are the contracts your
 - `BookUpdateEvent`, `TradeEvent` — pooled and reusable market data events
 - `EventPool` + `EventHandle` — zero-allocation event lifecycle manager
 - `MarketDataBus` — fan-out with lock-free queues (SPSCQueue)
+- `EventBus` — generic template used by all bus types
 - `SPSCQueue` — bounded ring buffer for 1:1 messaging
 - `RefCountable` — atomic reference counting for pooled objects
 - `SymbolRegistry` — maps strings to `SymbolId`
 - `CandleAggregator` — rolling OHLC aggregator
-- `SimulatedOrderExecutor` — fake execution for backtest/demo
+- `SimpleOrderExecutor` — minimal executor used in the demo
 - `PositionManager` — tracks open positions
-- `ImpulseBreakoutStrategy` — sample real strategy with parameterization
-- `StrategyManager` — manages multiple strategies, dispatches events
 - `Subsystem<T>` — wraps non-subsystem modules for uniform lifecycle
 
 #### Features
@@ -78,12 +77,14 @@ marketDataBus->subscribe(strategy);
 The strategy explicitly pulls from its queue (used in polling setups or backtests):
 
 ```cpp
-class MyPullStrategy : public IMarketDataPullSubscriber {
+class MyPullStrategy : public IMarketDataSubscriber {
 public:
-  void readLoop(SPSCQueue<EventHandle<IMarketDataEvent>> &queue) override {
-    EventHandle<IMarketDataEvent> event;
-    while (queue.pop(event)) {
-      event->dispatchTo(*this);
+  SubscriberMode mode() const override { return SubscriberMode::PULL; }
+
+  void readLoop(SPSCQueue<EventHandle<BookUpdateEvent>> &queue) {
+    EventHandle<BookUpdateEvent> ev;
+    while (queue.pop(ev)) {
+      EventDispatcher<EventHandle<BookUpdateEvent>>::dispatch(ev, *this);
     }
   }
 };
@@ -104,8 +105,8 @@ bus->publish(std::move(bookUpdate));
 ### Fan-out process
 
 - Each subscriber has a queue (`SPSCQueue`)
-- `EventHandle<T>` wraps and manages event lifecycle
-- Events are dispatched via `dispatchTo(...)`, ensuring type safety and reuse
+ - `EventHandle<T>` wraps and manages event lifecycle
+ - `EventDispatcher` delivers each event to the subscriber's callback
 
 ### Subscribing:
 
@@ -182,7 +183,7 @@ In pull-mode:
 ```cpp
 auto *queue = marketDataBus->getQueue(strategy->id());
 while (queue->pop(event)) {
-  event->dispatchTo(*strategy);
+  EventDispatcher<EventHandle<BookUpdateEvent>>::dispatch(event, *strategy);
 }
 ```
 

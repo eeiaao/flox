@@ -29,7 +29,7 @@ public:
 ## Usage Example
 
 ```cpp
-void onMarketData(...) {
+void onBookUpdate(const BookUpdateEvent& ev) {
   TickGuard guard(barrier);
   // ... process tick ...
 } // completion is signaled automatically

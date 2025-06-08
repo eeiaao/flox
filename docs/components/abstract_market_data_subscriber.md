@@ -9,19 +9,19 @@ To enable decoupled and efficient delivery of market data (e.g., book updates, t
 ## Interface Definition
 
 ```cpp
-class IMarketDataSubscriber {
+class IMarketDataSubscriber : public ISubscriber {
 public:
   virtual ~IMarketDataSubscriber() = default;
-  virtual void onMarketData(const IMarketDataEvent &event) = 0;
 
-  virtual SubscriberId id() const = 0;
-  virtual SubscriberMode mode() const { return SubscriberMode::PUSH; }
+  virtual void onBookUpdate(const BookUpdateEvent &ev) {}
+  virtual void onTrade(const TradeEvent &ev) {}
+  virtual void onCandle(const CandleEvent &ev) {}
 };
 ```
 
 ## Responsibilities
 
-- Consume events dispatched from `MarketDataBus`
+- Consume events dispatched from the book, trade, and candle buses
 - Identify each subscriber with a unique `id()`
 - Indicate whether it operates in `PUSH` or `PULL` mode
 

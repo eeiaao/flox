@@ -19,8 +19,6 @@ struct TradeEvent : public IMarketDataEvent {
   std::chrono::system_clock::time_point timestamp;
 
   TradeEvent(std::pmr::memory_resource *);
-  MarketDataEventType eventType() const noexcept override;
-  void dispatchTo(IMarketDataSubscriber &sub) const override;
 };
 ```
 
@@ -28,7 +26,7 @@ struct TradeEvent : public IMarketDataEvent {
 
 - Represent a single trade tick
 - Indicate direction with `isBuy`
-- Dispatch itself to subscribers like strategies or metrics collectors
+- Delivered to subscribers via the trade bus
 
 ## Memory Optimization
 

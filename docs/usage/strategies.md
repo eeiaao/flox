@@ -44,8 +44,8 @@ protected:
 
 ## Subscribing to Market Data
 
-Each strategy is automatically subscribed to `MarketDataBus` via `subscribe()`.  
-Events are dispatched through `onMarketData(...)`, which routes them internally to `onBookUpdate(...)`, `onTrade(...)`, etc.
+Each strategy is automatically subscribed to `MarketDataBus` via `subscribe()`.
+Incoming events are delivered directly via the corresponding callback (`onBookUpdate`, `onTrade`, `onCandle`).
 
 ## Order Submission
 

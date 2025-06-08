@@ -22,6 +22,7 @@ public:
   std::unique_ptr<IEngine> build() override {
     auto registry = std::make_unique<SymbolRegistry>();
     auto mdb = std::make_unique<MarketDataBus>();
+    auto orderBus = std::make_unique<OrderExecutionBus>();
 
     // Register connectors
     ConnectorFactory::instance().registerConnector("bybit",
@@ -29,8 +30,8 @@ public:
         auto symbolId = registry->getSymbolId("bybit", symbolStr);
         auto conn = std::make_shared<BybitExchangeConnector>(symbolStr, *symbolId);
         conn->setCallbacks(
-          [mdb](BookUpdateEvent *b) { mdb->publish(b->wrap()); },
-          [mdb](TradeEvent *t) { mdb->publish(t->wrap()); });
+          [mdb](EventHandle<BookUpdateEvent> b) { mdb->publish(std::move(b)); },
+          [mdb](const TradeEvent &t) { mdb->publish(t); });
         return conn;
       });
 
@@ -46,24 +47,20 @@ public:
       }
     }
 
-    // Strategy manager setup
-    auto strategyMgr = std::make_unique<StrategyManager>();
-
     // Strategy wiring
-    auto strategies = ImpulseBreakoutStrategyFactory::createStrategiesFromFile(
-      "impulse_breakout_config.json", registry.get());
+    std::vector<std::shared_ptr<IStrategy>> strategies =
+        loadStrategiesFromConfig(registry.get());
 
     for (const auto &strat : strategies) {
-      auto executor = std::make_unique<SimulatedOrderExecutor>();
+      auto executor = std::make_unique<SimpleOrderExecutor>(*orderBus);
       strat->setOrderExecutor(executor.get());
-      strategyMgr->addStrategy(strat);
       subsystems.push_back(std::move(executor));
       mdb->subscribe(strat);
     }
 
     // Subsystem wiring
     subsystems.push_back(std::move(mdb));
-    subsystems.push_back(std::move(strategyMgr));
+    subsystems.push_back(std::move(orderBus));
     subsystems.push_back(std::make_unique<Subsystem<SymbolRegistry>>(std::move(registry)));
 
     return std::make_unique<Engine>(_config, std::move(subsystems), std::move(connectors));
@@ -78,7 +75,7 @@ private:
 
 - Strategies must implement `IMarketDataSubscriber`
 - Use `Subsystem<T>` to integrate non-ISubsystem modules
-- `EventHandle` + `wrap()` ensures pooled events are properly dispatched
+- Event pools ensure events are dispatched without allocations
 - To run the engine:
 
 ```cpp

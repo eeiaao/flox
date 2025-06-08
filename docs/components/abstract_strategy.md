@@ -57,20 +57,17 @@ protected:
 - All dependencies are injected via setter methods
 - Order flow can be guarded by validator and risk manager before execution
 
-## Dispatch Logic
+## Event Dispatch
+
+Events are delivered via dedicated callbacks without runtime type checks:
 
 ```cpp
-void onMarketData(const IMarketDataEvent &event) override {
-  switch (event.eventType()) {
-    case MarketDataEventType::TRADE:
-      onTrade(static_cast<TradeEvent *>(...));
-      break;
-    case MarketDataEventType::BOOK:
-      onBookUpdate(static_cast<BookUpdateEvent *>(...));
-      break;
-    default:
-      break;
-  }
+void onTrade(const TradeEvent &trade) override {
+  // handle trade
+}
+
+void onBookUpdate(const BookUpdateEvent &update) override {
+  // handle book
 }
 ```
 
@@ -81,3 +78,4 @@ if (GetOrderValidator() && !GetOrderValidator()->validate(order, reason)) return
 if (GetRiskManager() && !GetRiskManager()->allow(order)) return;
 GetOrderExecutor()->submitOrder(order);
 ```
+

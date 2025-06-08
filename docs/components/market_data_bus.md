@@ -13,13 +13,16 @@ To asynchronously or synchronously deliver events to strategies, aggregators, an
 ```cpp
 class MarketDataBus {
 public:
+  using Queue = BookUpdateBus::Queue;
+
   void subscribe(std::shared_ptr<IMarketDataSubscriber> subscriber);
-  SPSCQueue<EventHandle<IMarketDataEvent>>* getQueue(SubscriberId id);
+  Queue* getQueue(SubscriberId id);
+
+  void publish(EventHandle<BookUpdateEvent> ev);
+  void publish(const TradeEvent& ev);
+
   void start();
   void stop();
-
-  template <typename T>
-  void publish(EventHandle<T> event);
 };
 ```
 
@@ -29,6 +32,7 @@ public:
 - Deliver events with zero heap allocation
 - Track subscribers by `SubscriberId`
 - Use `EventHandle` to manage lifecycle of dispatched events
+- Fan-out book and trade events via internal buses
 
 ## Modes
 
@@ -37,6 +41,7 @@ public:
 
 ## Notes
 
-- Internally implemented using a `MarketDataBus::Impl` with per-subscriber queue maps
+- Internally composed of `BookUpdateBus` and `TradeBus`
 - Compatible with both `PUSH` and `PULL` subscriber modes
-- Central to all real-time data distribution in the engine
+- Central to real-time book and trade distribution
+

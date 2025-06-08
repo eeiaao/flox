@@ -19,8 +19,6 @@ struct BookUpdateEvent : public IMarketDataEvent {
   std::chrono::system_clock::time_point timestamp;
 
   BookUpdateEvent(std::pmr::memory_resource *res);
-  MarketDataEventType eventType() const noexcept override;
-  void dispatchTo(IMarketDataSubscriber &sub) const override;
 };
 ```
 
@@ -37,7 +35,7 @@ struct BookLevel {
 
 - Represent current book state or changes (snapshot vs delta)
 - Contain bid/ask levels in memory-resource-backed containers
-- Dispatch itself to any subscriber via `dispatchTo(...)`
+- Delivered to subscribers via the book update bus
 
 ## Memory Optimization
 
