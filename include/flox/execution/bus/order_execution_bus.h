@@ -7,9 +7,9 @@ namespace flox
 {
 
 #ifdef USE_SYNC_ORDER_BUS
-using OrderExecutionBus = EventBus<OrderEvent, true>;
+using OrderExecutionBus = EventBus<OrderEvent, SyncPolicy<OrderEvent> >;
 #else
-using OrderExecutionBus = EventBus<OrderEvent, false>;
+using OrderExecutionBus = EventBus<OrderEvent, AsyncPolicy<OrderEvent> >;
 #endif
 
 }  // namespace flox

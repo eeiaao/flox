@@ -7,9 +7,9 @@ namespace flox
 {
 
 #ifdef USE_SYNC_CANDLE_BUS
-using CandleBus = EventBus<CandleEvent, true>;
+using CandleBus = EventBus<CandleEvent, SyncPolicy<CandleEvent>>;
 #else
-using CandleBus = EventBus<CandleEvent, false>;
+using CandleBus = EventBus<CandleEvent, AsyncPolicy<CandleEvent>>;
 #endif
 
 }  // namespace flox

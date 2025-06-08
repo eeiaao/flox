@@ -29,7 +29,7 @@ TEST(EventBusInstantiationTest, CoversAllSpecializations)
   auto sub = std::make_shared<DummySubscriber>();
 
   {
-    EventBus<E, false> bus;
+    EventBus<E, AsyncPolicy<E>> bus;
     bus.subscribe(sub);
     auto* q = bus.getQueue(sub->id());
     (void)q;
@@ -38,7 +38,7 @@ TEST(EventBusInstantiationTest, CoversAllSpecializations)
   }
 
   {
-    EventBus<E, true> bus;
+    EventBus<E, SyncPolicy<E>> bus;
     bus.subscribe(sub);
     auto* q = bus.getQueue(sub->id());
     (void)q;
