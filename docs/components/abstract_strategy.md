@@ -12,34 +12,27 @@ To allow developers to create modular strategies that respond to market data and
 ## Interface Definition
 
 ```cpp
-class IStrategy : public IMarketDataSubscriber {
-public:
-  virtual ~IStrategy() = default;
-
+class IStrategy : public IMarketDataSubscriber
+{
+ public:
   // Lifecycle
   virtual void onStart();
   virtual void onStop();
 
-  // Market data events
-  virtual void onCandle(SymbolId symbol, const Candle &candle);
-  virtual void onTrade(TradeEvent *trade) override;
-  virtual void onBookUpdate(BookUpdateEvent *bookUpdate) override;
+  // Event hooks
+  virtual void onCandle(const CandleEvent& candle) override;
+  virtual void onTrade(const TradeEvent& trade) override;
+  virtual void onBookUpdate(const BookUpdateEvent& bookUpdate) override;
 
-  // Subscription identity
   SubscriberId id() const override;
   SubscriberMode mode() const override;
 
   // Dependency injection
-  void setRiskManager(IRiskManager *manager);
-  void setPositionManager(IPositionManager *manager);
-  void setOrderExecutor(IOrderExecutor *executor);
-  void setOrderValidator(IOrderValidator *validator);
-
-protected:
-  IRiskManager *GetRiskManager();
-  IPositionManager *GetPositionManager();
-  IOrderExecutor *GetOrderExecutor();
-  IOrderValidator *GetOrderValidator();
+  void setRiskManager(IRiskManager* manager);
+  void setPositionManager(IPositionManager* manager);
+  void setOrderExecutor(IOrderExecutor* executor);
+  void setOrderValidator(IOrderValidator* validator);
+  void setKillSwitch(IKillSwitch* killSwitch);
 };
 ```
 
@@ -52,16 +45,19 @@ protected:
 
 ## Notes
 
-- Subscribes in `PUSH` mode to `MarketDataBus`
-- Uses `EventHandle` dispatch flow for safe memory reuse
+- By default, subscribes in `PUSH` mode to `MarketDataBus`
 - All dependencies are injected via setter methods
-- Order flow can be guarded by validator and risk manager before execution
+- Order flow can be guarded by validator, risk manager and killswitch before execution
 
 ## Event Dispatch
 
 Events are delivered via dedicated callbacks without runtime type checks:
 
 ```cpp
+void onCandle(const CandleEvent& candle) override {
+  // handle candle
+}
+
 void onTrade(const TradeEvent &trade) override {
   // handle trade
 }

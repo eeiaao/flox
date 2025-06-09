@@ -20,21 +20,25 @@ namespace flox
 class ExecutionTrackerAdapter : public IOrderExecutionListener
 {
  public:
-  explicit ExecutionTrackerAdapter(IExecutionTracker* tracker) : _tracker(tracker) {}
+  ExecutionTrackerAdapter(SubscriberId id, IExecutionTracker* tracker)
+      : IOrderExecutionListener(id), _tracker(tracker)
+  {
+  }
 
   void onOrderAccepted(const Order& order) override
   {
     if (_tracker)
     {
-      _tracker->onOrderSubmitted(order, std::chrono::steady_clock::now());
+      _tracker->onOrderAccepted(order, std::chrono::steady_clock::now());
     }
   }
 
-  void onOrderPartiallyFilled(const Order& order, Quantity) override
+  void onOrderPartiallyFilled(const Order& order, Quantity qty) override
   {
     if (_tracker)
     {
-      _tracker->onOrderFilled(order, std::chrono::steady_clock::now());
+      _tracker->onOrderPartiallyFilled(order, qty,
+                                       std::chrono::steady_clock::now());
     }
   }
 
@@ -46,9 +50,21 @@ class ExecutionTrackerAdapter : public IOrderExecutionListener
     }
   }
 
-  void onOrderCanceled(const Order&) override {}
+  void onOrderCanceled(const Order& order) override
+  {
+    if (_tracker)
+    {
+      _tracker->onOrderCanceled(order, std::chrono::steady_clock::now());
+    }
+  }
 
-  void onOrderExpired(const Order&) override {}
+  void onOrderExpired(const Order& order) override
+  {
+    if (_tracker)
+    {
+      _tracker->onOrderExpired(order, std::chrono::steady_clock::now());
+    }
+  }
 
   void onOrderRejected(const Order& order) override
   {
@@ -58,7 +74,14 @@ class ExecutionTrackerAdapter : public IOrderExecutionListener
     }
   }
 
-  void onOrderReplaced(const Order&, const Order&) override {}
+  void onOrderReplaced(const Order& oldOrder, const Order& newOrder) override
+  {
+    if (_tracker)
+    {
+      _tracker->onOrderReplaced(oldOrder, newOrder,
+                                std::chrono::steady_clock::now());
+    }
+  }
 
  private:
   IExecutionTracker* _tracker = nullptr;

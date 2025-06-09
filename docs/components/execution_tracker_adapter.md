@@ -12,16 +12,21 @@ To inject latency tracking into systems that already rely on `IOrderExecutionLis
 ```cpp
 class ExecutionTrackerAdapter : public IOrderExecutionListener {
 public:
-  explicit ExecutionTrackerAdapter(IExecutionTracker *tracker);
+  ExecutionTrackerAdapter(SubscriberId id, IExecutionTracker *tracker);
 
+  void onOrderAccepted(const Order &order) override;
+  void onOrderPartiallyFilled(const Order &order, Quantity qty) override;
   void onOrderFilled(const Order &order) override;
+  void onOrderCanceled(const Order &order) override;
+  void onOrderExpired(const Order &order) override;
   void onOrderRejected(const Order &order, const std::string &reason) override;
+  void onOrderReplaced(const Order &oldOrder, const Order &newOrder) override;
 };
 ```
 
 ## Responsibilities
 
-- Converts `onOrderFilled` and `onOrderRejected` into `IExecutionTracker` calls
+- Converts order lifecycle callbacks into `IExecutionTracker` calls
 - Automatically attaches a timestamp using `std::chrono::steady_clock::now()`
 - Forwards execution events with timing metadata
 

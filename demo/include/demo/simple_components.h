@@ -28,14 +28,41 @@ class ConsoleExecutionTracker : public IExecutionTracker
   {
     std::cout << "[tracker] submitted " << order.id << " at " << ts.time_since_epoch().count() << '\n';
   }
+  void onOrderAccepted(const Order& order, std::chrono::steady_clock::time_point ts) override
+  {
+    std::cout << "[tracker] accepted " << order.id << " at " << ts.time_since_epoch().count() << '\n';
+  }
+
+  void onOrderPartiallyFilled(const Order& order, Quantity qty,
+                              std::chrono::steady_clock::time_point ts) override
+  {
+    std::cout << "[tracker] partial fill " << order.id << " qty=" << qty.toDouble()
+              << " at " << ts.time_since_epoch().count() << '\n';
+  }
   void onOrderFilled(const Order& order, std::chrono::steady_clock::time_point ts) override
   {
     std::cout << "[tracker] filled " << order.id << " after " << ts.time_since_epoch().count() << '\n';
+  }
+  void onOrderCanceled(const Order& order, std::chrono::steady_clock::time_point ts) override
+  {
+    std::cout << "[tracker] canceled " << order.id << " at " << ts.time_since_epoch().count() << '\n';
+  }
+
+  void onOrderExpired(const Order& order, std::chrono::steady_clock::time_point ts) override
+  {
+    std::cout << "[tracker] expired " << order.id << " at " << ts.time_since_epoch().count() << '\n';
   }
   void onOrderRejected(const Order& order, const std::string& reason,
                        std::chrono::steady_clock::time_point) override
   {
     std::cout << "[tracker] rejected " << order.id << " reason=" << reason << '\n';
+  }
+
+  void onOrderReplaced(const Order& oldOrder, const Order& newOrder,
+                       std::chrono::steady_clock::time_point ts) override
+  {
+    std::cout << "[tracker] replaced old=" << oldOrder.id << " new=" << newOrder.id
+              << " at " << ts.time_since_epoch().count() << '\n';
   }
 };
 
@@ -146,10 +173,6 @@ class SimpleOrderExecutor : public IOrderExecutor
 
   void submitOrder(const Order& order) override
   {
-    auto now = std::chrono::steady_clock::now();
-    if (auto tracker = getExecutionTracker())
-      tracker->onOrderSubmitted(order, now);
-
     // accepted
     OrderEvent ev{OrderEventType::ACCEPTED};
     ev.order = order;
