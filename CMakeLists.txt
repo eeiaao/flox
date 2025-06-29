@@ -34,30 +34,30 @@ set(FLOX_SYNC ${PROJECT_NAME}_sync)
 
 add_library(${FLOX} STATIC ${SRC_FILES})
 add_library(flox::${FLOX} ALIAS ${FLOX})
-target_compile_options(${FLOX} PRIVATE
+target_compile_options(${FLOX} PUBLIC
   $<$<CONFIG:Release>:-O3 -march=native -flto -funroll-loops>
 )
 
 add_library(${FLOX_SYNC} STATIC ${SRC_FILES})
 add_library(flox::${FLOX_SYNC} ALIAS ${FLOX_SYNC})
 target_compile_definitions(${FLOX_SYNC} PUBLIC USE_SYNC_MARKET_BUS USE_SYNC_ORDER_BUS USE_SYNC_CANDLE_BUS)
-target_compile_options(${FLOX_SYNC} PRIVATE
+target_compile_options(${FLOX_SYNC} PUBLIC
   $<$<CONFIG:Release>:-O3 -march=native -flto -funroll-loops>
 )
 
-option(ENABLE_BENCHMARK "Enable benchmarks" ON)
+option(ENABLE_BENCHMARK "Enable benchmarks" OFF)
 if (ENABLE_BENCHMARK)
   add_subdirectory(benchmarks)
 endif()
 
 
-option(ENABLE_TESTS "Enable tests" ON)
+option(ENABLE_TESTS "Enable tests" OFF)
 if (ENABLE_TESTS)
   enable_testing()
   add_subdirectory(tests)
 endif()
 
-option(ENABLE_DEMO "Build demo application" ON)
+option(ENABLE_DEMO "Build demo application" OFF)
 if (ENABLE_DEMO)
   add_subdirectory(demo)
 endif()

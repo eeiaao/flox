@@ -80,6 +80,7 @@ class PullingSubscriber : public IMarketDataSubscriber
 TEST(MarketDataBusTest, PullSubscriberProcessesEvent)
 {
   MarketDataBus bus;
+  bus.enableDrainOnStop();
   std::atomic<int> counter{0};
 
   auto sub = std::make_shared<PullingSubscriber>(42, bus, counter);
@@ -130,6 +131,7 @@ class PushTestSubscriber : public IMarketDataSubscriber
 TEST(MarketDataBusTest, PushSubscriberReceivesAllEvents)
 {
   MarketDataBus bus;
+  bus.enableDrainOnStop();
   std::atomic<int> counter{0};
 
   auto sub = std::make_shared<PushTestSubscriber>(7, counter);
@@ -160,6 +162,7 @@ TEST(MarketDataBusTest, PushSubscriberReceivesAllEvents)
 TEST(MarketDataBusTest, MixedPushAndPullWorkTogether)
 {
   MarketDataBus bus;
+  bus.enableDrainOnStop();
   EventPool<BookUpdateEvent, 3> pool;
 
   std::atomic<int> pushCounter{0}, pullCounter{0};

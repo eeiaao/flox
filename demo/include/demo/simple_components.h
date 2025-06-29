@@ -1,5 +1,6 @@
 #pragma once
 
+#include "demo/latency_collector.h"
 #include "flox/engine/abstract_subscriber.h"
 #include "flox/execution/abstract_executor.h"
 #include "flox/execution/bus/order_execution_bus.h"
@@ -110,11 +111,6 @@ class SimpleKillSwitch : public IKillSwitch
  public:
   void check(const Order& order) override
   {
-    if (!_triggered && order.price.toDouble() > 200.0)
-      trigger("price too high");
-
-    if (_triggered && std::chrono::steady_clock::now() - _since >= std::chrono::milliseconds(200))
-      reset();
   }
 
   void trigger(const std::string& r) override
@@ -179,7 +175,6 @@ class SimpleOrderExecutor : public IOrderExecutor
     _bus.publish(ev);
 
     // simulate partial fill
-    std::this_thread::sleep_for(std::chrono::milliseconds(5));
     Quantity half = Quantity::fromRaw(order.quantity.raw() / 2);
     ev = {};
     ev.type = OrderEventType::PARTIALLY_FILLED;
@@ -200,7 +195,6 @@ class SimpleOrderExecutor : public IOrderExecutor
     }
 
     // simulate replace
-    std::this_thread::sleep_for(std::chrono::milliseconds(5));
     Order newOrder = order;
     newOrder.price += Price::fromDouble(0.1);
     ev = {};
@@ -210,7 +204,6 @@ class SimpleOrderExecutor : public IOrderExecutor
     _bus.publish(ev);
 
     // final fill of remaining quantity
-    std::this_thread::sleep_for(std::chrono::milliseconds(5));
     ev = {};
     ev.type = OrderEventType::FILLED;
     ev.order = newOrder;
@@ -230,6 +223,9 @@ class SimpleOrderExecutor : public IOrderExecutor
       rest.quantity = order.quantity - half;
       _posMgr->onOrderFilled(rest);
     }
+
+    collector.record(LatencyCollector::EndToEnd,
+                     std::chrono::steady_clock::now() - order.createdAt);
   }
   void cancelOrder(OrderId) override {}
   void replaceOrder(OrderId, const Order&) override {}

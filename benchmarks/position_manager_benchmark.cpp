@@ -12,13 +12,14 @@
 #include "flox/position/position_manager.h"
 
 #include <benchmark/benchmark.h>
+#include <chrono>
 #include <random>
 
 using namespace flox;
 
 static Order makeOrder(SymbolId symbol, Side side, double qty)
 {
-  auto now = std::chrono::system_clock::now().time_since_epoch();
+  auto now = std::chrono::steady_clock::now();
   return Order{
       .id = 0,
       .side = side,

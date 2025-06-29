@@ -12,7 +12,6 @@
 #include "flox/aggregator/events/candle_event.h"
 #include "flox/book/events/trade_event.h"
 #include "flox/common.h"
-#include "flox/engine/market_data_event_pool.h"
 #include "flox/strategy/abstract_strategy.h"
 
 #include <gtest/gtest.h>
@@ -70,6 +69,7 @@ TEST(CandleAggregatorTest, AggregatesTradesIntoCandles)
 {
   std::vector<Candle> result;
   CandleBus bus;
+  bus.enableDrainOnStop();
   CandleAggregator aggregator(INTERVAL, &bus);
   auto strat = std::make_shared<TestStrategy>(result);
   bus.subscribe(strat);
@@ -99,6 +99,7 @@ TEST(CandleAggregatorTest, FlushesFinalCandleOnStop)
 {
   std::vector<Candle> result;
   CandleBus bus;
+  bus.enableDrainOnStop();
   CandleAggregator aggregator(INTERVAL, &bus);
   auto strat = std::make_shared<TestStrategy>(result);
   bus.subscribe(strat);
@@ -123,6 +124,7 @@ TEST(CandleAggregatorTest, StartsNewCandleAfterGap)
 {
   std::vector<Candle> result;
   CandleBus bus;
+  bus.enableDrainOnStop();
   CandleAggregator aggregator(INTERVAL, &bus);
   auto strat = std::make_shared<TestStrategy>(result);
   bus.subscribe(strat);
@@ -143,6 +145,7 @@ TEST(CandleAggregatorTest, SingleTradeCandle)
 {
   std::vector<Candle> result;
   CandleBus bus;
+  bus.enableDrainOnStop();
   CandleAggregator aggregator(INTERVAL, &bus);
   auto strat = std::make_shared<TestStrategy>(result);
   bus.subscribe(strat);
@@ -166,6 +169,7 @@ TEST(CandleAggregatorTest, MultipleSymbolsAreAggregatedSeparately)
   std::vector<Candle> candles;
   std::vector<SymbolId> symbols;
   CandleBus bus;
+  bus.enableDrainOnStop();
   CandleAggregator aggregator(INTERVAL, &bus);
   auto strat = std::make_shared<TestStrategy>(candles, &symbols);
   bus.subscribe(strat);
@@ -198,6 +202,7 @@ TEST(CandleAggregatorTest, DoubleStartClearsOldState)
 {
   std::vector<Candle> result;
   CandleBus bus;
+  bus.enableDrainOnStop();
   CandleAggregator aggregator(INTERVAL, &bus);
   auto strat = std::make_shared<TestStrategy>(result);
   bus.subscribe(strat);

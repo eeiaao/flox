@@ -26,7 +26,7 @@ static Order makeOrder(SymbolId symbol, Side side, double qty)
   order.quantity = Quantity::fromDouble(qty);
   order.type = OrderType::LIMIT;
   order.symbol = symbol;
-  order.createdAt = std::chrono::nanoseconds(0);
+  order.createdAt = std::chrono::steady_clock::now();
   return order;
 }
 

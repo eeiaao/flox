@@ -1,6 +1,8 @@
 #include "demo/demo_connector.h"
 
 #include <chrono>
+#include <thread>
+#include "demo/latency_collector.h"
 
 namespace demo
 {
@@ -69,8 +71,11 @@ void DemoConnector::run()
     te.trade.price = price;
     te.trade.quantity = Quantity::fromDouble(qtyDist(_rng));
     te.trade.isBuy = sideDist(_rng);
-    te.trade.timestamp = std::chrono::system_clock::now();
-    _bus.publish(te);
+    te.trade.timestamp = std::chrono::high_resolution_clock::now();
+    {
+      MEASURE_LATENCY(LatencyCollector::BusPublish);
+      _bus.publish(te);
+    }
 
     if (now >= nextBookUpdate)
     {
@@ -90,13 +95,16 @@ void DemoConnector::run()
                                      Quantity::fromDouble(qtyDist(_rng))});
         }
 
-        _bus.publish(std::move(ev));
+        {
+          MEASURE_LATENCY(LatencyCollector::BusPublish);
+          _bus.publish(std::move(ev));
+        }
       }
 
-      nextBookUpdate = now + std::chrono::milliseconds(500);
+      nextBookUpdate = now + std::chrono::milliseconds(1);
     }
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
   }
 }
 

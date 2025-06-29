@@ -34,7 +34,7 @@ struct WindowedOrderBookConfig : public IOrderBookConfig
 class WindowedOrderBookFactory : public IOrderBookFactory
 {
  public:
-  explicit WindowedOrderBookFactory(std::size_t arenaSize = 2'000'000)
+  explicit WindowedOrderBookFactory(std::size_t arenaSize = 256 * 1024 * 1024)
       : _buffer(new std::byte[arenaSize]), _arena(_buffer.get(), arenaSize), _mem(&_arena)
   {
   }

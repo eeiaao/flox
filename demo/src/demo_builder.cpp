@@ -21,27 +21,30 @@ std::unique_ptr<IEngine> DemoBuilder::build()
   auto execBus = std::make_unique<OrderExecutionBus>();
 
   auto execTracker = std::make_unique<ConsoleExecutionTracker>();
-  auto pnlTracker = std::make_unique<SimplePnLTracker>();
-  auto posMgr = std::make_unique<SimplePositionManager>(100);
-  auto storage = std::make_unique<StdoutStorageSink>();
-  auto killSwitch = std::make_unique<SimpleKillSwitch>();
-  auto riskMgr = std::make_unique<SimpleRiskManager>(killSwitch.get());
-  auto validator = std::make_unique<SimpleOrderValidator>();
-  auto executor = std::make_unique<SimpleOrderExecutor>(*execBus);
-  auto trackerAdapter =
-      std::make_shared<ExecutionTrackerAdapter>(1, execTracker.get());
+  auto trackerAdapter = std::make_shared<ExecutionTrackerAdapter>(1, execTracker.get());
   execBus->subscribe(trackerAdapter);
-  executor->setPnLTracker(pnlTracker.get());
-  executor->setStorageSink(storage.get());
-  executor->setPositionManager(posMgr.get());
-  executor->setListener(posMgr.get());
 
   auto obFactory = std::make_unique<WindowedOrderBookFactory>();
   WindowedOrderBookConfig bookCfg(Price::fromDouble(0.01), Price::fromDouble(10));
 
   std::vector<std::shared_ptr<IStrategy>> strategies;
-  for (SymbolId sym = 0; sym < 3; ++sym)
+  std::vector<std::unique_ptr<ISubsystem>> subsystems;
+
+  for (SymbolId sym = 0; sym < 8; ++sym)
   {
+    auto killSwitch = std::make_unique<SimpleKillSwitch>();
+    auto riskMgr = std::make_unique<SimpleRiskManager>(killSwitch.get());
+    auto posMgr = std::make_unique<SimplePositionManager>(100);
+    auto validator = std::make_unique<SimpleOrderValidator>();
+    auto pnlTracker = std::make_unique<SimplePnLTracker>();
+    auto storage = std::make_unique<StdoutStorageSink>();
+
+    auto executor = std::make_unique<SimpleOrderExecutor>(*execBus);
+    executor->setPnLTracker(pnlTracker.get());
+    executor->setStorageSink(storage.get());
+    executor->setPositionManager(posMgr.get());
+    executor->setListener(posMgr.get());
+
     auto* book = obFactory->create(bookCfg);
     auto strat = std::make_shared<DemoStrategy>(sym, book);
     strat->setOrderExecutor(executor.get());
@@ -49,7 +52,16 @@ std::unique_ptr<IEngine> DemoBuilder::build()
     strat->setRiskManager(riskMgr.get());
     strat->setPositionManager(posMgr.get());
     strat->setKillSwitch(killSwitch.get());
-    strategies.push_back(std::move(strat));
+
+    strategies.push_back(strat);
+
+    subsystems.push_back(std::move(executor));
+    subsystems.push_back(std::move(riskMgr));
+    subsystems.push_back(std::move(posMgr));
+    subsystems.push_back(std::make_unique<Subsystem<SimpleOrderValidator>>(std::move(validator)));
+    subsystems.push_back(std::make_unique<Subsystem<SimplePnLTracker>>(std::move(pnlTracker)));
+    subsystems.push_back(std::move(storage));
+    subsystems.push_back(std::make_unique<Subsystem<SimpleKillSwitch>>(std::move(killSwitch)));
   }
 
   class StrategySubsystem : public ISubsystem
@@ -77,31 +89,22 @@ std::unique_ptr<IEngine> DemoBuilder::build()
   mdb->subscribe(std::make_shared<CandleAggregator>(std::chrono::seconds{60}, candleBus.get()));
 
   std::vector<std::shared_ptr<ExchangeConnector>> connectors;
-  for (SymbolId sym = 0; sym < 2; ++sym)
+  for (SymbolId sym = 0; sym < 3; ++sym)
   {
     auto conn = std::make_shared<DemoConnector>(std::string("demo") + char('A' + sym), sym, *mdb);
     connectors.push_back(conn);
   }
 
-  std::vector<std::unique_ptr<ISubsystem>> subsystems;
   for (auto& sub : strategySubs)
   {
     subsystems.push_back(std::move(sub));
   }
 
-  subsystems.push_back(std::move(executor));
-  subsystems.push_back(std::move(riskMgr));
-  subsystems.push_back(std::move(posMgr));
-  subsystems.push_back(std::move(storage));
-
   subsystems.push_back(std::make_unique<Subsystem<MarketDataBus>>(std::move(mdb)));
   subsystems.push_back(std::make_unique<Subsystem<CandleBus>>(std::move(candleBus)));
   subsystems.push_back(std::make_unique<Subsystem<OrderExecutionBus>>(std::move(execBus)));
   subsystems.push_back(std::make_unique<Subsystem<WindowedOrderBookFactory>>(std::move(obFactory)));
-  subsystems.push_back(std::make_unique<Subsystem<IOrderValidator>>(std::move(validator)));
   subsystems.push_back(std::make_unique<Subsystem<IExecutionTracker>>(std::move(execTracker)));
-  subsystems.push_back(std::make_unique<Subsystem<IPnLTracker>>(std::move(pnlTracker)));
-  subsystems.push_back(std::make_unique<Subsystem<IKillSwitch>>(std::move(killSwitch)));
 
   return std::make_unique<Engine>(_config, std::move(subsystems), std::move(connectors));
 }

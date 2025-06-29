@@ -50,6 +50,7 @@ class CountingListener : public IOrderExecutionListener
 TEST(OrderExecutionBusTest, SubscribersReceiveFill)
 {
   OrderExecutionBus bus;
+  bus.enableDrainOnStop();
   std::atomic<int> c1{0}, c2{0};
   auto l1 = std::make_shared<CountingListener>(1, c1);
   auto l2 = std::make_shared<CountingListener>(2, c2);

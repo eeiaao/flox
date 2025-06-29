@@ -23,28 +23,28 @@ Engine::Engine(const EngineConfig& config, std::vector<std::unique_ptr<ISubsyste
 
 void Engine::start()
 {
-  for (auto& connector : _connectors)
-  {
-    connector->start();
-  }
-
   for (auto& subsystem : _subsystems)
   {
     subsystem->start();
+  }
+
+  for (auto& connector : _connectors)
+  {
+    connector->start();
   }
 }
 
 void Engine::stop()
 {
+  for (auto& connector : _connectors)
+  {
+    connector->stop();
+  }
+
   std::reverse(_subsystems.begin(), _subsystems.end());
   for (auto& subsystem : _subsystems)
   {
     subsystem->stop();
-  }
-
-  for (auto& connector : _connectors)
-  {
-    connector->stop();
   }
 }
 

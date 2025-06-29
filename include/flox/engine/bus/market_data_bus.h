@@ -43,6 +43,12 @@ class MarketDataBus
     _tradeBus.stop();
   }
 
+  void enableDrainOnStop()
+  {
+    _bookBus.enableDrainOnStop();
+    _tradeBus.enableDrainOnStop();
+  }
+
  private:
   BookUpdateBus _bookBus;
   TradeBus _tradeBus;

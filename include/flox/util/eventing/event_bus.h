@@ -109,8 +109,13 @@ class EventBus
               std::this_thread::yield();
             }
           }
-          while (auto* item = queue->try_pop()) {
-            Policy::dispatch(*item, *listener);
+          while (auto* item = queue->try_pop())
+          {
+            if (_drainOnStop)
+            {
+              Policy::dispatch(*item, *listener);
+            }
+
             item->~QueueItem();
           } });
       }
@@ -185,6 +190,11 @@ class EventBus
     return _tickCounter.load(std::memory_order_relaxed);
   }
 
+  void enableDrainOnStop()
+  {
+    _drainOnStop = true;
+  }
+
  private:
   struct Entry
   {
@@ -201,6 +211,7 @@ class EventBus
   std::condition_variable _cv;
   std::mutex _readyMutex;
   std::atomic<uint64_t> _tickCounter{0};
+  bool _drainOnStop = false;
 };
 
 }  // namespace flox
