@@ -13,8 +13,6 @@
 #include <cassert>
 #include <cstddef>
 #include <functional>
-#include <iostream>
-#include <new>
 #include <optional>
 #include <type_traits>
 #include <utility>

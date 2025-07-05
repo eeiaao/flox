@@ -1,7 +1,8 @@
 #pragma once
 
-#include "flox/execution/abstract_execution_listener.h"
 #include "flox/execution/order.h"
+#include "flox/execution/order_execution_listener_component.h"
+#include "flox/util/base/ref.h"
 
 namespace flox
 {
@@ -19,16 +20,21 @@ enum class OrderEventType
 
 struct OrderEvent
 {
-  using Listener = IOrderExecutionListener;
+  using Listener = OrderExecutionListenerRef;
+
   OrderEventType type{};
   Order order{};
   Order newOrder{};
   Quantity fillQty{0};
+  std::string rejectionReason;
 
   uint64_t tickSequence = 0;
 
-  void dispatchTo(IOrderExecutionListener& listener) const
+  template <typename ListenerT>
+  void dispatchTo(ListenerT& listener) const
   {
+    static_assert(concepts::OrderExecutionListener<ListenerT>);
+
     switch (type)
     {
       case OrderEventType::ACCEPTED:
@@ -47,7 +53,7 @@ struct OrderEvent
         listener.onOrderExpired(order);
         break;
       case OrderEventType::REJECTED:
-        listener.onOrderRejected(order);
+        listener.onOrderRejected(order, rejectionReason);
         break;
       case OrderEventType::REPLACED:
         listener.onOrderReplaced(order, newOrder);

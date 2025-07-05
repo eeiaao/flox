@@ -18,17 +18,17 @@ namespace flox
 
 struct Candle
 {
-  Price open;
-  Price high;
-  Price low;
-  Price close;
-  Volume volume;
-  std::chrono::system_clock::time_point startTime;
-  std::chrono::system_clock::time_point endTime;
+  Price open{};
+  Price high{};
+  Price low{};
+  Price close{};
+  Volume volume{};
+  std::chrono::steady_clock::time_point startTime{};
+  std::chrono::steady_clock::time_point endTime{};
 
   Candle() = default;
 
-  Candle(std::chrono::system_clock::time_point ts, Price price, Volume qty)
+  Candle(std::chrono::steady_clock::time_point ts, Price price, Volume qty)
       : open(price),
         high(price),
         low(price),

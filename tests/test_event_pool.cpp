@@ -7,8 +7,7 @@
  * license information.
  */
 
-#include "flox/engine/events/market_data_event.h"
-#include "flox/engine/market_data_event_pool.h"
+#include "flox/util/memory/pool.h"
 
 #include <gtest/gtest.h>
 
@@ -17,30 +16,31 @@ using namespace flox;
 namespace
 {
 
-class DummyEvent : public IMarketDataEvent
+class DummyEvent : public pool::PoolableBase<DummyEvent>
 {
  public:
   explicit DummyEvent(std::pmr::memory_resource*) {}
 
-  void clear() override { cleared = true; }
+  void clear() { cleared = true; }
 
   bool cleared = false;
 };
+static_assert(concepts::Poolable<DummyEvent>);
 
 }  // namespace
 
-TEST(EventPoolTest, AcquireReturnsValidHandle)
+TEST(PoolTest, AcquireReturnsValidHandle)
 {
-  EventPool<DummyEvent, 3> pool;
+  pool::Pool<DummyEvent, 3> pool;
 
   auto h = pool.acquire();
   EXPECT_TRUE(h.has_value());
   EXPECT_NE(h.value().get(), nullptr);
 }
 
-TEST(EventPoolTest, ReleasingReturnsToPool)
+TEST(PoolTest, ReleasingReturnsToPool)
 {
-  EventPool<DummyEvent, 1> pool;
+  pool::Pool<DummyEvent, 1> pool;
 
   auto h1 = pool.acquire();
   EXPECT_TRUE(h1.has_value());
@@ -49,12 +49,13 @@ TEST(EventPoolTest, ReleasingReturnsToPool)
   h1.reset();  // handle released
 
   auto h2 = pool.acquire();
+  EXPECT_TRUE(h2.has_value());
   EXPECT_EQ(h2.value().get(), raw);  // reused
 }
 
-TEST(EventPoolTest, InUseIsTrackedCorrectly)
+TEST(PoolTest, InUseIsTrackedCorrectly)
 {
-  EventPool<DummyEvent, 3> pool;
+  pool::Pool<DummyEvent, 3> pool;
 
   EXPECT_EQ(pool.inUse(), 0u);
 
@@ -71,9 +72,9 @@ TEST(EventPoolTest, InUseIsTrackedCorrectly)
   EXPECT_EQ(pool.inUse(), 0u);
 }
 
-TEST(EventHandleTest, UpcastRetainsReference)
+TEST(PoolHandleTest, UpcastRetainsReference)
 {
-  class Base : public IMarketDataEvent
+  class Base : public pool::PoolableBase<Base>
   {
    public:
     explicit Base(std::pmr::memory_resource*) {}
@@ -85,22 +86,22 @@ TEST(EventHandleTest, UpcastRetainsReference)
     explicit Derived(std::pmr::memory_resource* r) : Base(r) {}
   };
 
-  EventPool<Derived, 1> pool;
+  pool::Pool<Derived, 1> pool;
   auto handle = pool.acquire();
   auto upcasted = handle.value().upcast<Base>();
 
   EXPECT_NE(upcasted.get(), nullptr);
 }
 
-TEST(EventHandleTest, MoveReleasesPrevious)
+TEST(PoolHandleTest, MoveReleasesPrevious)
 {
-  EventPool<DummyEvent, 1> pool;
+  pool::Pool<DummyEvent, 1> pool;
   auto h1 = pool.acquire();
   DummyEvent* ptr = h1->get();
   EXPECT_EQ(ptr->refCount(), 1);
 
   {
-    EventHandle<DummyEvent> h2 = std::move(*h1);
+    pool::Handle<DummyEvent> h2 = std::move(*h1);
     EXPECT_EQ(h1->get(), nullptr);
     EXPECT_EQ(h2.get(), ptr);
     EXPECT_EQ(ptr->refCount(), 1);
@@ -109,36 +110,40 @@ TEST(EventHandleTest, MoveReleasesPrevious)
   EXPECT_EQ(pool.inUse(), 0u);
 }
 
-TEST(EventHandleTest, DoubleMoveStillValid)
+TEST(PoolHandleTest, DoubleMoveStillValid)
 {
-  EventPool<DummyEvent, 1> pool;
-  std::optional<EventHandle<DummyEvent>> h1 = pool.acquire();
+  using namespace flox::pool;
 
-  EXPECT_TRUE(h1.has_value());
-  DummyEvent* ptr = h1->get();
+  Pool<DummyEvent, 1> pool;
 
-  EventHandle<DummyEvent> h2 = std::move(*h1);
-  EventHandle<DummyEvent> h3 = std::move(h2);
+  {
+    std::optional<Handle<DummyEvent>> h1 = pool.acquire();
 
-  EXPECT_EQ(h3.get(), ptr);
-  EXPECT_EQ(pool.inUse(), 1u);
+    EXPECT_TRUE(h1.has_value());
+    DummyEvent* ptr = h1->get();
 
-  h3.~EventHandle();
+    Handle<DummyEvent> h2 = std::move(*h1);
+    Handle<DummyEvent> h3 = std::move(h2);
+
+    EXPECT_EQ(h3.get(), ptr);
+    EXPECT_EQ(pool.inUse(), 1u);
+  }
+
   EXPECT_EQ(pool.inUse(), 0u);
 }
 
-TEST(EventHandleTest, NullHandleIsSafe)
+TEST(PoolHandleTest, NullHandleIsSafe)
 {
-  std::optional<EventHandle<DummyEvent>> h;
+  std::optional<pool::Handle<DummyEvent>> h;
   EXPECT_FALSE(h.has_value());
 
   // Should not crash:
   h.reset();  // reassignment of nullptr
 }
 
-TEST(EventPoolTest, ClearIsCalledOnRelease)
+TEST(PoolTest, ClearIsCalledOnRelease)
 {
-  EventPool<DummyEvent, 1> pool;
+  pool::Pool<DummyEvent, 1> pool;
 
   auto h = pool.acquire();
   DummyEvent* raw = h.value().get();

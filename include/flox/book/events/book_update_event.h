@@ -1,28 +1,20 @@
-/*
- * Flox Engine
- * Developed by Evgenii Makarov (https://github.com/eeiaao)
- *
- * Copyright (c) 2025 Evgenii Makarov
- * Licensed under the MIT License. See LICENSE file in the project root for full
- * license information.
- */
-
 #pragma once
 
 #include "flox/book/book_update.h"
-#include "flox/engine/events/market_data_event.h"
+#include "flox/engine/market_data_subscriber_component.h"
+#include "flox/util/memory/pool.h"
 
+#include <cassert>
 #include <memory_resource>
 
 namespace flox
 {
 
-struct BookUpdateEvent : public IMarketDataEvent
+struct BookUpdateEvent : public pool::PoolableBase<BookUpdateEvent>
 {
-  using Listener = IMarketDataSubscriber;
+  using Listener = MarketDataSubscriberRef;
 
   BookUpdate update;
-
   uint64_t tickSequence = 0;
 
   BookUpdateEvent(std::pmr::memory_resource* res) : update(res)
@@ -30,11 +22,13 @@ struct BookUpdateEvent : public IMarketDataEvent
     assert(res != nullptr && "pmr::memory_resource is null!");
   }
 
-  void clear() override
+  void clear()
   {
     update.bids.clear();
     update.asks.clear();
   }
 };
+
+static_assert(flox::concepts::Poolable<flox::BookUpdateEvent>);
 
 }  // namespace flox

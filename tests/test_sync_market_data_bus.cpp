@@ -9,16 +9,16 @@
 
 #include <gtest/gtest.h>
 #include <map>
-#include <memory>
 #include <mutex>
 #include <thread>
 #include <vector>
 
+#include "flox/aggregator/events/candle_event.h"
+#include "flox/book/bus/book_update_bus.h"
 #include "flox/book/events/book_update_event.h"
-#include "flox/engine/abstract_market_data_subscriber.h"
-#include "flox/engine/bus/market_data_bus.h"
-#include "flox/engine/events/market_data_event.h"
-#include "flox/engine/market_data_event_pool.h"
+#include "flox/engine/market_data_subscriber_component.h"
+#include "flox/util/base/ref.h"
+#include "flox/util/memory/pool.h"
 
 using namespace flox;
 using namespace std::chrono_literals;
@@ -31,7 +31,7 @@ namespace
 {
 
 constexpr size_t PoolCapacity = 15;
-using BookUpdatePool = EventPool<BookUpdateEvent, PoolCapacity>;
+using BookUpdatePool = pool::Pool<BookUpdateEvent, PoolCapacity>;
 
 struct TickLogEntry
 {
@@ -42,7 +42,7 @@ struct TickLogEntry
 
 TEST(SyncMarketDataBusTest, DetectsAsyncBehaviorWithTimingGaps)
 {
-  MarketDataBus bus;
+  BookUpdateBus bus;
   BookUpdatePool pool;
 
   constexpr int numTicks = 5;
@@ -50,30 +50,38 @@ TEST(SyncMarketDataBusTest, DetectsAsyncBehaviorWithTimingGaps)
   std::mutex logMutex;
   std::vector<TickLogEntry> tickLog;
 
-  struct TimingSubscriber : public IMarketDataSubscriber
+  struct TimingSubscriber
   {
+    using Trait = traits::MarketDataSubscriberTrait;
+    using Allocator = PoolAllocator<Trait, 8>;
+
     TimingSubscriber(SubscriberId id, std::mutex& mutex, std::vector<TickLogEntry>& log, int sleepMs)
         : _id(id), _mutex(mutex), _log(log), _sleepMs(sleepMs) {}
 
-    void onBookUpdate(const BookUpdateEvent& ev) override
+    SubscriberId id() const { return _id; }
+    SubscriberMode mode() const { return SubscriberMode::PUSH; }
+
+    void onBookUpdate(const BookUpdateEvent& ev)
     {
       std::this_thread::sleep_for(std::chrono::milliseconds(_sleepMs));
       TickLogEntry entry{ev.tickSequence, _id, std::chrono::steady_clock::now()};
       std::lock_guard<std::mutex> lock(_mutex);
       _log.push_back(entry);
     }
+    void onTrade(const TradeEvent&) {}
+    void onCandle(const CandleEvent&) {}
 
-    SubscriberId id() const override { return _id; }
-
+   private:
     SubscriberId _id;
     std::mutex& _mutex;
     std::vector<TickLogEntry>& _log;
     int _sleepMs;
   };
+  static_assert(concepts::MarketDataSubscriber<TimingSubscriber>);
 
-  auto fast = std::make_shared<TimingSubscriber>(1, logMutex, tickLog, 10);
-  auto mid = std::make_shared<TimingSubscriber>(2, logMutex, tickLog, 30);
-  auto slow = std::make_shared<TimingSubscriber>(3, logMutex, tickLog, 60);
+  auto fast = make<TimingSubscriber>(1, logMutex, tickLog, 10);
+  auto mid = make<TimingSubscriber>(2, logMutex, tickLog, 30);
+  auto slow = make<TimingSubscriber>(3, logMutex, tickLog, 60);
 
   bus.subscribe(fast);
   bus.subscribe(mid);

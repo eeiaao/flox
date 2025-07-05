@@ -8,9 +8,5 @@ function(add_flox_benchmark name)
 
 endfunction()
 
-add_flox_benchmark(windowed_order_book_benchmark)
-add_flox_benchmark(full_order_book_benchmark)
-add_flox_benchmark(book_side_benchmark)
-add_flox_benchmark(book_side_latency_benchmark)
-add_flox_benchmark(position_manager_benchmark)
+add_flox_benchmark(nlevel_order_book_benchmark)
 add_flox_benchmark(candle_aggregator_benchmark)

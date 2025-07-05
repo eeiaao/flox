@@ -10,13 +10,11 @@
 #pragma once
 
 #include "flox/connector/exchange_connector.h"
-#include "flox/engine/abstract_engine.h"
+#include "flox/engine/engine_component.h"
 #include "flox/engine/engine_config.h"
-#include "flox/engine/subsystem.h"
+#include "flox/engine/subsystem_component.h"
 
-#include <map>
 #include <memory>
-#include <mutex>
 #include <string>
 #include <vector>
 
@@ -31,20 +29,23 @@ struct ExchangeInstance
   std::shared_ptr<ExchangeConnector> connector;
 };
 
-class Engine : public IEngine
+class Engine
 {
  public:
-  Engine(const EngineConfig& config, std::vector<std::unique_ptr<ISubsystem>> subsystems,
+  Engine(const EngineConfig& config, std::vector<SubsystemRef> buses, std::vector<SubsystemRef> subsystems,
          std::vector<std::shared_ptr<ExchangeConnector>> connectors);
 
-  void start() override;
-  void stop() override;
+  void start();
+  void stop();
 
  private:
   EngineConfig _config;
 
-  std::vector<std::unique_ptr<ISubsystem>> _subsystems;
+  std::vector<SubsystemRef> _buses;
+  std::vector<SubsystemRef> _subsystems;
   std::vector<std::shared_ptr<ExchangeConnector>> _connectors;
 };
+
+static_assert(concepts::Engine<Engine>);
 
 }  // namespace flox

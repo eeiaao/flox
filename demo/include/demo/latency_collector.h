@@ -70,8 +70,8 @@ class LatencyCollector
 
 }  // namespace demo
 
-#define MEASURE_LATENCY(label_id)                                              \
-  auto __latency_start_##__LINE__ = std::chrono::high_resolution_clock::now(); \
+#define MEASURE_LATENCY(label_id)                                     \
+  auto __latency_start_##__LINE__ = std::chrono::steady_clock::now(); \
   demo::LatencyGuard __latency_guard_##__LINE__(label_id, __latency_start_##__LINE__);
 
 extern demo::LatencyCollector collector;
@@ -82,18 +82,18 @@ namespace demo
 class LatencyGuard
 {
  public:
-  LatencyGuard(LatencyCollector::LabelId id, std::chrono::high_resolution_clock::time_point start)
+  LatencyGuard(LatencyCollector::LabelId id, std::chrono::steady_clock::time_point start)
       : _id(id), _start(start) {}
 
   ~LatencyGuard()
   {
-    auto end = std::chrono::high_resolution_clock::now();
+    auto end = std::chrono::steady_clock::now();
     collector.record(_id, end - _start);
   }
 
  private:
   LatencyCollector::LabelId _id;
-  std::chrono::high_resolution_clock::time_point _start;
+  std::chrono::steady_clock::time_point _start;
 };
 
 }  // namespace demo

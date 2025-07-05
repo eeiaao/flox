@@ -1,98 +1,177 @@
 #pragma once
 
 #include "demo/latency_collector.h"
-#include "flox/engine/abstract_subscriber.h"
-#include "flox/execution/abstract_executor.h"
 #include "flox/execution/bus/order_execution_bus.h"
-#include "flox/killswitch/abstract_killswitch.h"
-#include "flox/metrics/abstract_execution_tracker.h"
-#include "flox/metrics/abstract_pnl_tracker.h"
-#include "flox/position/position_manager.h"
-#include "flox/risk/abstract_risk_manager.h"
-#include "flox/sink/storage_sink.h"
-#include "flox/validation/abstract_order_validator.h"
+#include "flox/execution/order_execution_listener_component.h"
+#include "flox/execution/order_executor_component.h"
+#include "flox/killswitch/killswitch_component.h"
+#include "flox/metrics/execution_tracker_component.h"
+#include "flox/position/position_manager_component.h"
+#include "flox/risk/risk_manager_component.h"
+#include "flox/sink/storage_sink_component.h"
+#include "flox/util/base/ref.h"
+#include "flox/validation/order_validator_component.h"
 
 #include <chrono>
+#include <cstddef>
 #include <iostream>
 #include <random>
 #include <string>
-#include <thread>
 
 namespace demo
 {
+
 using namespace flox;
 
-class ConsoleExecutionTracker : public IExecutionTracker
+class ConsoleExecutionTracker
 {
  public:
-  void onOrderSubmitted(const Order& order, std::chrono::steady_clock::time_point ts) override
+  using Trait = traits::ExecutionTrackerTrait;
+  using Allocator = PoolAllocator<Trait, 8>;
+
+  explicit ConsoleExecutionTracker(SubscriberId id) : _id(id) {}
+
+  SubscriberId id() const { return _id; }
+  SubscriberMode mode() const { return SubscriberMode::PUSH; }
+
+  void start() {};
+  void stop() {};
+
+  void onOrderSubmitted(const Order& order, std::chrono::steady_clock::time_point ts)
   {
     std::cout << "[tracker] submitted " << order.id << " at " << ts.time_since_epoch().count() << '\n';
   }
-  void onOrderAccepted(const Order& order, std::chrono::steady_clock::time_point ts) override
+  void onOrderAccepted(const Order& order, std::chrono::steady_clock::time_point ts)
   {
     std::cout << "[tracker] accepted " << order.id << " at " << ts.time_since_epoch().count() << '\n';
   }
 
   void onOrderPartiallyFilled(const Order& order, Quantity qty,
-                              std::chrono::steady_clock::time_point ts) override
+                              std::chrono::steady_clock::time_point ts)
   {
     std::cout << "[tracker] partial fill " << order.id << " qty=" << qty.toDouble()
               << " at " << ts.time_since_epoch().count() << '\n';
   }
-  void onOrderFilled(const Order& order, std::chrono::steady_clock::time_point ts) override
+  void onOrderFilled(const Order& order, std::chrono::steady_clock::time_point ts)
   {
     std::cout << "[tracker] filled " << order.id << " after " << ts.time_since_epoch().count() << '\n';
   }
-  void onOrderCanceled(const Order& order, std::chrono::steady_clock::time_point ts) override
+  void onOrderCanceled(const Order& order, std::chrono::steady_clock::time_point ts)
   {
     std::cout << "[tracker] canceled " << order.id << " at " << ts.time_since_epoch().count() << '\n';
   }
 
-  void onOrderExpired(const Order& order, std::chrono::steady_clock::time_point ts) override
+  void onOrderExpired(const Order& order, std::chrono::steady_clock::time_point ts)
   {
     std::cout << "[tracker] expired " << order.id << " at " << ts.time_since_epoch().count() << '\n';
   }
   void onOrderRejected(const Order& order, const std::string& reason,
-                       std::chrono::steady_clock::time_point) override
+                       std::chrono::steady_clock::time_point)
   {
     std::cout << "[tracker] rejected " << order.id << " reason=" << reason << '\n';
   }
 
   void onOrderReplaced(const Order& oldOrder, const Order& newOrder,
-                       std::chrono::steady_clock::time_point ts) override
+                       std::chrono::steady_clock::time_point ts)
   {
     std::cout << "[tracker] replaced old=" << oldOrder.id << " new=" << newOrder.id
               << " at " << ts.time_since_epoch().count() << '\n';
   }
-};
 
-class SimplePnLTracker : public IPnLTracker
+ private:
+  SubscriberId _id;
+};
+static_assert(concepts::ExecutionTracker<ConsoleExecutionTracker>);
+
+template <typename T>
+class ExecutionTrackerAdapter
 {
  public:
-  void onOrderFilled(const Order& order) override
+  using Trait = traits::OrderExecutionListenerTrait;
+  using Allocator = PoolAllocator<Trait, 8>;
+
+  explicit ExecutionTrackerAdapter(ExecutionTrackerRef impl)
+      : _impl(std::move(impl)) {}
+
+  SubscriberId id() const { return _impl.id(); }
+  SubscriberMode mode() const { return _impl.mode(); }
+
+  void start() { _impl.start(); }
+  void stop() { _impl.stop(); }
+
+  void onOrderSubmitted(const Order& o) { _impl.onOrderSubmitted(o, now()); }
+  void onOrderAccepted(const Order& o) { _impl.onOrderAccepted(o, now()); }
+  void onOrderPartiallyFilled(const Order& o, Quantity q) { _impl.onOrderPartiallyFilled(o, q, now()); }
+  void onOrderFilled(const Order& o) { _impl.onOrderFilled(o, now()); }
+  void onOrderCanceled(const Order& o) { _impl.onOrderCanceled(o, now()); }
+  void onOrderExpired(const Order& o) { _impl.onOrderExpired(o, now()); }
+  void onOrderRejected(const Order& o, const std::string& r) { _impl.onOrderRejected(o, r, now()); }
+  void onOrderReplaced(const Order& o1, const Order& o2) { _impl.onOrderReplaced(o1, o2, now()); }
+
+ private:
+  static std::chrono::steady_clock::time_point now()
+  {
+    return std::chrono::steady_clock::now();
+  }
+
+  ExecutionTrackerRef _impl;
+};
+
+class SimplePnLTracker
+{
+ public:
+  using Trait = traits::OrderExecutionListenerTrait;
+  using Allocator = PoolAllocator<Trait, 8>;
+
+  SimplePnLTracker(SubscriberId id) : _id(id) {}
+
+  void start() {}
+  void stop() {}
+
+  SubscriberId id() const { return _id; }
+  SubscriberMode mode() const { return SubscriberMode::PUSH; }
+
+  void onOrderFilled(const Order& order)
   {
     double value = order.price.toDouble() * order.quantity.toDouble();
     _pnl += (order.side == Side::BUY ? -value : value);
     std::cout << "[pnl] " << _pnl << '\n';
   }
 
+  void onOrderSubmitted(const Order& order) {}
+  void onOrderAccepted(const Order& order) {}
+  void onOrderPartiallyFilled(const Order& order, Quantity qty) {}
+  void onOrderCanceled(const Order& order) {}
+  void onOrderExpired(const Order& order) {}
+  void onOrderRejected(const Order&, const std::string&) {}
+  void onOrderReplaced(const Order& oldOrder, const Order& newOrder) {}
+
  private:
+  SubscriberId _id;
+
   double _pnl = 0.0;
 };
+static_assert(concepts::OrderExecutionListener<SimplePnLTracker>);
 
-class StdoutStorageSink : public StorageSink
+class StdoutStorageSink
 {
  public:
-  void start() override {}
-  void stop() override {}
-  void store(const Order& order) override { std::cout << "[storage] order " << order.id << '\n'; }
+  using Trait = traits::StorageSinkTrait;
+  using Allocator = PoolAllocator<Trait, 8>;
+
+  void start() {}
+  void stop() {}
+  void store(const Order& order) { std::cout << "[storage] order " << order.id << '\n'; }
 };
+static_assert(concepts::StorageSink<StdoutStorageSink>);
 
-class SimpleOrderValidator : public IOrderValidator
+class SimpleOrderValidator
 {
  public:
-  bool validate(const Order& order, std::string& reason) const override
+  using Trait = flox::traits::OrderValidatorTrait;
+  using Allocator = PoolAllocator<Trait, 8>;
+
+  bool validate(const Order& order, std::string& reason)
   {
     static thread_local std::mt19937 rng(std::random_device{}());
     static std::uniform_int_distribution<int> dist(0, 19);
@@ -105,24 +184,28 @@ class SimpleOrderValidator : public IOrderValidator
     return true;
   }
 };
+static_assert(concepts::OrderValidator<SimpleOrderValidator>);
 
-class SimpleKillSwitch : public IKillSwitch
+class SimpleKillSwitch
 {
  public:
-  void check(const Order& order) override
+  using Trait = traits::KillSwitchTrait;
+  using Allocator = PoolAllocator<Trait, 8>;
+
+  void check(const Order& order)
   {
   }
 
-  void trigger(const std::string& r) override
+  void trigger(const std::string& r)
   {
     _triggered = true;
     _reason = r;
     _since = std::chrono::steady_clock::now();
   }
 
-  bool isTriggered() const override { return _triggered; }
+  bool isTriggered() { return _triggered; }
 
-  std::string reason() const override { return _reason; }
+  std::string reason() { return _reason; }
 
  private:
   void reset()
@@ -135,14 +218,20 @@ class SimpleKillSwitch : public IKillSwitch
   std::string _reason;
   std::chrono::steady_clock::time_point _since{};
 };
+static_assert(concepts::KillSwitch<SimpleKillSwitch>);
 
-class SimpleRiskManager : public IRiskManager
+class SimpleRiskManager
 {
  public:
-  explicit SimpleRiskManager(SimpleKillSwitch* ks) : _ks(ks) {}
-  void start() override {}
-  void stop() override {}
-  bool allow(const Order& order) const override
+  using Trait = traits::RiskManagerTrait;
+  using Allocator = PoolAllocator<Trait, 8>;
+
+  explicit SimpleRiskManager(KillSwitchRef ks) : _ks(std::move(ks)) {}
+
+  void start() {}
+  void stop() {}
+
+  bool allow(const Order& order)
   {
     static thread_local std::mt19937 rng(std::random_device{}());
     static std::uniform_real_distribution<> dist(0.0, 1.0);
@@ -157,17 +246,26 @@ class SimpleRiskManager : public IRiskManager
   }
 
  private:
-  SimpleKillSwitch* _ks;
+  KillSwitchRef _ks;
 };
+static_assert(concepts::RiskManager<SimpleRiskManager>);
 
-class SimpleOrderExecutor : public IOrderExecutor
+class SimpleOrderExecutor
 {
  public:
-  explicit SimpleOrderExecutor(OrderExecutionBus& bus) : _bus(bus) {}
-  void start() override { _bus.start(); }
-  void stop() override { _bus.stop(); }
+  using Trait = traits::OrderExecutorTrait;
+  using Allocator = PoolAllocator<Trait, 8>;
 
-  void submitOrder(const Order& order) override
+  explicit SimpleOrderExecutor(OrderExecutionBusRef bus,
+                               OrderExecutionListenerRef pnl,
+                               StorageSinkRef storage,
+                               PositionManagerRef posMgr)
+      : _bus(bus),
+        _pnlTracker(std::move(pnl)),
+        _storage(std::move(storage)),
+        _posMgr(std::move(posMgr)) {}
+
+  void submitOrder(const Order& order)
   {
     // accepted
     OrderEvent ev{OrderEventType::ACCEPTED};
@@ -181,18 +279,11 @@ class SimpleOrderExecutor : public IOrderExecutor
     ev.order = order;
     ev.fillQty = half;
     _bus.publish(ev);
-    if (_pnlTracker)
-    {
-      Order part = order;
-      part.quantity = half;
-      _pnlTracker->onOrderFilled(part);
-    }
-    if (_posMgr)
-    {
-      Order part = order;
-      part.quantity = half;
-      _posMgr->onOrderFilled(part);
-    }
+
+    Order part = order;
+    part.quantity = half;
+    _pnlTracker.onOrderFilled(part);
+    _posMgr.onOrderFilled(part);
 
     // simulate replace
     Order newOrder = order;
@@ -209,93 +300,120 @@ class SimpleOrderExecutor : public IOrderExecutor
     ev.order = newOrder;
     ev.fillQty = order.quantity - half;
     _bus.publish(ev);
-    if (_pnlTracker)
-    {
-      Order rest = newOrder;
-      rest.quantity = order.quantity - half;
-      _pnlTracker->onOrderFilled(rest);
-    }
-    if (_storage)
-      _storage->store(newOrder);
-    if (_posMgr)
-    {
-      Order rest = newOrder;
-      rest.quantity = order.quantity - half;
-      _posMgr->onOrderFilled(rest);
-    }
+
+    _storage.store(newOrder);
+    Order rest = newOrder;
+    rest.quantity = order.quantity - half;
+    _pnlTracker.onOrderFilled(rest);
+    _posMgr.onOrderFilled(rest);
 
     collector.record(LatencyCollector::EndToEnd,
                      std::chrono::steady_clock::now() - order.createdAt);
   }
-  void cancelOrder(OrderId) override {}
-  void replaceOrder(OrderId, const Order&) override {}
 
-  void setPnLTracker(IPnLTracker* t) { _pnlTracker = t; }
-  void setStorageSink(StorageSink* s) { _storage = s; }
-  void setPositionManager(PositionManager* p) { _posMgr = p; }
+  void cancelOrder(OrderId) {}
+  void replaceOrder(OrderId, const Order&) {}
 
  private:
-  OrderExecutionBus& _bus;
-  IPnLTracker* _pnlTracker{nullptr};
-  StorageSink* _storage{nullptr};
-  PositionManager* _posMgr{nullptr};
+  OrderExecutionBusRef _bus;
+  OrderExecutionListenerRef _pnlTracker;
+  StorageSinkRef _storage;
+  PositionManagerRef _posMgr;
 };
+static_assert(concepts::OrderExecutor<SimpleOrderExecutor>, "SimpleOrderExecutor must satisfy OrderExecutor");
 
-class SimplePositionManager : public PositionManager
+class SimplePositionManager
 {
+  static constexpr size_t MAX_SYMBOLS = 65'536;
+
  public:
-  SimplePositionManager(SubscriberId id)
-      : PositionManager(id) {}
+  using Trait = traits::PositionManagerTrait;
+  using Allocator = PoolAllocator<Trait, 8>;
 
-  void start() override
+  explicit SimplePositionManager(SubscriberId id) : _id(id) {}
+
+  SubscriberId id() const { return _id; }
+  SubscriberMode mode() const { return SubscriberMode::PUSH; }
+
+  void start() {}
+  void stop() {}
+
+  void onOrderSubmitted(const Order& order)
   {
-    std::cout << "[position] start\n";
+    std::cout << "[position] order submitted: id=" << order.id << '\n';
   }
-
-  void stop() override
-  {
-    std::cout << "[position] stop\n";
-  }
-
-  void onOrderAccepted(const Order& order) override
+  void onOrderAccepted(const Order& order)
   {
     std::cout << "[position] order accepted: id=" << order.id << '\n';
   }
-
-  void onOrderPartiallyFilled(const Order& order, Quantity qty) override
+  void onOrderPartiallyFilled(const Order& order, Quantity qty)
   {
     std::cout << "[position] order partially filled: id=" << order.id
               << ", qty=" << qty.toDouble() << '\n';
-    PositionManager::onOrderPartiallyFilled(order, qty);
+    update(order, qty);
   }
 
-  void onOrderFilled(const Order& order) override
+  void onOrderFilled(const Order& order)
   {
     std::cout << "[position] order filled: id=" << order.id
               << ", qty=" << order.quantity.toDouble() << '\n';
-    PositionManager::onOrderFilled(order);
+    update(order, order.quantity);
   }
 
-  void onOrderCanceled(const Order& order) override
+  void onOrderCanceled(const Order& order)
   {
     std::cout << "[position] order canceled: id=" << order.id << '\n';
   }
 
-  void onOrderExpired(const Order& order) override
+  void onOrderExpired(const Order& order)
   {
     std::cout << "[position] order expired: id=" << order.id << '\n';
   }
 
-  void onOrderRejected(const Order& order) override
+  void onOrderRejected(const Order& order, const std::string& reason)
   {
-    std::cout << "[position] order rejected: id=" << order.id << '\n';
+    std::cout << "[position] order rejected: id=" << order.id << " reason: " << reason << '\n';
   }
 
-  void onOrderReplaced(const Order& oldOrder, const Order& newOrder) override
+  void onOrderReplaced(const Order& oldOrder, const Order& newOrder)
   {
     std::cout << "[position] order replaced: old_id=" << oldOrder.id
               << ", new_id=" << newOrder.id << '\n';
   }
+
+  Quantity getPosition(SymbolId symbol)
+  {
+    return _positions[symbol];
+  }
+
+  void printPositions() const
+  {
+    for (SymbolId i = 0; i < MAX_SYMBOLS; ++i)
+    {
+      if (!_positions[i].isZero())
+      {
+        std::cout << "Symbol " << i << ": " << _positions[i].toDouble() << "\n";
+      }
+    }
+  }
+
+ private:
+  void update(const Order& order, Quantity qty)
+  {
+    if (order.side == Side::BUY)
+    {
+      _positions[order.symbol] += qty;
+    }
+    else
+    {
+      _positions[order.symbol] -= qty;
+    }
+  }
+
+  SubscriberId _id;
+  Quantity _positions[MAX_SYMBOLS]{};
 };
+
+static_assert(concepts::PositionManager<SimplePositionManager>);
 
 }  // namespace demo

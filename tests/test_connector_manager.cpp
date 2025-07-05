@@ -12,7 +12,7 @@
 #include "flox/common.h"
 #include "flox/connector/connector_manager.h"
 #include "flox/connector/exchange_connector.h"
-#include "flox/engine/market_data_event_pool.h"
+#include "flox/util/memory/pool.h"
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -45,7 +45,7 @@ class MockExchangeConnector : public ExchangeConnector
   {
     if (_bookCb && _tradeCb)
     {
-      EventPool<BookUpdateEvent, 3> bookUpdatePool;
+      pool::Pool<BookUpdateEvent, 3> bookUpdatePool;
 
       auto buOpt = bookUpdatePool.acquire();
       assert(buOpt);

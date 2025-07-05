@@ -1,32 +1,53 @@
 #pragma once
 
-#include "demo/simple_components.h"
-#include "flox/book/full_order_book_factory.h"
-#include "flox/book/windowed_order_book_factory.h"
-#include "flox/strategy/abstract_strategy.h"
-
-#include <memory>
+#include "flox/aggregator/events/candle_event.h"
+#include "flox/book/nlevel_order_book.h"
+#include "flox/common.h"
+#include "flox/execution/order_executor_component.h"
+#include "flox/killswitch/killswitch_component.h"
+#include "flox/risk/risk_manager_component.h"
+#include "flox/strategy/strategy_component.h"
+#include "flox/validation/order_validator_component.h"
 
 namespace demo
 {
 using namespace flox;
 
-class DemoStrategy : public IStrategy
+class DemoStrategy
 {
  public:
-  DemoStrategy(SymbolId symbol, IOrderBook* book);
+  using Trait = traits::StrategyTrait;
+  using Allocator = PoolAllocator<Trait, 8>;
 
-  void onStart() override;
-  void onStop() override;
-  void onTrade(const TradeEvent& trade) override;
-  void onBookUpdate(const BookUpdateEvent& book) override;
+  explicit DemoStrategy(
+      SubscriberId id, SymbolId symbol,
+      KillSwitchRef killSwitch,
+      OrderValidatorRef orderValidator,
+      RiskManagerRef riskManager,
+      OrderExecutorRef orderExecutor);
 
-  IOrderBook* book() const { return _book; }
+  SubscriberId id() const { return _id; }
+  SubscriberMode mode() const { return SubscriberMode::PUSH; }
+
+  void start();
+  void stop();
+
+  void onTrade(const TradeEvent& trade);
+  void onBookUpdate(const BookUpdateEvent& book);
+  void onCandle(const CandleEvent&);
 
  private:
+  SubscriberId _id;
   SymbolId _symbol;
-  IOrderBook* _book;
+  NLevelOrderBook<> _book;
   OrderId _nextId{0};
+
+  KillSwitchRef _killSwitch;
+  OrderValidatorRef _orderValidator;
+  RiskManagerRef _riskManager;
+  OrderExecutorRef _orderExecutor;
 };
+
+static_assert(flox::concepts::Strategy<DemoStrategy>);
 
 }  // namespace demo

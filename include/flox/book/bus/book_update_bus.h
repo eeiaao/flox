@@ -7,9 +7,11 @@ namespace flox
 {
 
 #ifdef USE_SYNC_MARKET_BUS
-using BookUpdateBus = EventBus<EventHandle<BookUpdateEvent>, SyncPolicy<EventHandle<BookUpdateEvent>>>;
+using BookUpdateBus = EventBus<pool::Handle<BookUpdateEvent>, SyncPolicy<pool::Handle<BookUpdateEvent>>>;
 #else
-using BookUpdateBus = EventBus<EventHandle<BookUpdateEvent>, AsyncPolicy<EventHandle<BookUpdateEvent>>>;
+using BookUpdateBus = EventBus<pool::Handle<BookUpdateEvent>, AsyncPolicy<pool::Handle<BookUpdateEvent>>>;
 #endif
+
+using BookUpdateBusRef = EventBusRef<pool::Handle<BookUpdateEvent>, BookUpdateBus::Queue>;
 
 }  // namespace flox

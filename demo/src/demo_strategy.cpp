@@ -1,25 +1,37 @@
 #include "demo/demo_strategy.h"
 
-#include <chrono>
+#include "flox/aggregator/events/candle_event.h"
+#include "flox/book/events/trade_event.h"
+#include "flox/common.h"
+#include "flox/execution/order.h"
+#include "flox/execution/order_executor_component.h"
+#include "flox/killswitch/killswitch_component.h"
+#include "flox/risk/risk_manager_component.h"
+#include "flox/validation/order_validator_component.h"
+
 #include <iostream>
+
 #include "demo/latency_collector.h"
 
 namespace demo
 {
 
-DemoStrategy::DemoStrategy(SymbolId symbol, IOrderBook* book)
-    : _symbol(symbol), _book(book)
+DemoStrategy::DemoStrategy(SubscriberId id, SymbolId symbol,
+                           KillSwitchRef killSwitch,
+                           OrderValidatorRef orderValidator,
+                           RiskManagerRef riskManager,
+                           OrderExecutorRef orderExecutor)
+    : _id(id), _symbol(symbol), _killSwitch(std::move(killSwitch)), _orderValidator(std::move(orderValidator)), _riskManager(std::move(riskManager)), _orderExecutor(std::move(orderExecutor)), _book(Price::fromDouble(0.1))
 {
 }
 
-void DemoStrategy::onStart()
+void DemoStrategy::start()
 {
   std::cout << "[strategy " << _symbol << "] start" << std::endl;
 }
 
-void DemoStrategy::onStop()
+void DemoStrategy::stop()
 {
-  std::cout << "[strategy " << _symbol << "] stop" << std::endl;
 }
 
 void DemoStrategy::onTrade(const TradeEvent& ev)
@@ -28,7 +40,6 @@ void DemoStrategy::onTrade(const TradeEvent& ev)
     return;
 
   Order order{};
-
   {
     MEASURE_LATENCY(LatencyCollector::StrategyOnTrade);
 
@@ -41,43 +52,41 @@ void DemoStrategy::onTrade(const TradeEvent& ev)
     order.symbol = _symbol;
     order.createdAt = std::chrono::steady_clock::now();
 
-    if (auto* ks = GetKillSwitch())
-    {
-      ks->check(order);
+    _killSwitch.check(order);
 
-      if (ks->isTriggered())
-      {
-        std::cout << "[kill] strategy " << _symbol
-                  << " blocked by kill switch"
-                  << ", reason: " << ks->reason() << "\n";
-        return;
-      }
+    if (_killSwitch.isTriggered())
+    {
+      std::cout << "[kill] strategy " << _symbol
+                << " blocked by kill switch"
+                << ", reason: " << _killSwitch.reason() << "\n";
+      return;
     }
 
     std::string reason;
-    if (auto* validator = GetOrderValidator(); validator && !validator->validate(order, reason))
+    if (!_orderValidator.validate(order, reason))
     {
       std::cout << "[strategy " << _symbol << "] order rejected: " << reason << '\n';
       return;
     }
 
-    if (auto* risk = GetRiskManager(); risk && !risk->allow(order))
+    if (!_riskManager.allow(order))
     {
       std::cout << "[risk] strategy " << _symbol << " rejected order id=" << order.id << '\n';
       return;
     }
   }
 
-  if (auto* exec = GetOrderExecutor())
-    exec->submitOrder(order);
+  _orderExecutor.submitOrder(order);
 }
 
 void DemoStrategy::onBookUpdate(const BookUpdateEvent& ev)
 {
-  if (ev.update.symbol == _symbol && _book)
+  if (ev.update.symbol == _symbol)
   {
-    _book->applyBookUpdate(ev);
+    _book.applyBookUpdate(ev);
   }
 }
+
+void DemoStrategy::onCandle(const CandleEvent&) {}
 
 }  // namespace demo

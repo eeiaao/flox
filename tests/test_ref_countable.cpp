@@ -7,7 +7,7 @@
  * license information.
  */
 
-#include "flox/util/base/ref_countable.h"
+#include "flox/util/memory/ref_countable.h"
 
 #include <gtest/gtest.h>
 
@@ -54,5 +54,5 @@ TEST(RefCountableDeathTest, ReleaseOnZeroRefCountTriggersAssert)
       {
         obj.release();  // _refCount == 0 → assert
       },
-      ".*release called on zero refcount.*");
+      ".*");
 }

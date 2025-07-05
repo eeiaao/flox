@@ -1,89 +1,104 @@
-/*
- * Flox Engine
- * Developed by Evgenii Makarov (https://github.com/eeiaao)
- *
- * Copyright (c) 2025 Evgenii Makarov
- * Licensed under the MIT License. See LICENSE file in the project root for full
- * license information.
- */
-
 #pragma once
 
-#include "flox/engine/abstract_subscriber.h"
-#include "flox/execution/abstract_execution_listener.h"
+#include "flox/execution/order.h"
+#include "flox/execution/order_execution_listener_component.h"
 
-#include <algorithm>
 #include <vector>
 
 namespace flox
 {
 
-class MultiExecutionListener : public IOrderExecutionListener
+class MultiExecutionListener
 {
  public:
-  MultiExecutionListener(SubscriberId id) : IOrderExecutionListener(id) {}
+  MultiExecutionListener(SubscriberId id) : _id(id) {}
 
-  void addListener(IOrderExecutionListener* listener)
+  void start() {}
+  void stop() {}
+
+  SubscriberId id() const { return _id; }
+  SubscriberMode mode() const { return SubscriberMode::PUSH; }
+
+  void addListener(OrderExecutionListenerRef listener)
   {
-    if (listener && std::ranges::find(_listeners, listener) == _listeners.end())
+    for (const auto& l : _listeners)
     {
-      _listeners.push_back(listener);
+      if (l.id() == listener.id())
+        return;
+    }
+
+    _listeners.push_back(std::move(listener));
+  }
+
+  void onOrderSubmitted(const Order& o)
+  {
+    for (auto& l : _listeners)
+    {
+      l.onOrderSubmitted(o);
     }
   }
 
-  void onOrderAccepted(const Order& order) override
+  void onOrderAccepted(const Order& o)
   {
-    std::ranges::for_each(_listeners,
-                          [&](auto* l)
-                          { l->onOrderAccepted(order); });
+    for (auto& l : _listeners)
+    {
+      l.onOrderAccepted(o);
+    }
   }
 
-  void onOrderPartiallyFilled(const Order& order, Quantity fillQty) override
+  void onOrderPartiallyFilled(const Order& o, Quantity q)
   {
-    std::ranges::for_each(
-        _listeners,
-        [&](auto* l)
-        { l->onOrderPartiallyFilled(order, fillQty); });
+    for (auto& l : _listeners)
+    {
+      l.onOrderPartiallyFilled(o, q);
+    }
   }
 
-  void onOrderFilled(const Order& order) override
+  void onOrderFilled(const Order& o)
   {
-    std::ranges::for_each(_listeners,
-                          [&](auto* l)
-                          { l->onOrderFilled(order); });
+    for (auto& l : _listeners)
+    {
+      l.onOrderFilled(o);
+    }
   }
 
-  void onOrderCanceled(const Order& order) override
+  void onOrderCanceled(const Order& o)
   {
-    std::ranges::for_each(_listeners,
-                          [&](auto* l)
-                          { l->onOrderCanceled(order); });
+    for (auto& l : _listeners)
+    {
+      l.onOrderCanceled(o);
+    }
   }
 
-  void onOrderExpired(const Order& order) override
+  void onOrderExpired(const Order& o)
   {
-    std::ranges::for_each(_listeners,
-                          [&](auto* l)
-                          { l->onOrderExpired(order); });
+    for (auto& l : _listeners)
+    {
+      l.onOrderExpired(o);
+    }
   }
 
-  void onOrderRejected(const Order& order) override
+  void onOrderRejected(const Order& o, const std::string& r)
   {
-    std::ranges::for_each(_listeners,
-                          [&](auto* l)
-                          { l->onOrderRejected(order); });
+    for (auto& l : _listeners)
+    {
+      l.onOrderRejected(o, r);
+    }
   }
 
-  void onOrderReplaced(const Order& oldOrder, const Order& newOrder) override
+  void onOrderReplaced(const Order& oldOrder, const Order& newOrder)
   {
-    std::ranges::for_each(
-        _listeners,
-        [&](auto* l)
-        { l->onOrderReplaced(oldOrder, newOrder); });
+    for (auto& l : _listeners)
+    {
+      l.onOrderReplaced(oldOrder, newOrder);
+    }
   }
 
  private:
-  std::vector<IOrderExecutionListener*> _listeners;
+  SubscriberId _id;
+  std::vector<OrderExecutionListenerRef> _listeners;
 };
 
 }  // namespace flox
+
+static_assert(flox::concepts::OrderExecutionListener<flox::MultiExecutionListener>);

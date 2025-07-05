@@ -19,7 +19,6 @@ struct SymbolConfig
 {
   std::string symbol;
   double tickSize;
-  double expectedDeviation;
 };
 
 struct ExchangeConfig
@@ -44,5 +43,16 @@ struct EngineConfig
   std::string logLevel = "info";
   std::string logFile;
 };
+
+#ifndef FLOX_DEFAULT_EVENTBUS_QUEUE_SIZE
+#define FLOX_DEFAULT_EVENTBUS_QUEUE_SIZE 4096
+#endif
+
+namespace config
+{
+
+inline constexpr size_t DEFAULT_EVENTBUS_QUEUE_SIZE = FLOX_DEFAULT_EVENTBUS_QUEUE_SIZE;
+
+}
 
 }  // namespace flox

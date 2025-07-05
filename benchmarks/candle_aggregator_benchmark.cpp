@@ -22,8 +22,8 @@ static void BM_CandleAggregator_OnTrade(benchmark::State& state)
   constexpr SymbolId SYMBOL = 42;
   constexpr std::chrono::seconds INTERVAL(60);
 
-  CandleBus bus;
-  CandleAggregator aggregator(INTERVAL, &bus);
+  auto bus = make<CandleBus>();
+  CandleAggregator aggregator(INTERVAL, bus);
   bus.start();
   aggregator.start();
 
@@ -42,7 +42,7 @@ static void BM_CandleAggregator_OnTrade(benchmark::State& state)
     event.trade.quantity = Quantity::fromDouble(qtyDist(rng));
     event.trade.isBuy = true;
     event.trade.timestamp =
-        std::chrono::system_clock::time_point(std::chrono::seconds(baseTs++));
+        std::chrono::steady_clock::time_point(std::chrono::seconds(baseTs++));
 
     aggregator.onTrade(event);
   }

@@ -70,6 +70,11 @@ class Decimal
     return *this;
   }
 
+  constexpr Decimal operator*(int64_t x) const { return Decimal(_raw * x); }
+  constexpr Decimal operator/(int64_t x) const { return Decimal(_raw / x); }
+
+  constexpr friend Decimal operator*(int64_t x, Decimal d) { return Decimal(x * d._raw); }
+
   constexpr bool isZero() const { return _raw == 0; }
 
  private:

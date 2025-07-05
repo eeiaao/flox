@@ -7,8 +7,9 @@
 namespace demo
 {
 
-DemoConnector::DemoConnector(const std::string& id, SymbolId symbol, MarketDataBus& bus)
-    : _id(id), _symbol(symbol), _bus(bus)
+DemoConnector::DemoConnector(const std::string& id, SymbolId symbol,
+                             BookUpdateBusRef bookUpdateBus, TradeBusRef tradeBus)
+    : _id(id), _symbol(symbol), _bookUpdateBus(bookUpdateBus), _tradeBus(tradeBus)
 {
 }
 
@@ -22,9 +23,14 @@ void DemoConnector::start()
 void DemoConnector::stop()
 {
   if (!_running.exchange(false))
+  {
     return;
+  }
+
   if (_thread.joinable())
+  {
     _thread.join();
+  }
 }
 
 void DemoConnector::run()
@@ -71,10 +77,10 @@ void DemoConnector::run()
     te.trade.price = price;
     te.trade.quantity = Quantity::fromDouble(qtyDist(_rng));
     te.trade.isBuy = sideDist(_rng);
-    te.trade.timestamp = std::chrono::high_resolution_clock::now();
+    te.trade.timestamp = std::chrono::steady_clock::now();
     {
       MEASURE_LATENCY(LatencyCollector::BusPublish);
-      _bus.publish(te);
+      _tradeBus.publish(te);
     }
 
     if (now >= nextBookUpdate)
@@ -97,7 +103,7 @@ void DemoConnector::run()
 
         {
           MEASURE_LATENCY(LatencyCollector::BusPublish);
-          _bus.publish(std::move(ev));
+          _bookUpdateBus.publish(std::move(ev));
         }
       }
 
