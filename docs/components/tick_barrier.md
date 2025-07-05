@@ -1,40 +1,30 @@
-# Tick Barrier
+# TickBarrier
 
-The `TickBarrier` is a synchronization primitive used to coordinate multiple subscribers during synchronous market data processing.
+A spin-wait barrier used by **SyncPolicy** event buses to ensure all subscribers
+finish processing a tick before the publisher continues.
 
-## Purpose
-
-To ensure all subscribers complete their tick before the next tick is published, enabling fully deterministic event handling.
-
----
-
-## Interface Summary
-
-```cpp
+~~~cpp
 class TickBarrier {
 public:
-  explicit TickBarrier(size_t total);
-  void complete();
-  void wait();
+  explicit TickBarrier(std::size_t total);
+
+  void complete(); // subscriber calls when done
+  void wait();     // publisher blocks until all done
 };
-```
+~~~
 
-## Responsibilities
+## Purpose
+Synchronise **PUSH** subscriber threads with the publisher in deterministic
+(back-test) mode, guaranteeing that no new events are published until the
+previous tick has been fully processed.
 
-- Track the number of subscribers that have completed processing
-- Block until all subscribers signal completion of the current tick
-
-## Usage
-
-Used in `SyncMarketDataBus` when `USE_SYNC_MARKET_BUS` is defined:
-
-```cpp
-barrier.complete(); // Subscriber signals done
-barrier.wait();     // Publisher waits for all to complete
-```
+## Behaviour
+* Constructor stores `_total` = number of expected `complete()` calls.
+* Each subscriber invokes `complete()` at the end of its tick loop.
+* Publisher calls `wait()`; it busy-waits with `std::this_thread::yield()` until
+  `_completed == _total`.
 
 ## Notes
-
-- Thread-safe via atomic counter
-- Uses spin-waiting (`yield`) to avoid context switches
-- Should only be used in low-latency, simulation, or testing environments
+* Relies on `std::atomic<size_t>` with acquire/release semantics; no locks.
+* Intended for low-thread-count scenarios; for large counts consider a futex or
+  condition variable.

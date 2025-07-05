@@ -1,39 +1,42 @@
 # MultiExecutionListener
 
-The `MultiExecutionListener` is a fan-out dispatcher for execution events.  
-It enables multiple `IOrderExecutionListener` consumers to receive notifications for the same order events.
+Aggregates several `OrderExecutionListener` instances and forwards every order-lifecycle callback to them.
+
+~~~cpp
+class MultiExecutionListener {
+public:
+  explicit MultiExecutionListener(SubscriberId id);
+
+  void start();
+  void stop();
+
+  SubscriberId  id()   const;
+  SubscriberMode mode() const;          // always PUSH
+
+  void addListener(OrderExecutionListenerRef l);
+
+  // Order-lifecycle fan-out
+  void onOrderSubmitted     (const Order&);
+  void onOrderAccepted      (const Order&);
+  void onOrderPartiallyFilled(const Order&, Quantity);
+  void onOrderFilled        (const Order&);
+  void onOrderCanceled      (const Order&);
+  void onOrderExpired       (const Order&);
+  void onOrderRejected      (const Order&, const std::string& reason);
+  void onOrderReplaced      (const Order& oldOrd, const Order& newOrd);
+};
+~~~
 
 ## Purpose
+* Act as a **broadcast hub** so multiple components (PNL tracker, logger, GUI) can receive execution events without each being subscribed separately.
 
-To allow multiple subsystems (e.g., position tracking, analytics, risk) to simultaneously observe order fills and rejections.
-
-## Class Definition
-
-```cpp
-class MultiExecutionListener : public IOrderExecutionListener {
-public:
-  void addListener(IOrderExecutionListener *listener);
-
-  void onOrderFilled(const Order &order) override;
-  void onOrderRejected(const Order &order, const std::string &reason) override;
-};
-```
-
-## Responsibilities
-
-- Aggregates multiple execution listeners
-- Broadcasts `onOrderFilled` and `onOrderRejected` events to all registered listeners
-- Avoids duplicate registration
-
-## Use Cases
-
-- Forward execution events to both:
-  - `PositionManager` (for state updates)
-  - `ExecutionTracker` (for latency tracking)
-- Composite behavior in modular systems
-- Strategy instrumentation for backtesting or debugging
+## Behaviour
+| Action            | Detail                                              |
+|-------------------|-----------------------------------------------------|
+| `addListener()`   | Stores unique listeners; duplicates (by `id()`) are ignored. |
+| Callbacks         | Loops through `_listeners` and forwards the event.  |
+| Threading         | Declares `SubscriberMode::PUSH`; intended for EventBus push threads. |
 
 ## Notes
-
-- Listeners are stored as raw pointers (ownership not assumed)
-- Safe from duplicate registration via internal check
+* No dynamic removal; recreate the object if listener set changes.
+* `static_assert` ensures the class itself satisfies `OrderExecutionListener` concept.

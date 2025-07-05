@@ -1,69 +1,33 @@
-# EngineConfig
+# EngineConfig (and nested configs)
 
-The `EngineConfig` struct defines the top-level configuration for the Flox engine.  
-It includes exchange setups, risk parameters, and logging preferences.
+Defines the runtime configuration structures for FLOX: supported exchanges, kill-switch limits, and logging setup.
 
-## Purpose
+## Structures
 
-To provide a unified and structured way to configure system behavior and enabled components at startup.
+### `SymbolConfig`
+| Field      | Meaning                        |
+|------------|--------------------------------|
+| `symbol`   | Exchange symbol string (`"BTCUSDT"`). |
+| `tickSize` | Minimum price increment for this symbol. |
 
-## Struct Definitions
+### `ExchangeConfig`
+| Field    | Meaning                                      |
+|----------|----------------------------------------------|
+| `name`   | Human-readable exchange name (`"Bybit"`).    |
+| `type`   | Key used by `ConnectorFactory` (`"bybit"`).  |
+| `symbols`| List of `SymbolConfig` handled by this connector. |
 
-```cpp
-struct SymbolConfig {
-  std::string symbol;
-  double tickSize;
-  double expectedDeviation;
-};
+### `KillSwitchConfig`
+| Field                 | Default | Meaning                                                |
+|-----------------------|---------|--------------------------------------------------------|
+| `maxOrderQty`         | 10 000  | Hard cap on a single order quantity.                  |
+| `maxLoss`             | −1e6    | Loss threshold that triggers a global shutdown.       |
+| `maxOrdersPerSecond`  | −1      | Rate-limit; negative disables this check.             |
 
-struct ExchangeConfig {
-  std::string name;
-  std::string type;
-  std::vector<SymbolConfig> symbols;
-};
-
-struct KillSwitchConfig {
-  double maxOrderQty = 10'000.0;
-  double maxLoss = -1e6;
-  int maxOrdersPerSecond = -1;
-};
-
-struct EngineConfig {
-  std::vector<ExchangeConfig> exchanges;
-  KillSwitchConfig killSwitchConfig;
-
-  std::string logLevel = "info";
-  std::string logFile;
-};
-```
-
-## Configuration Fields
-
-### Exchanges
-
-- Each `ExchangeConfig` describes one exchange to connect:
-  - `name`: logical identifier
-  - `type`: connector type (e.g. `"mock"`, `"bybit"`)
-  - `symbols`: list of `SymbolConfig` describing symbols and tick parameters
-
-### KillSwitchConfig
-
-- `maxOrderQty`: hard limit on order size
-- `maxLoss`: max PnL drawdown before triggering kill switch
-- `maxOrdersPerSecond`: order rate limit (disabled if < 0)
-
-### Logging
-
-- `logLevel`: desired logging level (e.g., `"info"`, `"debug"`)
-- `logFile`: path to output log file
-
-## Use Cases
-
-- Loaded during engine initialization
-- Passed to components like the builder, kill switch, and symbol registry
-- Used to control runtime constraints and outputs
-
-## Notes
-
-- Engine assumes config is preloaded from JSON or other formats
-- Supports both production and testing environments
+### `EngineConfig`
+| Field              | Meaning                                         |
+|--------------------|-------------------------------------------------|
+| `exchanges`        | Vector of `ExchangeConfig` entries.             |
+| `killSwitchConfig` | Limits loaded into the run-time kill switch.    |
+| `logLevel`         | Text log level (`"trace"`, `"debug"`, `"info"`, …). |
+| `logFile`          | Path for file-based logging (empty → stderr).   |

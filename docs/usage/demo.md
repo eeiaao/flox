@@ -1,23 +1,44 @@
 # Demo Application
 
-The `demo` folder contains a minimal example showing how to wire Flox components together.
-It assembles a working engine with simulated market data and a very simple trading strategy.
+Directory **`demo/`** contains a self-contained example that wires FLOX
+components into a runnable engine using **simulated** market data.
 
-## Features
+## Components
 
-- `DemoConnector` generates synthetic trades and book updates
-- `DemoStrategy` reacts to trades and updates its own order book
-- `SimpleOrderExecutor` submits mock orders and reports fills via `OrderExecutionBus`
-- `SimplePnLTracker`, `SimpleKillSwitch`, and `SimpleRiskManager` illustrate supporting modules
-- `DemoBuilder` creates `MarketDataBus`, `CandleBus`, and other subsystems
+| Module                | Role                                                                                           |
+|-----------------------|-------------------------------------------------------------------------------------------------|
+| `DemoConnector`       | Generates synthetic trades & book updates (mock exchange feed).                                 |
+| `DemoStrategy`        | Consumes trades / books, maintains its own order book, submits test orders.                     |
+| `SimpleOrderExecutor` | Accepts orders from the strategy, sends mock acknowledgements & fills via **OrderExecutionBus**.|
+| `SimplePnLTracker`    | Tracks realised / unrealised PnL using execution events.                                        |
+| `SimpleKillSwitch`    | Triggers when max loss / qty / rate limits are breached.                                        |
+| `SimpleRiskManager`   | Pre-trade checks; blocks orders that violate configured rules.                                  |
+| `DemoBuilder`         | Assembles subsystems: `MarketDataBus`, `TradeBus`, `CandleBus`, `OrderExecutionBus`, etc.       |
 
-## Running
+## What It Demonstrates
+* Full engine startup / shutdown sequence.  
+* Event flow from connectors → buses → strategy → executor → trackers.  
+* Interaction between risk, kill-switch, and execution pipeline.  
+* Candle aggregation and simple logging.
 
-After building the project with CMake you can run the demo binary:
+## How to Run
 
-```bash
-./demo/flox_demo
-```
+1. **Build** the project with CMake (release or debug):
+   ```bash
+   mkdir build && cd build
+   cmake .. -DCMAKE_BUILD_TYPE=Release
+   make -j$(nproc)
+````
 
-It will start two demo connectors, publish market data, and run the strategy for
-around five seconds before stopping.
+2. **Execute** the demo binary:
+
+   ```bash
+   ./demo/flox_demo
+   ```
+
+   The program:
+
+   * launches two `DemoConnector` instances,
+   * streams market data for **\~30 seconds**,
+   * runs `DemoStrategy`,
+   * then performs a graceful shutdown.

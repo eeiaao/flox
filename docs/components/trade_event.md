@@ -1,39 +1,28 @@
-# Trade Event
+# TradeEvent
 
-The `TradeEvent` represents an executed trade in the market, including direction, price, and quantity.
-
-## Purpose
-
-To provide subscribers (e.g., strategies, volume analyzers) with real-time trade information in a zero-allocation, poolable format.
-
----
-
-## Interface Summary
+`TradeEvent` carries a single **tick trade** through the FLOX market-data pipeline.
 
 ```cpp
-struct TradeEvent : public IMarketDataEvent {
-  SymbolId symbol;
-  double price;
-  double quantity;
-  bool isBuy;
-  std::chrono::system_clock::time_point timestamp;
+struct TradeEvent {
+  using Listener = MarketDataSubscriberRef;
 
-  TradeEvent(std::pmr::memory_resource *);
+  Trade    trade;        // price, qty, side, timestamp
+  uint64_t tickSequence; // monotonic id set by EventBus
+
+  void clear() { trade = {}; }  // recycle when pooled
 };
 ```
 
-## Responsibilities
+## Purpose
+* Convey raw trades from connectors to strategies, metrics, and loggers with **zero allocations**.
 
-- Represent a single trade tick
-- Indicate direction with `isBuy`
-- Delivered to subscribers via the trade bus
+## Fields
 
-## Memory Optimization
-
-- Accepts a polymorphic memory resource for consistency with pooled event design
-- Recycled via `EventPool<TradeEvent>`
+| Field          | Meaning                                       |
+|----------------|-----------------------------------------------|
+| `trade`        | Struct holding price, quantity, side, ts.     |
+| `tickSequence` | Sequence number injected by `EventBus`.       |
 
 ## Notes
-
-- Used by latency-sensitive strategies for trade confirmation
-- Supports precise event timestamps for time-based logic
+* Trivially copyable; `clear()` prepares the object for reuse in a pool.
+* Published on `TradeBus`, consumed by any component implementing `MarketDataSubscriber`.

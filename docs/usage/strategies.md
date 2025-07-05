@@ -1,153 +1,121 @@
 # Writing Strategies
 
-Strategies in Flox are implemented by subclassing `IStrategy`, which defines a uniform interface for receiving market data and submitting orders. Strategies are market data subscribers with execution capability and dependency injection.
+In FLOX a **strategy** is any class that satisfies the  
+`concepts::Strategy` contract – i.e. it is both a `MarketDataSubscriber`
+and a `Subsystem`.
 
----
+````cpp
+template <typename T>
+concept Strategy =
+    MarketDataSubscriber<T> && Subsystem<T>;
+````
 
-## Purpose
+You do **not** inherit from a common base; you simply implement the
+required methods and expose a static factory (or use `make<YourStrategy>()`)
+to obtain a `StrategyRef`.
 
-To encapsulate trading logic that reacts to real-time or historical market data, and interfaces with execution, validation, position, and risk systems.
+## Minimal Contract
 
----
+| Category                  | Methods / Fields                                                                                                        |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| **Lifecycle**             | `void start()`, `void stop()`                                                                                           |
+| **Subscriber Identity**   | `SubscriberId id()`, `SubscriberMode mode()`                                                                            |
+| **Market-data callbacks** | `void onBookUpdate(const BookUpdateEvent&)`<br>`void onTrade(const TradeEvent&)`<br>`void onCandle(const CandleEvent&)` |
 
-## Interface Overview
+Anything beyond that – risk, execution, validation – is plugged in via
+constructor parameters or setter functions **you** define.
+
+## Dependency Injection Pattern
 
 ```cpp
-class IStrategy : public IMarketDataSubscriber {
- public:
-  // Lifecycle
-  virtual void onStart();
-  virtual void onStop();
+class MyStrategy {
+public:
+  MyStrategy(OrderExecutorRef exec,
+             RiskManagerRef   risk = {},
+             OrderValidatorRef val  = {})
+    : _exec(exec), _risk(risk), _val(val) {}
 
-  // Market data event callbacks
-  virtual void onCandle(const CandleEvent& candle) override;
-  virtual void onTrade(const TradeEvent& trade) override;
-  virtual void onBookUpdate(const BookUpdateEvent& bookUpdate) override;
+  /* required interface … */
 
-  // MarketDataSubscriber identification
-  SubscriberId id() const override;
-  SubscriberMode mode() const override;
-
-  // Dependencies
-  void setRiskManager(IRiskManager*);
-  void setPositionManager(IPositionManager*);
-  void setOrderExecutor(IOrderExecutor*);
-  void setOrderValidator(IOrderValidator*);
-  void setKillSwitch(IKillSwitch*);
-
- protected:
-  IOrderExecutor* GetOrderExecutor() const;
-  IRiskManager* GetRiskManager() const;
-  IPositionManager* GetPositionManager() const;
-  IOrderValidator* GetOrderValidator() const;
-  IKillSwitch* GetKillSwitch() const;
+private:
+  OrderExecutorRef _exec;
+  RiskManagerRef   _risk;
+  OrderValidatorRef _val;
 };
 ```
 
----
+The builder injects the refs when the strategy instance is created.
 
-## Strategy Lifecycle
-
-- `onStart()` — called by engine on startup (before any events)
-- `onStop()` — called before engine shutdown
-
----
-
-## Market Data Subscriptions
-
-Each strategy is a `IMarketDataSubscriber` and automatically receives:
-- `onBookUpdate(...)`
-- `onTrade(...)`
-- `onCandle(...)`
-
-depending on subscription mode (`PUSH` or `PULL`).
-Strategies explicitly define their pull or push behavior via `SubscriberMode`. Synchronous mode (enabled via compile-time flag) deliver events deterministically, but strategy logic remains the same across environments. Pull mode can be used in live mode as well (e.g., ML strategies).
-
----
-
-## Order Submission Flow
-
-Use the injected components to guard order flow:
+## Recommended Workflow
 
 ```cpp
-if (GetOrderValidator() && !GetOrderValidator()->validate(order, reason)) return;
-if (GetRiskManager() && !GetRiskManager()->allow(order)) return;
-GetOrderExecutor()->submitOrder(order);
+void onBookUpdate(const BookUpdateEvent& u) {
+  if (!shouldTrade(u)) return;
+
+  Order ord = buildOrder(u);
+
+  std::string reason;
+  if (_val  && !_val.validate(ord, reason)) return;
+  if (_risk && !_risk.allow(ord))           return;
+
+  _exec.submitOrder(ord);
+}
 ```
 
-This ensures:
-- Pre-check with validator
-- Risk compliance check
-- Order is submitted only when both checks pass
-
----
-
-## Dependency Injection
-
-Set during initialization via:
-- `setOrderExecutor()` — **required**, routes orders
-- `setRiskManager()` — optional, risk filter
-- `setPositionManager()` — optional, local position view
-- `setOrderValidator()` — optional, stateless pre-check
-- `setKillSwitch()` — optional, emergency stop integration
-
----
+1. **Signal** → decide if you want to trade.
+2. **Build** an `Order` (limit/market, side, price, qty).
+3. **Validate** → `OrderValidatorRef` (optional).
+4. **Risk Check** → `RiskManagerRef` (optional).
+5. **Submit** via `OrderExecutorRef`.
 
 ## Best Practices
 
-- Keep all callbacks (`onTrade`, etc) **non-blocking** — each subscriber runs in its own thread with a dedicated queue, so one strategy cannot block others. However, minimizing latency is still important for responsiveness and scheduling fairness
-- Avoid allocations and blocking I/O
-- Track only minimal state per-symbol or per-tick
-- Never retain raw pointers to event objects — they may be returned to a pool and reused after the callback returns
-- Only use `PositionManager` if your strategy requires tracking positions internally. Stateless strategies or pure signal generators often don't need it and can avoid unnecessary dependencies
+* **Non-blocking callbacks** – your strategy runs on a dedicated queue,
+  but long tasks still add latency.
+* **No heap churn** – reuse objects or use the FLOX memory pools.
+* **Stateless first** – only keep state you absolutely need; use
+  `PositionManagerRef` when you must track positions.
+* **Pool safety** – never keep raw pointers to events beyond the callback.
 
----
-
-## Example Strategy
+## Example Skeleton
 
 ```cpp
-class MyStrategy : public IStrategy {
+class MeanRevert final {
 public:
-  void onBookUpdate(const BookUpdateEvent& update) override {
-    if (!shouldEnter(update)) return;
+  explicit MeanRevert(OrderExecutorRef exec) : _exec(exec) {}
 
-    Order order = buildOrder(update);
-    auto* validator = GetOrderValidator();
-    auto* risk = GetRiskManager();
-    auto* executor = GetOrderExecutor();
+  /* Subscriber identity */
+  SubscriberId id()   const { return 42; }
+  SubscriberMode mode() const { return SubscriberMode::PUSH; }
 
-    std::string reason;
-    if (validator && !validator->validate(order, reason)) return;
-    if (risk && !risk->allow(order)) return;
-    executor->submitOrder(order);
+  /* Lifecycle */
+  void start() {}
+  void stop()  {}
+
+  /* Market-data */
+  void onTrade(const TradeEvent& t) {}
+  void onCandle(const CandleEvent& c) {}
+  void onBookUpdate(const BookUpdateEvent& u) {
+    if (!spreadOK(u)) return;
+    Order o = makeOrder(u);
+    _exec.submitOrder(o);
   }
 
 private:
-  bool shouldEnter(const BookUpdateEvent& update) const {
-    // Simple trigger: spread is wide enough
-    Price spread = update.bestAskPrice() - update.bestBidPrice();
-    return spread >= MinSpread;
-  }
+  bool spreadOK(const BookUpdateEvent& u) const { /* … */ }
+  Order makeOrder(const BookUpdateEvent& u) const { /* … */ }
 
-  Order buildOrder(const BookUpdateEvent& update) const {
-    // Attempt to enter passively near best bid
-    Price price = update.bestBidPrice() + TickImprovement;
-    Quantity qty = DefaultQuantity;
-    return Order{/* symbol */ update.symbol(),
-                 /* side */ Side::Buy,
-                 /* price */ price,
-                 /* qty */ qty,
-                 /* type */ OrderType::Limit};
-  }
-
-  static constexpr Price TickImprovement = 0.01;
-  static constexpr Price MinSpread = 0.03;
-  static constexpr Quantity DefaultQuantity = 100;
+  OrderExecutorRef _exec;
 };
 ```
 
----
+Register it in your builder with:
 
-## Integration with Engine
+```cpp
+auto strat = make<MeanRevert>(executorRef);
+marketDataBus.subscribe(strat);
+subsystems.push_back(strat);
+```
 
-Strategies are registered via factory mechanisms (e.g. StrategyConfig) and assigned to specific symbols. Strategies operate identically in both live and backtest modes via unified interface.
+The engine starts and stops the strategy automatically via the `Subsystem`
+interface.

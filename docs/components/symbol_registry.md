@@ -1,46 +1,45 @@
 # SymbolRegistry
 
-The `SymbolRegistry` provides a compact mapping between string-based exchange:symbol names and internal `SymbolId` integers.  
-It supports efficient registration, lookup, and reverse resolution of trading symbols.
+In-memory bijective mapping between human-readable `(exchange, symbol)` pairs
+(e.g. `"bybit", "BTCUSDT"`) and compact `SymbolId` integers used throughout the
+engine.
 
-## Purpose
-
-To assign and maintain stable, compact `SymbolId` values for all exchange-symbol pairs.
-
-## Class Definition
-
-```cpp
+~~~cpp
 class SymbolRegistry {
 public:
-  SymbolId registerSymbol(const std::string &exchange,
-                          const std::string &symbol);
+  SymbolId registerSymbol(const std::string& exchange,
+                          const std::string& symbol);
 
-  std::optional<SymbolId> getSymbolId(const std::string &exchange,
-                                      const std::string &symbol) const;
+  std::optional<SymbolId>
+  getSymbolId(const std::string& exchange,
+              const std::string& symbol) const;
 
-  std::pair<std::string, std::string> getSymbolName(SymbolId id) const;
+  std::pair<std::string, std::string>
+  getSymbolName(SymbolId id) const;
 };
-```
+~~~
+
+## Purpose
+* Provide fast look-ups from textual symbols → numeric IDs for hot-path data
+  structures.
+* Allow reverse resolution for logging, UI, or persistence layers.
 
 ## Responsibilities
 
-- Registers symbols and assigns a unique `SymbolId` per `(exchange, symbol)` pair
-- Supports reverse lookup of exchange/symbol strings by ID
-- Ensures thread-safe access via `std::mutex`
+| Method            | Behaviour                                                     |
+|-------------------|----------------------------------------------------------------|
+| `registerSymbol`  | If the `(exchange,symbol)` pair is new, assigns a fresh `SymbolId` and stores the mapping; returns existing ID otherwise. |
+| `getSymbolId`     | Thread-safe lookup; returns `std::nullopt` if pair is unknown. |
+| `getSymbolName`   | Reverse lookup; throws/asserts if `id` out of range.          |
 
-## Use Cases
+## Internal Data
 
-- Central registry used across the engine for symbol resolution
-- Used by routers, strategies, order books, and logging
-- Enables fast ID-based access instead of string comparisons
-
-## Internal Design
-
-- `_map`: maps `"exchange:symbol"` to `SymbolId`
-- `_reverse`: vector of pairs for reverse mapping by index
-- `_mutex`: protects access to shared state
+| Field      | Type                                                       | Note                         |
+|------------|------------------------------------------------------------|------------------------------|
+| `_mutex`   | `std::mutex`                                               | Guards both maps for write/read concurrency. |
+| `_map`     | `unordered_map<std::string, SymbolId>`                     | Key is `"exchange:symbol"` concatenated.     |
+| `_reverse` | `std::vector<std::pair<std::string,std::string>>`          | Index = `SymbolId`; value is original pair.  |
 
 ## Notes
-
-- Once registered, symbol IDs remain stable
-- Registry must be prepopulated at engine startup or config loading phase
+* `SymbolId` is `uint32_t` (from **common.h**) — small enough for array indexing.
+* Registry is typically filled at startup from `EngineConfig`; reads dominate afterwards.

@@ -1,41 +1,32 @@
-# Tick Guard
+# TickGuard
 
-The `TickGuard` is an RAII utility that automatically signals tick completion when it goes out of scope.
+RAII helper that calls `TickBarrier::complete()` when leaving scope.
 
-## Purpose
-
-Simplify synchronization logic in `MarketDataBus` (synchronized version) by ensuring each subscriber signals its completion through the `TickBarrier`.
-
----
-
-## Interface Summary
-
-```cpp
+~~~cpp
 class TickGuard {
 public:
-  explicit TickGuard(TickBarrier &barrier);
-  ~TickGuard();
+  explicit TickGuard(TickBarrier& b); // stores pointer
 
-  TickGuard(const TickGuard &) = delete;
-  TickGuard &operator=(const TickGuard &) = delete;
+  ~TickGuard();                       // barrier.complete()
+
+  TickGuard(const TickGuard&)            = delete;
+  TickGuard& operator=(const TickGuard&) = delete;
 };
-```
+~~~
 
-## Responsibilities
+## Purpose
+* Ensure every **PUSH** subscriber thread signals the `TickBarrier` even if it
+  exits early due to exceptions or `return`.
 
-- Call `barrier.complete()` automatically on destruction
-- Prevent missing tick completions due to early returns or exceptions
-
-## Usage Example
-
-```cpp
-void onBookUpdate(const BookUpdateEvent& ev) {
-  TickGuard guard(barrier);
-  // ... process tick ...
-} // completion is signaled automatically
-```
+## Usage
+````cpp
+void listenerLoop(...) {
+  TickGuard tg(barrier);        // marks this thread as part of the tick
+  ...                            // process queue items
+}                                // ~TickGuard → barrier.complete()
+````
 
 ## Notes
 
-- Used in synchronous market data processing mode
-- Should only be constructed with a valid reference to `TickBarrier`
+* Lightweight: stores only a `TickBarrier*`.
+* Destructor is `noexcept`; guarantees completion call.

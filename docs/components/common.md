@@ -1,41 +1,37 @@
 # Common Types
 
-This file defines basic enums and type aliases used throughout the Flox framework.  
-These primitives standardize order semantics and symbol representation.
+`common.h` defines the fundamental enums and fixed-precision numeric aliases used across FLOX.
 
-## Enums
-
-### `OrderType`
-
-```cpp
+~~~cpp
 enum class OrderType { LIMIT, MARKET };
-```
+enum class Side      { BUY,   SELL   };
 
-- `LIMIT`: Order to be executed at a specific price or better
-- `MARKET`: Order to be executed immediately at the best available price
+using SymbolId = uint32_t;   // compact key for maps
+using OrderId  = uint64_t;   // globally unique order identifier
 
-### `Side`
+// fixed-precision numbers built on Decimal<Tag, Scale, Disp>
+struct PriceTag    {};
+struct QuantityTag {};
+struct VolumeTag   {};
 
-```cpp
-enum class Side { BUY, SELL };
-```
+// tick = 0.000001 for all three
+using Price    = Decimal<PriceTag,    1'000'000, 1>;
+using Quantity = Decimal<QuantityTag, 1'000'000, 1>;
+using Volume   = Decimal<VolumeTag,   1'000'000, 1>;
+~~~
 
-- `BUY`: Indicates a buy-side order or trade
-- `SELL`: Indicates a sell-side order or trade
+## Purpose
+* Provide **canonical IDs** (`SymbolId`, `OrderId`) and enums (`OrderType`, `Side`).
+* Expose **fixed-precision** `Price`, `Quantity`, `Volume` types to avoid FP rounding and preserve arithmetic integrity.
 
-## Type Aliases
+## Decimal Parameters
 
-### `SymbolId`
+| Type       | Scale     | Smallest unit |
+|------------|-----------|---------------|
+| `Price`    | 1 000 000 | 0.000001      |
+| `Quantity` | 1 000 000 | 0.000001      |
+| `Volume`   | 1 000 000 | 0.000001      |
 
-```cpp
-using SymbolId = uint32_t;
-```
-
-- A compact, internal identifier used to reference trading symbols across all components.
-- Typically mapped from exchange:symbol strings using `SymbolRegistry`.
-
-## Use Cases
-
-- Order routing and strategy logic
-- Efficient mapping and lookup
-- Readable and strongly-typed API
+## Notes
+* All three `Decimal` aliases share the same tick size for simplicity; adjust scale if exchange precision differs.
+* `SymbolId` keeps hot maps cache-friendly compared to `std::string` keys.

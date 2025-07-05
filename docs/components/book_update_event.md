@@ -1,49 +1,41 @@
-# Book Update Event
+# BookUpdateEvent
 
-The `BookUpdateEvent` represents a snapshot or delta update to the order book, including both bids and asks.
+`BookUpdateEvent` is the lightweight, pool-recyclable message object that carries a single order-book update through the FLOX market-data pipeline.
+
+```cpp
+struct BookUpdateEvent : public pool::PoolableBase<BookUpdateEvent> {
+  using Listener = MarketDataSubscriberRef;
+
+  BookUpdate update;       // bids / asks vectors (PMR-powered)
+  uint64_t   tickSequence; // monotonically increasing exchange tick
+
+  explicit BookUpdateEvent(std::pmr::memory_resource* res);
+  void clear();            // zero-cost recycle
+};
+```
 
 ## Purpose
 
-To deliver order book updates to subscribers like order books, strategies, or analytics modules with minimal latency and no allocations.
-
----
-
-## Interface Summary
-
-```cpp
-struct BookUpdateEvent : public IMarketDataEvent {
-  SymbolId symbol;
-  BookUpdateType type;
-  std::pmr::vector<BookLevel> bids;
-  std::pmr::vector<BookLevel> asks;
-  std::chrono::system_clock::time_point timestamp;
-
-  BookUpdateEvent(std::pmr::memory_resource *res);
-};
-```
-
-## BookLevel Structure
-
-```cpp
-struct BookLevel {
-  double price;
-  double quantity;
-};
-```
+* Encapsulate one **level-2 book snapshot / delta** together with its **tick sequence number**.  
+* Be **zero-allocation** after construction by storing bids/asks inside a caller-provided `std::pmr::memory_resource`.  
+* Integrate with FLOX’s object pool so events can be reused between ticks.
 
 ## Responsibilities
 
-- Represent current book state or changes (snapshot vs delta)
-- Contain bid/ask levels in memory-resource-backed containers
-- Delivered to subscribers via the book update bus
+| Aspect            | Details                                                                                                   |
+|-------------------|-----------------------------------------------------------------------------------------------------------|
+| **Data**          | Owns a `BookUpdate` instance (`bids`, `asks`, meta) and a `tickSequence`.                                 |
+| **Memory**        | Must be constructed with a valid PMR; asserts if `res == nullptr`.                                        |
+| **Recycling**     | `clear()` wipes vectors without releasing their capacity, ready for the next reuse.                       |
+| **Pool contract** | Inherits `PoolableBase` and satisfies `concepts::Poolable`, enabling placement-new from `pool::Pool<T>`.  |
 
-## Memory Optimization
+## Internal Behaviour
 
-- Uses `std::pmr::vector` for `bids` and `asks` to reduce allocation overhead
-- Allocator is provided during construction from the owning `EventPool`
+1. **Constructor** stores the memory resource inside `update`, enabling fast vector growth without global `new`.  
+2. **clear()** calls `update.bids.clear()` and `update.asks.clear()` only — no deallocation; capacity is kept for future ticks.  
+3. `static_assert(concepts::Poolable<…>)` guarantees compile-time compatibility with FLOX pools.
 
 ## Notes
 
-- Produced by market data connectors or simulators
-- Consumed by `WindowedOrderBook`, `FullOrderBook`, strategies, etc.
-- Supports accurate timestamping via `timestamp` field
+* One event per tick per symbol; reuse via pool avoids heap churn.  
+* Not thread-safe by itself — concurrency is handled by the surrounding `EventBus` queues.

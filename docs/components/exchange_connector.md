@@ -1,48 +1,61 @@
-# ExchangeConnector
+# ExchangeConnector (interface)
 
-The `ExchangeConnector` class defines an abstract interface for connecting to and receiving data from external trading venues.  
-It serves as the foundation for real or simulated exchange integrations.
+Abstract base class that adapts a specific exchange’s WebSocket/REST feed to FLOX.
 
-## Purpose
-
-To provide a standard API for:
-- Subscribing to order book and trade data
-- Starting/stopping market data streams
-- Identifying the source of data
-
-## Class Definition
-
-```cpp
+~~~cpp
 class ExchangeConnector {
 public:
+  using BookUpdateCallback = std::move_only_function<void(const BookUpdateEvent&)>;
+  using TradeCallback      = std::move_only_function<void(const TradeEvent&)>;
+
   virtual ~ExchangeConnector() = default;
 
-  using BookUpdateCallback = std::function<void(const BookUpdate &)>;
-  using TradeCallback = std::function<void(const Trade &)>;
-
-  virtual void start() = 0;
-  virtual void stop() = 0;
-
-  virtual std::string exchangeId() const = 0;
+  virtual void start()  = 0;       // connect / subscribe
+  virtual void stop()   = 0;       // disconnect / clean up
+  virtual std::string exchangeId() const = 0;  // “bybit-btcusdt”, etc.
 
   virtual void setCallbacks(BookUpdateCallback onBookUpdate,
-                            TradeCallback onTrade);
+                            TradeCallback      onTrade);
+
+protected:
+  void emitBookUpdate(const BookUpdateEvent& bu);
+  void emitTrade      (const TradeEvent&     tr);
+
+private:
+  BookUpdateCallback _onBookUpdate;
+  TradeCallback      _onTrade;
 };
-```
+~~~
 
-## Responsibilities
+## Purpose
+* Provide a **uniform interface** so the engine can treat all exchanges the same.
+* Forward raw market data as strongly typed events (`BookUpdateEvent`, `TradeEvent`).
 
-- Implements `start()` and `stop()` lifecycle for data streaming
-- Delivers `BookUpdate` and `Trade` data via registered callbacks
-- Identifies itself via `exchangeId()`
+## Key Points
+| Method                | Role                                                            |
+|-----------------------|-----------------------------------------------------------------|
+| `start()` / `stop()`  | Lifecycle hooks called by `ConnectorManager`.                   |
+| `exchangeId()`        | Returns unique ID used as map key and log prefix.               |
+| `setCallbacks()`      | Injects lambdas that publish into `EventBus` instances.         |
+| `emitBookUpdate()` / `emitTrade()` | Protected helpers that invoke the stored callbacks. |
 
-## Usage
+## Implementation Sketch
+````cpp
+class BybitConnector : public ExchangeConnector {
+  void start() override { /* open ws, auth, subscribe */ }
+  void stop()  override { /* close ws */                }
+  std::string exchangeId() const override { return "bybit"; }
 
-- Subclasses (e.g. `BybitConnector`, `MockConnector`) override the abstract methods
-- `setCallbacks()` connects internal emitters to external handlers
-- Use `emitBookUpdate(...)` and `emitTrade(...)` to dispatch data
+  // on incoming WS frame:
+  void onMessage(...) {
+    BookUpdateEvent ev{arena};
+    // fill ev…
+    emitBookUpdate(ev);
+  }
+};
+````
 
 ## Notes
 
-- Callbacks are optional but should be set before `start()`
-- Thread safety and reconnect logic are the responsibility of the derived class
+* Callbacks are `std::move_only_function` → avoids accidental copies of heavy lambdas.
+* Thread safety left to concrete implementation (each connector may run its own I/O thread).

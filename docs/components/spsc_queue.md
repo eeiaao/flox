@@ -1,62 +1,64 @@
-# SPSCQueue
+# SPSCQueue\<T, Capacity>
 
-The `SPSCQueue` is a lock-free, single-producer single-consumer queue optimized for high-throughput, low-latency communication.
+Lock-free, single-producer single-consumer ring buffer with **power-of-two** compile-time capacity.
+
+~~~cpp
+template <typename T, std::size_t Capacity>
+class SPSCQueue {
+public:
+  bool  push   (const T& item)          noexcept;      // copy
+  bool  emplace(T&& item)               noexcept;      // move
+  bool  try_emplace(auto&&... args);                  // in-place construct
+
+  bool  pop    (T& out)                 noexcept;      // move into out
+  T*    try_pop();                                     // raw pointer or nullptr
+  std::optional<std::reference_wrapper<T>> try_pop_ref(); // non-owning ref
+
+  void  clear() noexcept;                              // destroy all items
+  bool  empty() const noexcept;
+  bool  full()  const noexcept;
+  size_t size() const noexcept;
+};
+~~~
 
 ## Purpose
+* Provide a **wait-free** queue for producer/consumer pairs (e.g., `EventBus`
+  publisher ↔ listener thread) with predictable latency and zero heap use.
 
-To provide efficient inter-thread message passing without dynamic memory allocation or locks.
+## Key Details
+| Aspect        | Detail |
+|---------------|--------|
+| **Capacity**  | Must be a power of two; template parameter checked at compile time. |
+| **Cache lines** | `_head`, `_tail`, and buffer start each on separate 64-byte lines to avoid false sharing. |
+| **Exception safety** | Requires `T` to be *nothrow destructible*. |
+| **Destructor** | Drains remaining items, calling their destructors. |
 
----
+## Producer Methods
+* `push(const T&)` — copy item.  
+* `emplace(T&&)` — move item.  
+* `try_emplace(args…)` — perfect-forward into placement-new.  
+All three fail (return `false`) when the queue is **full**.
 
-## Template Parameters
+## Consumer Methods
+* `pop(T&)` — move item into `out`, returns `false` if **empty**.  
+* `try_pop()` — returns raw pointer to item or `nullptr`.  
+* `try_pop_ref()` — returns `std::optional<ref>` for non-owning use.
 
-```cpp
-template <typename T, size_t Capacity>
-class SPSCQueue;
-```
+## Complexity
+| Operation | Cost |
+|-----------|------|
+| Push/Pop  | O(1) atomic loads/stores, no locks. |
+| Size      | O(1). |
 
-- `T`: Type of element (must be nothrow destructible)
-- `Capacity`: Power-of-two queue size
-
----
-
-## Interface Summary
-
-```cpp
-bool push(const T &item);
-bool emplace(T &&item);
-template <typename... Args> bool try_emplace(Args&&...);
-bool pop(T &out);
-T* try_pop();
-std::optional<std::reference_wrapper<T>> try_pop_ref();
-bool empty() const;
-bool full() const;
-size_t size() const;
-```
-
-## Responsibilities
-
-- Store a bounded ring buffer of `T`
-- Allow single-producer push and single-consumer pop without contention
-- Maintain high cache locality and eliminate allocations
-
-## Internals
-
-- Based on a circular buffer
-- `_head` and `_tail` are padded to avoid false sharing
-- Uses `std::aligned_storage_t` to store elements without constructing them prematurely
+## Typical Usage
+````cpp
+SPSCQueue<Event*, 4096> q;
+auto ok = q.try_emplace(evPtr);     // producer
+...
+if (auto* ev = q.try_pop()) { ... } // consumer
+````
 
 ## Notes
 
-- Capacity must be a power of two
-- Used internally in `MarketDataBus` to deliver events to each subscriber
-- Destructs all remaining elements on shutdown
-
-## Example Use
-
-```cpp
-SPSCQueue<int, 1024> queue;
-queue.push(42);
-int x;
-if (queue.pop(x)) { /* use x */ }
-```
+* **Single** producer & **single** consumer only; undefined behaviour otherwise.
+* No dynamic memory: buffer is `aligned_storage` inside the queue object.

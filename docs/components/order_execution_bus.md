@@ -1,25 +1,31 @@
 # OrderExecutionBus
 
-`OrderExecutionBus` dispatches `OrderEvent` objects to execution listeners.
-It provides the same asynchronous or synchronous policies as other buses.
+`OrderExecutionBus` is a compile-time alias of `EventBus` specialised for `OrderEvent`.  
+Delivery mode is selected via the `USE_SYNC_ORDER_BUS` macro:
 
-## Definition
-
-```cpp
+~~~cpp
 #ifdef USE_SYNC_ORDER_BUS
 using OrderExecutionBus = EventBus<OrderEvent, SyncPolicy<OrderEvent>>;
 #else
 using OrderExecutionBus = EventBus<OrderEvent, AsyncPolicy<OrderEvent>>;
 #endif
-```
+
+using OrderExecutionBusRef =
+    EventBusRef<OrderEvent, OrderExecutionBus::Queue>;
+~~~
+
+## Purpose
+* Broadcast **order-lifecycle events** (accepted, filled, canceled, …) from executors
+  to trackers, risk modules, PnL calculators, and loggers.
 
 ## Responsibilities
 
-- Fan-out order lifecycle events (fills, rejections, cancellations)
-- Allow multiple listeners such as `PositionManager` and latency trackers
+| Aspect        | Details                                                         |
+|---------------|-----------------------------------------------------------------|
+| **Fan-out**   | One lock-free SPSC queue per subscriber.                        |
+| **Policy**    | `SyncPolicy` → deterministic, barrier-synchronised; `AsyncPolicy` → low-latency. |
+| **Reference** | `OrderExecutionBusRef` lets producers publish without storing the full bus. |
 
 ## Notes
-
-- Used directly by executors to report order status
-- Controlled by the `USE_SYNC_ORDER_BUS` compile definition
-
+* Define/undefine `USE_SYNC_ORDER_BUS` **before** including the header to switch modes.
+* The bus itself allocates no memory after construction; queues are pre-sized.
