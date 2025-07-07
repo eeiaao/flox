@@ -453,12 +453,12 @@ TEST_F(CpuAffinityTest, CheckIsolatedCoreRequirements)
 }
 
 /**
- * @brief Test optimal HFT configuration setup
- */
-TEST_F(CpuAffinityTest, OptimalHftConfiguration)
+   * @brief Test optimal performance configuration setup
+   */
+TEST_F(CpuAffinityTest, OptimalPerformanceConfiguration)
 {
   // Test without frequency scaling and real-time priority changes
-  auto assignment = CpuAffinity::setupOptimalHftConfiguration(false, false);
+  auto assignment = CpuAffinity::setupOptimalPerformanceConfiguration(false, false);
 
   // Should return valid assignment
   EXPECT_GE(assignment.marketDataCores.size() + assignment.executionCores.size() +
@@ -467,7 +467,7 @@ TEST_F(CpuAffinityTest, OptimalHftConfiguration)
             0);
 
   // Test with frequency scaling and real-time priority (may fail without permissions)
-  auto assignment2 = CpuAffinity::setupOptimalHftConfiguration(true, true);
+  auto assignment2 = CpuAffinity::setupOptimalPerformanceConfiguration(true, true);
   EXPECT_GE(assignment2.marketDataCores.size() + assignment2.executionCores.size() +
                 assignment2.strategyCores.size() + assignment2.riskCores.size() +
                 assignment2.generalCores.size(),
@@ -595,19 +595,18 @@ TEST_F(CpuAffinityTest, InsufficientIsolatedCores)
 }
 
 /**
- * @brief Comprehensive test simulating real HFT isolated core usage
- */
-TEST_F(CpuAffinityTest, HftIsolatedCoreSimulation)
+   * @brief Comprehensive test simulating real performance isolated core usage
+   */
+TEST_F(CpuAffinityTest, PerformanceIsolatedCoreSimulation)
 {
   if (_numCores < 2)
   {
-    GTEST_SKIP() << "Need at least 2 cores for HFT simulation";
+    GTEST_SKIP() << "Need at least 2 cores for performance simulation";
   }
 
   auto isolatedCores = CpuAffinity::getIsolatedCores();
 
-  // Simulate HFT setup process
-  std::cout << "\n=== HFT Isolated Core Simulation ===" << std::endl;
+  // Simulate performance setup process
 
   // Step 1: Check system requirements
   bool hasRequiredCores = CpuAffinity::checkIsolatedCoreRequirements(4);
@@ -621,7 +620,6 @@ TEST_F(CpuAffinityTest, HftIsolatedCoreSimulation)
 
   // Step 3: Get optimal assignment
   auto assignment = CpuAffinity::getNumaAwareCoreAssignment(config);
-  CpuAffinity::printCoreAssignment(assignment);
 
   // Step 4: Verify the assignment is valid
   EXPECT_EQ(assignment.hasIsolatedCores, !isolatedCores.empty());
@@ -630,13 +628,13 @@ TEST_F(CpuAffinityTest, HftIsolatedCoreSimulation)
   std::atomic<bool> running{true};
   std::atomic<int> threadsStarted{0};
   std::atomic<int> threadsCompleted{0};
-  std::vector<std::thread> hftThreads;
+  std::vector<std::thread> performanceThreads;
 
   // Market data thread
   if (!assignment.marketDataCores.empty())
   {
-    hftThreads.emplace_back([&, coreId = assignment.marketDataCores[0]]()
-                            {
+    performanceThreads.emplace_back([&, coreId = assignment.marketDataCores[0]]()
+                                    {
       threadsStarted++;
       
       // Pin to assigned core
@@ -660,8 +658,8 @@ TEST_F(CpuAffinityTest, HftIsolatedCoreSimulation)
   // Execution thread
   if (!assignment.executionCores.empty())
   {
-    hftThreads.emplace_back([&, coreId = assignment.executionCores[0]]()
-                            {
+    performanceThreads.emplace_back([&, coreId = assignment.executionCores[0]]()
+                                    {
       threadsStarted++;
       
       bool pinned = CpuAffinity::pinToCore(coreId);
@@ -681,8 +679,8 @@ TEST_F(CpuAffinityTest, HftIsolatedCoreSimulation)
   // Strategy thread
   if (!assignment.strategyCores.empty())
   {
-    hftThreads.emplace_back([&, coreId = assignment.strategyCores[0]]()
-                            {
+    performanceThreads.emplace_back([&, coreId = assignment.strategyCores[0]]()
+                                    {
       threadsStarted++;
       
       bool pinned = CpuAffinity::pinToCore(coreId);
@@ -702,8 +700,8 @@ TEST_F(CpuAffinityTest, HftIsolatedCoreSimulation)
   // Risk thread
   if (!assignment.riskCores.empty())
   {
-    hftThreads.emplace_back([&, coreId = assignment.riskCores[0]]()
-                            {
+    performanceThreads.emplace_back([&, coreId = assignment.riskCores[0]]()
+                                    {
       threadsStarted++;
       
       bool pinned = CpuAffinity::pinToCore(coreId);
@@ -721,7 +719,7 @@ TEST_F(CpuAffinityTest, HftIsolatedCoreSimulation)
   }
 
   // Wait for threads to start
-  while (threadsStarted.load() < (int)hftThreads.size() &&
+  while (threadsStarted.load() < (int)performanceThreads.size() &&
          std::chrono::high_resolution_clock::now() - std::chrono::high_resolution_clock::now() < std::chrono::seconds(1))
   {
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
@@ -734,7 +732,7 @@ TEST_F(CpuAffinityTest, HftIsolatedCoreSimulation)
   running = false;
 
   // Wait for all threads to complete
-  for (auto& thread : hftThreads)
+  for (auto& thread : performanceThreads)
   {
     if (thread.joinable())
     {
@@ -743,13 +741,11 @@ TEST_F(CpuAffinityTest, HftIsolatedCoreSimulation)
   }
 
   // Verify all threads completed
-  EXPECT_EQ(threadsCompleted.load(), (int)hftThreads.size());
+  EXPECT_EQ(threadsCompleted.load(), (int)performanceThreads.size());
 
   // Step 6: Final verification
   bool isolation = CpuAffinity::verifyCriticalCoreIsolation(assignment);
   EXPECT_TRUE(isolation || !isolation);  // Don't fail test, just verify it runs
-
-  std::cout << "=== HFT Simulation Complete ===" << std::endl;
 }
 
 /**
@@ -929,20 +925,6 @@ TEST_F(CpuAffinityTest, EventBusComponentTypes)
 }
 
 /**
- * @brief Test EventBus configuration printing
- */
-TEST_F(CpuAffinityTest, EventBusConfigurationPrinting)
-{
-  TradeBus bus;
-
-  // Setup configuration
-  bus.setupOptimalConfiguration(TradeBus::ComponentType::MARKET_DATA);
-
-  // This should not throw
-  EXPECT_NO_THROW(bus.printConfiguration());
-}
-
-/**
  * @brief Test multiple EventBus instances with different component types
  */
 TEST_F(CpuAffinityTest, MultipleEventBusInstances)
@@ -998,38 +980,27 @@ TEST_F(CpuAffinityTest, EventBusIsolatedCoreVerification)
  */
 TEST_F(CpuAffinityTest, EventBusIsolatedCoreIntegration)
 {
-  std::cout << "\n=== EventBus Isolated Core Integration Test ===" << std::endl;
-
   auto isolatedCores = CpuAffinity::getIsolatedCores();
   bool hasRequiredCores = CpuAffinity::checkIsolatedCoreRequirements(4);
 
-  std::cout << "System has " << isolatedCores.size() << " isolated cores" << std::endl;
-  std::cout << "Required cores available: " << (hasRequiredCores ? "Yes" : "No") << std::endl;
-
   // Test creating optimal event buses for different components
-  std::cout << "\nCreating optimal event buses..." << std::endl;
 
   // Market data bus (highest priority)
   TradeBus marketDataBus;
   bool success1 = marketDataBus.setupOptimalConfiguration(TradeBus::ComponentType::MARKET_DATA, false);
-  std::cout << "Market Data Bus: " << (success1 ? "✓ Configured" : "⚠ Default") << std::endl;
 
   // Note: We can't actually test OrderExecutionBus and CandleBus here since they're different types
   // But we can create multiple TradeBus instances for different purposes
   TradeBus executionBus;
   bool success2 = executionBus.setupOptimalConfiguration(TradeBus::ComponentType::EXECUTION, false);
-  std::cout << "Execution Bus: " << (success2 ? "✓ Configured" : "⚠ Default") << std::endl;
 
   TradeBus strategyBus;
   bool success3 = strategyBus.setupOptimalConfiguration(TradeBus::ComponentType::STRATEGY, false);
-  std::cout << "Strategy Bus: " << (success3 ? "✓ Configured" : "⚠ Default") << std::endl;
 
   TradeBus riskBus;
   bool success4 = riskBus.setupOptimalConfiguration(TradeBus::ComponentType::RISK, false);
-  std::cout << "Risk Bus: " << (success4 ? "✓ Configured" : "⚠ Default") << std::endl;
 
   // Verify configurations
-  std::cout << "\nVerifying configurations..." << std::endl;
 
   auto config1 = marketDataBus.getAffinityConfig();
   auto config2 = executionBus.getAffinityConfig();
@@ -1042,50 +1013,18 @@ TEST_F(CpuAffinityTest, EventBusIsolatedCoreIntegration)
     EXPECT_GT(config1->realTimePriority, config2->realTimePriority);  // Market data > Execution
     EXPECT_GT(config2->realTimePriority, config3->realTimePriority);  // Execution > Strategy
     EXPECT_GT(config3->realTimePriority, config4->realTimePriority);  // Strategy > Risk
-
-    std::cout << "Priority ordering verified: "
-              << config1->realTimePriority << " > "
-              << config2->realTimePriority << " > "
-              << config3->realTimePriority << " > "
-              << config4->realTimePriority << std::endl;
   }
 
   // Verify isolated core assignments
-  std::cout << "\nVerifying isolated core assignments..." << std::endl;
 
   bool isolated1 = marketDataBus.verifyIsolatedCoreConfiguration();
   bool isolated2 = executionBus.verifyIsolatedCoreConfiguration();
   bool isolated3 = strategyBus.verifyIsolatedCoreConfiguration();
   bool isolated4 = riskBus.verifyIsolatedCoreConfiguration();
 
-  std::cout << "Market Data Bus isolation: " << (isolated1 ? "✓ Optimal" : "⚠ Suboptimal") << std::endl;
-  std::cout << "Execution Bus isolation: " << (isolated2 ? "✓ Optimal" : "⚠ Suboptimal") << std::endl;
-  std::cout << "Strategy Bus isolation: " << (isolated3 ? "✓ Optimal" : "⚠ Suboptimal") << std::endl;
-  std::cout << "Risk Bus isolation: " << (isolated4 ? "✓ Optimal" : "⚠ Suboptimal") << std::endl;
-
-  // Print detailed configuration for market data bus
-  std::cout << "\nDetailed configuration for Market Data Bus:" << std::endl;
-  marketDataBus.printConfiguration();
-
   // Summary
   int successCount = success1 + success2 + success3 + success4;
   int isolationCount = isolated1 + isolated2 + isolated3 + isolated4;
-
-  std::cout << "\nIntegration Test Summary:" << std::endl;
-  std::cout << "Successfully configured buses: " << successCount << "/4" << std::endl;
-  std::cout << "Optimally isolated buses: " << isolationCount << "/4" << std::endl;
-
-  if (hasRequiredCores && isolatedCores.size() >= 4)
-  {
-    std::cout << "✓ System meets HFT requirements for isolated core usage" << std::endl;
-  }
-  else
-  {
-    std::cout << "⚠ System would benefit from more isolated cores for optimal HFT performance" << std::endl;
-    std::cout << "  Recommendation: Boot with isolcpus=<core_list> kernel parameter" << std::endl;
-  }
-
-  std::cout << "=== Integration Test Complete ===" << std::endl;
 
   // Don't fail the test based on system configuration
   EXPECT_GE(successCount, 0);
@@ -1626,7 +1565,6 @@ TEST_F(CpuAffinityTest, ConditionalNumaGuardUsage)
     }
 
     // NUMA guard automatically restored affinity and memory policy
-    std::cout << "NUMA optimizations applied for node " << testNode << std::endl;
   }
   else
   {
@@ -1644,7 +1582,7 @@ TEST_F(CpuAffinityTest, ConditionalNumaGuardUsage)
       std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
 
-    std::cout << "NUMA not available - using regular CPU affinity" << std::endl;
+    // NUMA not available - using regular CPU affinity
   }
 }
 
@@ -1676,7 +1614,7 @@ TEST_F(CpuAffinityTest, MixedGuardUsage)
         bool memPolicySet = CpuAffinity::setMemoryPolicy(nodeId);
         EXPECT_TRUE(memPolicySet || !memPolicySet);  // Don't assert - just verify it doesn't crash
 
-        std::cout << "Enhanced with NUMA memory policy for node " << nodeId << std::endl;
+        // Enhanced with NUMA memory policy
       }
     }
 

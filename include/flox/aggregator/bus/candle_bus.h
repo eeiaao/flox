@@ -35,40 +35,19 @@ inline std::unique_ptr<CandleBus> createOptimalCandleBus(bool enablePerformanceO
   bool success = bus->setupOptimalConfiguration(CandleBus::ComponentType::STRATEGY,
                                                 enablePerformanceOptimizations);
 
-  if (success)
-  {
-    std::cout << "[CandleBus] Configured with isolated cores for candle processing" << std::endl;
-  }
-  else
-  {
-    std::cout << "[CandleBus] Warning: Could not configure isolated cores, using default scheduling" << std::endl;
-  }
-
   return bus;
 }
 
 /**
- * @brief Configure an existing CandleBus for optimal HFT performance
+ * @brief Configure an existing CandleBus for optimal performance
  * @param bus CandleBus instance to configure
  * @param enablePerformanceOptimizations Enable CPU frequency scaling optimizations
  * @return true if configuration was successful
  */
-inline bool configureCandleBusForHFT(CandleBus& bus, bool enablePerformanceOptimizations = false)
+inline bool configureCandleBusForPerformance(CandleBus& bus, bool enablePerformanceOptimizations = false)
 {
-  bool success = bus.setupOptimalConfiguration(CandleBus::ComponentType::STRATEGY,
-                                               enablePerformanceOptimizations);
-
-  if (success)
-  {
-    std::cout << "[CandleBus] HFT configuration applied successfully" << std::endl;
-    bus.printConfiguration();
-  }
-  else
-  {
-    std::cout << "[CandleBus] Warning: HFT configuration failed" << std::endl;
-  }
-
-  return success;
+  return bus.setupOptimalConfiguration(CandleBus::ComponentType::STRATEGY,
+                                       enablePerformanceOptimizations);
 }
 
 }  // namespace flox

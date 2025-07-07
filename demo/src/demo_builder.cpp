@@ -42,13 +42,13 @@ Engine DemoBuilder::build()
   auto execBus = make<OrderExecutionBus>();
   auto candleBus = make<CandleBus>();
 
-  // Configure CPU affinity for optimal HFT performance
+  // Configure CPU affinity for optimal performance
   using namespace performance;
 
-  // Set up optimal HFT configuration with isolated cores
-  auto assignment = CpuAffinity::setupOptimalHftConfiguration(true, true);
+  // Set up optimal performance configuration with isolated cores
+  auto assignment = CpuAffinity::setupOptimalPerformanceConfiguration(true, true);
 
-  std::cout << "[DemoBuilder] ✓ CPU affinity configured for HFT workload:" << std::endl;
+  std::cout << "[DemoBuilder] ✓ CPU affinity configured for high-performance workload:" << std::endl;
   std::cout << "  - Market Data cores: " << assignment.marketDataCores.size() << std::endl;
   std::cout << "  - Execution cores: " << assignment.executionCores.size() << std::endl;
   std::cout << "  - Strategy cores: " << assignment.strategyCores.size() << std::endl;

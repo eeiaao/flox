@@ -69,7 +69,7 @@ namespace flox::performance
 {
 
 /**
- * @brief CPU affinity and thread pinning utilities for HFT performance optimization
+ * @brief CPU affinity and thread pinning utilities for low-latency performance optimization
  * 
  * This class provides functionality to:
  * - Pin threads to specific CPU cores
@@ -120,13 +120,10 @@ class CpuAffinity
     }
     else
     {
-      std::cerr << "[CpuAffinity] Failed to pin thread to core " << coreId
-                << ": " << strerror(errno) << std::endl;
       return false;
     }
 #else
     (void)coreId;
-    std::cerr << "[CpuAffinity] CPU pinning not supported on this platform" << std::endl;
     return false;
 #endif
   }
@@ -150,14 +147,11 @@ class CpuAffinity
     }
     else
     {
-      std::cerr << "[CpuAffinity] Failed to pin thread to core " << coreId
-                << ": " << strerror(errno) << std::endl;
       return false;
     }
 #else
     (void)thread;
     (void)coreId;
-    std::cerr << "[CpuAffinity] CPU pinning not supported on this platform" << std::endl;
     return false;
 #endif
   }
@@ -179,13 +173,10 @@ class CpuAffinity
     }
     else
     {
-      std::cerr << "[CpuAffinity] Failed to set real-time priority " << priority
-                << ": " << strerror(errno) << std::endl;
       return false;
     }
 #else
     (void)priority;
-    std::cerr << "[CpuAffinity] Real-time priority not supported on this platform" << std::endl;
     return false;
 #endif
   }
@@ -208,14 +199,11 @@ class CpuAffinity
     }
     else
     {
-      std::cerr << "[CpuAffinity] Failed to set real-time priority " << priority
-                << ": " << strerror(errno) << std::endl;
       return false;
     }
 #else
     (void)thread;
     (void)priority;
-    std::cerr << "[CpuAffinity] Real-time priority not supported on this platform" << std::endl;
     return false;
 #endif
   }
@@ -321,14 +309,12 @@ class CpuAffinity
       std::string path = "/sys/devices/system/cpu/cpu" + std::to_string(i) + "/cpufreq/scaling_governor";
       if (!writeFile(path, "performance"))
       {
-        std::cerr << "[CpuAffinity] Failed to set performance governor for core " << i << std::endl;
         success = false;
       }
     }
 
     return success;
 #else
-    std::cerr << "[CpuAffinity] CPU frequency scaling control not supported on this platform" << std::endl;
     return false;
 #endif
   }
@@ -349,22 +335,20 @@ class CpuAffinity
       std::string path = "/sys/devices/system/cpu/cpu" + std::to_string(i) + "/cpufreq/scaling_governor";
       if (!writeFile(path, "ondemand"))
       {
-        std::cerr << "[CpuAffinity] Failed to set ondemand governor for core " << i << std::endl;
         success = false;
       }
     }
 
     return success;
 #else
-    std::cerr << "[CpuAffinity] CPU frequency scaling control not supported on this platform" << std::endl;
     return false;
 #endif
   }
 
   /**
-     * @brief Get recommended core assignment for HFT workloads
-     * @return Struct containing recommended core assignments
-     */
+   * @brief Get recommended core assignment for low-latency workloads
+   * @return Struct containing recommended core assignments
+   */
   struct CoreAssignment
   {
     std::vector<int> marketDataCores;  // Cores for market data processing
@@ -588,35 +572,17 @@ class CpuAffinity
       targetCores = &assignment.riskCores;
     else
     {
-      std::cerr << "[CpuAffinity] Unknown critical component: " << component << std::endl;
       return false;
     }
 
     if (!targetCores || targetCores->empty())
     {
-      std::cerr << "[CpuAffinity] No cores assigned for component: " << component << std::endl;
       return false;
     }
 
     // Pin to the first assigned core for this component
     int coreId = (*targetCores)[0];
-    bool success = pinToCore(coreId);
-
-    if (success)
-    {
-      std::cout << "[CpuAffinity] Successfully pinned " << component
-                << " component to core " << coreId;
-
-      // Check if this is an isolated core
-      auto& isolatedCores = assignment.allIsolatedCores;
-      if (std::find(isolatedCores.begin(), isolatedCores.end(), coreId) != isolatedCores.end())
-      {
-        std::cout << " (isolated)";
-      }
-      std::cout << std::endl;
-    }
-
-    return success;
+    return pinToCore(coreId);
   }
 
   /**
@@ -628,7 +594,6 @@ class CpuAffinity
   {
     if (!assignment.hasIsolatedCores)
     {
-      std::cout << "[CpuAffinity] Warning: No isolated cores available on system" << std::endl;
       return false;
     }
 
@@ -641,15 +606,8 @@ class CpuAffinity
         bool isIsolated = std::find(assignment.allIsolatedCores.begin(),
                                     assignment.allIsolatedCores.end(), coreId) != assignment.allIsolatedCores.end();
 
-        if (isIsolated)
+        if (!isIsolated)
         {
-          std::cout << "[CpuAffinity] ✓ " << component << " core " << coreId
-                    << " is properly isolated" << std::endl;
-        }
-        else
-        {
-          std::cout << "[CpuAffinity] ⚠ " << component << " core " << coreId
-                    << " is NOT isolated" << std::endl;
           allCriticalIsolated = false;
         }
       }
@@ -661,60 +619,6 @@ class CpuAffinity
     checkCores(assignment.riskCores, "Risk");
 
     return allCriticalIsolated;
-  }
-
-  /**
-   * @brief Print detailed core assignment information
-   * @param assignment Core assignment to print
-   */
-  static void printCoreAssignment(const CoreAssignment& assignment)
-  {
-    std::cout << "\n[CpuAffinity] Core Assignment Details:\n";
-    std::cout << "=====================================\n";
-
-    if (assignment.hasIsolatedCores)
-    {
-      std::cout << "Isolated cores available: ";
-      for (int core : assignment.allIsolatedCores)
-      {
-        std::cout << core << " ";
-      }
-      std::cout << "\n";
-    }
-    else
-    {
-      std::cout << "No isolated cores detected on system\n";
-    }
-
-    auto printCoreGroup = [](const std::string& name, const std::vector<int>& cores)
-    {
-      std::cout << name << " cores: ";
-      if (cores.empty())
-      {
-        std::cout << "None assigned";
-      }
-      else
-      {
-        for (int core : cores)
-        {
-          std::cout << core << " ";
-        }
-      }
-      std::cout << "\n";
-    };
-
-    printCoreGroup("Market Data", assignment.marketDataCores);
-    printCoreGroup("Execution", assignment.executionCores);
-    printCoreGroup("Strategy", assignment.strategyCores);
-    printCoreGroup("Risk", assignment.riskCores);
-    printCoreGroup("General", assignment.generalCores);
-
-    if (!assignment.criticalCores.empty())
-    {
-      printCoreGroup("All Critical", assignment.criticalCores);
-    }
-
-    std::cout << "=====================================\n\n";
   }
 
   /**
@@ -774,7 +678,6 @@ class CpuAffinity
     }
 #elif defined(__linux__)
     // NUMA libraries not available, but this is Linux
-    std::cerr << "[CpuAffinity] NUMA libraries not available - install libnuma-dev for NUMA support" << std::endl;
     return topology;
 #endif
 
@@ -827,7 +730,6 @@ class CpuAffinity
     auto topology = getNumaTopology();
     if (!topology.numaAvailable)
     {
-      std::cerr << "[CpuAffinity] NUMA not available on this system" << std::endl;
       return false;
     }
 
@@ -849,19 +751,16 @@ class CpuAffinity
         }
         else
         {
-          std::cerr << "[CpuAffinity] Failed to pin thread to NUMA node " << nodeId
-                    << ": " << strerror(errno) << std::endl;
           return false;
         }
       }
     }
 
-    std::cerr << "[CpuAffinity] NUMA node " << nodeId << " not found" << std::endl;
+    return false;
 #else
     (void)nodeId;
-    std::cerr << "[CpuAffinity] NUMA pinning not supported on this platform" << std::endl;
-#endif
     return false;
+#endif
   }
 
   /**
@@ -876,7 +775,6 @@ class CpuAffinity
     auto topology = getNumaTopology();
     if (!topology.numaAvailable)
     {
-      std::cerr << "[CpuAffinity] NUMA not available on this system" << std::endl;
       return false;
     }
 
@@ -898,20 +796,17 @@ class CpuAffinity
         }
         else
         {
-          std::cerr << "[CpuAffinity] Failed to pin thread to NUMA node " << nodeId
-                    << ": " << strerror(errno) << std::endl;
           return false;
         }
       }
     }
 
-    std::cerr << "[CpuAffinity] NUMA node " << nodeId << " not found" << std::endl;
+    return false;
 #else
     (void)thread;
     (void)nodeId;
-    std::cerr << "[CpuAffinity] NUMA pinning not supported on this platform" << std::endl;
-#endif
     return false;
+#endif
   }
 
   /**
@@ -924,7 +819,6 @@ class CpuAffinity
 #if defined(__linux__) && FLOX_NUMA_AVAILABLE
     if (numa_available() == -1)
     {
-      std::cerr << "[CpuAffinity] NUMA not available on this system" << std::endl;
       return false;
     }
 
@@ -941,19 +835,16 @@ class CpuAffinity
     }
     else
     {
-      std::cerr << "[CpuAffinity] Failed to set memory policy for NUMA node " << nodeId
-                << ": " << strerror(errno) << std::endl;
       return false;
     }
 #else
     (void)nodeId;
-    std::cerr << "[CpuAffinity] NUMA memory policy not supported on this platform" << std::endl;
     return false;
 #endif
   }
 
   /**
-   * @brief Get NUMA-aware core assignment for HFT workloads
+   * @brief Get NUMA-aware core assignment for low-latency workloads
    * @param config Configuration for critical component assignment
    * @return CoreAssignment with NUMA locality considerations and isolated core optimization
    */
@@ -1018,13 +909,10 @@ class CpuAffinity
     {
       // Use the best NUMA node for all critical tasks
       availableIsolated = isolatedByNode[bestNodeId];
-      std::cout << "[CpuAffinity] Using NUMA node " << bestNodeId
-                << " for all critical components (isolated cores: " << maxIsolatedCores << ")" << std::endl;
     }
     else
     {
       // Distribute across multiple NUMA nodes
-      std::cout << "[CpuAffinity] Distributing critical components across NUMA nodes" << std::endl;
       availableIsolated = isolatedCores;
     }
 
@@ -1057,8 +945,6 @@ class CpuAffinity
         assignment.criticalCores.push_back(coreId);
 
         int nodeId = getNumaNodeForCore(coreId);
-        std::cout << "[CpuAffinity] Assigned " << component << " to core " << coreId
-                  << " (NUMA node " << nodeId << ", isolated)" << std::endl;
 
         if (!config.allowSharedCriticalCores)
         {
@@ -1117,16 +1003,14 @@ class CpuAffinity
   }
 
   /**
-   * @brief Convenience method to setup optimal isolated core configuration for HFT systems
+   * @brief Convenience method to setup optimal isolated core configuration for low-latency systems
    * @param enableRealTimePriority Whether to set real-time priority for critical threads
    * @param disableFrequencyScaling Whether to disable CPU frequency scaling
    * @return CoreAssignment with optimal isolated core configuration
    */
-  static CoreAssignment setupOptimalHftConfiguration(bool enableRealTimePriority = true,
-                                                     bool disableFrequencyScaling = true)
+  static CoreAssignment setupOptimalPerformanceConfiguration(bool enableRealTimePriority = true,
+                                                             bool disableFrequencyScaling = true)
   {
-    std::cout << "[CpuAffinity] Setting up optimal HFT configuration..." << std::endl;
-
     // Configure for maximum isolation and performance
     CriticalComponentConfig config;
     config.preferIsolatedCores = true;
@@ -1137,39 +1021,20 @@ class CpuAffinity
     // Get optimal core assignment
     auto assignment = getNumaAwareCoreAssignment(config);
 
-    // Print configuration details
-    printCoreAssignment(assignment);
-
     // Verify isolation
     bool isolated = verifyCriticalCoreIsolation(assignment);
-    if (isolated)
-    {
-      std::cout << "[CpuAffinity] ✓ All critical components properly isolated" << std::endl;
-    }
-    else
-    {
-      std::cout << "[CpuAffinity] ⚠ Some critical components not isolated - check system configuration" << std::endl;
-    }
 
     // Disable CPU frequency scaling for performance
     if (disableFrequencyScaling)
     {
-      std::cout << "[CpuAffinity] Disabling CPU frequency scaling..." << std::endl;
-      if (disableCpuFrequencyScaling())
-      {
-        std::cout << "[CpuAffinity] ✓ CPU frequency scaling disabled" << std::endl;
-      }
-      else
-      {
-        std::cout << "[CpuAffinity] ⚠ Failed to disable CPU frequency scaling" << std::endl;
-      }
+      disableCpuFrequencyScaling();
     }
 
     return assignment;
   }
 
   /**
-   * @brief Setup and pin all critical HFT components using isolated cores
+   * @brief Setup and pin all critical components using isolated cores
    * @param config Optional configuration for critical component assignment
    * @return true if all components successfully pinned to isolated cores
    */
@@ -1177,35 +1042,24 @@ class CpuAffinity
   {
     auto assignment = getNumaAwareCoreAssignment(config);
 
-    std::cout << "[CpuAffinity] Pinning critical components to isolated cores..." << std::endl;
+    std::vector<std::string> criticalComponents = {"marketData", "execution", "strategy", "risk"};
+    std::vector<bool> pinnedSuccessfully(criticalComponents.size(), false);
 
-    bool allSuccess = true;
-
-    // Pin each critical component type
-    std::vector<std::string> components = {"marketData", "execution", "strategy", "risk"};
-
-    for (const auto& component : components)
+    for (size_t i = 0; i < criticalComponents.size(); ++i)
     {
-      if (!pinCriticalComponent(component, assignment))
-      {
-        allSuccess = false;
-      }
+      pinnedSuccessfully[i] = pinCriticalComponent(criticalComponents[i], assignment);
     }
 
-    if (allSuccess)
-    {
-      std::cout << "[CpuAffinity] ✓ All critical components successfully pinned" << std::endl;
-    }
-    else
-    {
-      std::cout << "[CpuAffinity] ⚠ Some critical components failed to pin" << std::endl;
-    }
+    // Check if all components were successfully pinned
+    bool allPinned = std::all_of(pinnedSuccessfully.begin(), pinnedSuccessfully.end(),
+                                 [](bool pinned)
+                                 { return pinned; });
 
-    return allSuccess;
+    return allPinned;
   }
 
   /**
-   * @brief Check if system has sufficient isolated cores for HFT workloads
+   * @brief Check if system has sufficient isolated cores for low-latency workloads
    * @param minRequiredCores Minimum number of isolated cores required
    * @return true if system meets requirements
    */
@@ -1214,49 +1068,20 @@ class CpuAffinity
     auto isolatedCores = getIsolatedCores();
     int numCores = getNumCores();
 
-    std::cout << "[CpuAffinity] System Analysis:" << std::endl;
-    std::cout << "  Total CPU cores: " << numCores << std::endl;
-    std::cout << "  Isolated cores: " << isolatedCores.size() << " [";
-    for (size_t i = 0; i < isolatedCores.size(); ++i)
-    {
-      std::cout << isolatedCores[i];
-      if (i < isolatedCores.size() - 1)
-        std::cout << ", ";
-    }
-    std::cout << "]" << std::endl;
-    std::cout << "  Required isolated cores: " << minRequiredCores << std::endl;
-
     bool sufficient = (int)isolatedCores.size() >= minRequiredCores;
-
-    if (sufficient)
-    {
-      std::cout << "  ✓ System meets isolated core requirements" << std::endl;
-    }
-    else
-    {
-      std::cout << "  ⚠ System does NOT meet isolated core requirements" << std::endl;
-      std::cout << "  Recommendation: Boot with isolcpus=<core_list> kernel parameter" << std::endl;
-      std::cout << "  Example: isolcpus=2,3,4,5 to isolate cores 2-5" << std::endl;
-    }
 
     return sufficient;
   }
 
   /**
-   * @brief Comprehensive example demonstrating isolated core usage for HFT
+   * @brief Comprehensive example demonstrating isolated core usage for low-latency applications
    */
   static void demonstrateIsolatedCoreUsage()
   {
-    std::cout << "\n=== Flox HFT Isolated Core Configuration Demo ===\n"
-              << std::endl;
-
     // Step 1: Check system capabilities
-    std::cout << "Step 1: Checking system isolated core capabilities" << std::endl;
     bool hasRequiredCores = checkIsolatedCoreRequirements(4);
-    std::cout << std::endl;
 
     // Step 2: Configure optimal settings
-    std::cout << "Step 2: Setting up optimal configuration" << std::endl;
     CriticalComponentConfig config;
     config.preferIsolatedCores = true;
     config.exclusiveIsolatedCores = hasRequiredCores;     // Only exclusive if we have enough
@@ -1270,44 +1095,12 @@ class CpuAffinity
     config.componentPriority["strategy"] = 3;    // Lowest priority - strategy computation
 
     auto assignment = getNumaAwareCoreAssignment(config);
-    std::cout << std::endl;
 
     // Step 3: Verify isolation
-    std::cout << "Step 3: Verifying critical core isolation" << std::endl;
     verifyCriticalCoreIsolation(assignment);
-    std::cout << std::endl;
 
     // Step 4: Performance optimizations
-    std::cout << "Step 4: Applying performance optimizations" << std::endl;
-
     // Note: These would typically be done in separate threads for each component
-    std::cout << "Example pinning (normally done in component threads):" << std::endl;
-
-    if (!assignment.marketDataCores.empty())
-    {
-      std::cout << "  Market Data Thread: pinToCore(" << assignment.marketDataCores[0] << ")" << std::endl;
-    }
-    if (!assignment.executionCores.empty())
-    {
-      std::cout << "  Execution Thread: pinToCore(" << assignment.executionCores[0] << ")" << std::endl;
-    }
-    if (!assignment.strategyCores.empty())
-    {
-      std::cout << "  Strategy Thread: pinToCore(" << assignment.strategyCores[0] << ")" << std::endl;
-    }
-    if (!assignment.riskCores.empty())
-    {
-      std::cout << "  Risk Thread: pinToCore(" << assignment.riskCores[0] << ")" << std::endl;
-    }
-
-    std::cout << "\nReal-time priority setup:" << std::endl;
-    std::cout << "  setRealTimePriority(90)  // For market data" << std::endl;
-    std::cout << "  setRealTimePriority(85)  // For execution" << std::endl;
-    std::cout << "  setRealTimePriority(80)  // For strategy" << std::endl;
-    std::cout << "  setRealTimePriority(75)  // For risk" << std::endl;
-
-    std::cout << "\n=== Configuration Complete ===\n"
-              << std::endl;
   }
 
  private:

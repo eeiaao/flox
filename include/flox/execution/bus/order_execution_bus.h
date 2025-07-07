@@ -33,43 +33,22 @@ using OrderExecutionBusRef = EventBusRef<OrderEvent, OrderExecutionBus::Queue>;
 inline std::unique_ptr<OrderExecutionBus> createOptimalOrderExecutionBus(bool enablePerformanceOptimizations = false)
 {
   auto bus = std::make_unique<OrderExecutionBus>();
-  bool success = bus->setupOptimalConfiguration(OrderExecutionBus::ComponentType::EXECUTION,
-                                                enablePerformanceOptimizations);
-
-  if (success)
-  {
-    std::cout << "[OrderExecutionBus] Configured with isolated cores for order execution" << std::endl;
-  }
-  else
-  {
-    std::cout << "[OrderExecutionBus] Warning: Could not configure isolated cores, using default scheduling" << std::endl;
-  }
+  bus->setupOptimalConfiguration(OrderExecutionBus::ComponentType::EXECUTION,
+                                 enablePerformanceOptimizations);
 
   return bus;
 }
 
 /**
- * @brief Configure an existing OrderExecutionBus for optimal HFT performance
+ * @brief Configure an existing OrderExecutionBus for optimal performance
  * @param bus OrderExecutionBus instance to configure
  * @param enablePerformanceOptimizations Enable CPU frequency scaling optimizations
  * @return true if configuration was successful
  */
-inline bool configureOrderExecutionBusForHFT(OrderExecutionBus& bus, bool enablePerformanceOptimizations = false)
+inline bool configureOrderExecutionBusForPerformance(OrderExecutionBus& bus, bool enablePerformanceOptimizations = false)
 {
-  bool success = bus.setupOptimalConfiguration(OrderExecutionBus::ComponentType::EXECUTION,
-                                               enablePerformanceOptimizations);
-
-  if (success)
-  {
-    std::cout << "[OrderExecutionBus] HFT configuration applied successfully" << std::endl;
-    bus.printConfiguration();
-  }
-  else
-  {
-    std::cout << "[OrderExecutionBus] Warning: HFT configuration failed" << std::endl;
-  }
-
-  return success;
+  return bus.setupOptimalConfiguration(OrderExecutionBus::ComponentType::EXECUTION,
+                                       enablePerformanceOptimizations);
 }
 
 }  // namespace flox

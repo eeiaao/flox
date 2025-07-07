@@ -32,42 +32,22 @@ using TradeBusRef = EventBusRef<TradeEvent, TradeBus::Queue>;
 inline std::unique_ptr<TradeBus> createOptimalTradeBus(bool enablePerformanceOptimizations = false)
 {
   auto bus = std::make_unique<TradeBus>();
-  bool success = bus->setupOptimalConfiguration(TradeBus::ComponentType::MARKET_DATA,
-                                                enablePerformanceOptimizations);
-
-  if (success)
-  {
-    std::cout << "[TradeBus] Configured with isolated cores for market data processing" << std::endl;
-  }
-  else
-  {
-    std::cout << "[TradeBus] Warning: Could not configure isolated cores, using default scheduling" << std::endl;
-  }
+  bus->setupOptimalConfiguration(TradeBus::ComponentType::MARKET_DATA,
+                                 enablePerformanceOptimizations);
 
   return bus;
 }
 
 /**
- * @brief Configure an existing TradeBus for optimal HFT performance
+ * @brief Configure an existing TradeBus for optimal performance
  * @param bus TradeBus instance to configure
  * @param enablePerformanceOptimizations Enable CPU frequency scaling optimizations
  * @return true if configuration was successful
  */
-inline bool configureTradeBusForHFT(TradeBus& bus, bool enablePerformanceOptimizations = false)
+inline bool configureTradeBusForPerformance(TradeBus& bus, bool enablePerformanceOptimizations = false)
 {
   bool success = bus.setupOptimalConfiguration(TradeBus::ComponentType::MARKET_DATA,
                                                enablePerformanceOptimizations);
-
-  if (success)
-  {
-    std::cout << "[TradeBus] HFT configuration applied successfully" << std::endl;
-    bus.printConfiguration();
-  }
-  else
-  {
-    std::cout << "[TradeBus] Warning: HFT configuration failed" << std::endl;
-  }
-
   return success;
 }
 

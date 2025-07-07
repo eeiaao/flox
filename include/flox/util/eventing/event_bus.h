@@ -130,27 +130,13 @@ class EventBus
                 bool isIsolated = std::find(assignment.allIsolatedCores.begin(), 
                                           assignment.allIsolatedCores.end(), coreId) 
                                 != assignment.allIsolatedCores.end();
-                
-                std::cout << "[EventBus] Thread pinned to core " << coreId;
-                if (isIsolated) std::cout << " (isolated)";
-                std::cout << " for " << componentName << " component" << std::endl;
               }
               
               // Set real-time priority if enabled
               if (config.enableRealTimePriority)
               {
-                bool rtSet = performance::CpuAffinity::setRealTimePriority(config.realTimePriority);
-                if (rtSet)
-                {
-                  std::cout << "[EventBus] Set real-time priority " << config.realTimePriority 
-                           << " for " << componentName << " component" << std::endl;
-                }
+                performance::CpuAffinity::setRealTimePriority(config.realTimePriority);
               }
-            }
-            else
-            {
-              std::cout << "[EventBus] Warning: No cores assigned for " << componentName 
-                       << " component, using default scheduling" << std::endl;
             }
           }
           else if (_coreAssignment.has_value())
@@ -351,7 +337,7 @@ class EventBus
   }
 
   /**
-   * @brief Setup optimal HFT configuration for this event bus
+   * @brief Setup optimal performance configuration for this event bus
    * @param componentType Type of component this event bus serves
    * @param enablePerformanceOptimizations Enable CPU frequency scaling and other optimizations
    * @return true if setup was successful
@@ -408,60 +394,6 @@ class EventBus
     }
 
     return performance::CpuAffinity::verifyCriticalCoreIsolation(_coreAssignment.value());
-  }
-
-  /**
-   * @brief Print current configuration details
-   */
-  void printConfiguration() const
-  {
-    if (_affinityConfig.has_value())
-    {
-      const auto& config = _affinityConfig.value();
-      std::cout << "[EventBus] Configuration Details:" << std::endl;
-      std::cout << "  Component Type: ";
-
-      switch (config.componentType)
-      {
-        case ComponentType::MARKET_DATA:
-          std::cout << "Market Data";
-          break;
-        case ComponentType::EXECUTION:
-          std::cout << "Execution";
-          break;
-        case ComponentType::STRATEGY:
-          std::cout << "Strategy";
-          break;
-        case ComponentType::RISK:
-          std::cout << "Risk";
-          break;
-        case ComponentType::GENERAL:
-          std::cout << "General";
-          break;
-      }
-
-      std::cout << std::endl;
-      std::cout << "  Real-time Priority: " << (config.enableRealTimePriority ? "Enabled" : "Disabled");
-      if (config.enableRealTimePriority)
-      {
-        std::cout << " (Priority: " << config.realTimePriority << ")";
-      }
-      std::cout << std::endl;
-      std::cout << "  NUMA Awareness: " << (config.enableNumaAwareness ? "Enabled" : "Disabled") << std::endl;
-      std::cout << "  Isolated Cores: " << (config.preferIsolatedCores ? "Preferred" : "Not preferred") << std::endl;
-    }
-
-    if (_coreAssignment.has_value())
-    {
-      performance::CpuAffinity::printCoreAssignment(_coreAssignment.value());
-
-      bool isolated = verifyIsolatedCoreConfiguration();
-      std::cout << "  Isolation Status: " << (isolated ? "✓ Optimal" : "⚠ Suboptimal") << std::endl;
-    }
-    else
-    {
-      std::cout << "[EventBus] No core assignment configured" << std::endl;
-    }
   }
 
  private:

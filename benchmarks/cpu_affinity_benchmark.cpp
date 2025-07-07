@@ -129,7 +129,7 @@ BENCHMARK(BM_MemoryAccess_WithoutAffinity);
  * @brief Benchmark high-frequency trading simulation with CPU affinity
  * Simulates order processing workload pinned to specific cores
  */
-static void BM_HFT_OrderProcessing_WithAffinity(benchmark::State& state)
+static void BM_HighPerformance_OrderProcessing_WithAffinity(benchmark::State& state)
 {
   ThreadAffinityGuard guard(0);  // Pin to core 0
 
@@ -170,13 +170,13 @@ static void BM_HFT_OrderProcessing_WithAffinity(benchmark::State& state)
   state.counters["ProcessedOrders"] = processedOrders;
   state.counters["TotalValue"] = totalValue;
 }
-BENCHMARK(BM_HFT_OrderProcessing_WithAffinity);
+BENCHMARK(BM_HighPerformance_OrderProcessing_WithAffinity);
 
 /**
  * @brief Benchmark high-frequency trading simulation without CPU affinity
  * Same workload but without thread pinning for comparison
  */
-static void BM_HFT_OrderProcessing_WithoutAffinity(benchmark::State& state)
+static void BM_HighPerformance_OrderProcessing_WithoutAffinity(benchmark::State& state)
 {
   // No CPU affinity
 
@@ -217,7 +217,7 @@ static void BM_HFT_OrderProcessing_WithoutAffinity(benchmark::State& state)
   state.counters["ProcessedOrders"] = processedOrders;
   state.counters["TotalValue"] = totalValue;
 }
-BENCHMARK(BM_HFT_OrderProcessing_WithoutAffinity);
+BENCHMARK(BM_HighPerformance_OrderProcessing_WithoutAffinity);
 
 /**
  * @brief Benchmark context switching overhead
