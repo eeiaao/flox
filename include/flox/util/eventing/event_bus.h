@@ -22,6 +22,7 @@
 #include "flox/engine/tick_barrier.h"
 #include "flox/util/concurrency/spsc_queue.h"
 #include "flox/util/eventing/event_bus_component.h"
+#include "flox/util/performance/cpu_affinity.h"
 
 namespace flox
 {
@@ -83,6 +84,86 @@ class EventBus
 
         e.thread = std::make_unique<std::thread>([this, queue, listener = std::move(listener)] mutable
                                                  {
+          // Apply enhanced CPU affinity if configured
+          if (_coreAssignment.has_value() && _affinityConfig.has_value())
+          {
+            auto& assignment = _coreAssignment.value();
+            auto& config = _affinityConfig.value();
+            
+            // Select appropriate cores based on component type
+            std::vector<int> targetCores;
+            std::string componentName;
+            
+            switch (config.componentType)
+            {
+              case ComponentType::MARKET_DATA:
+                targetCores = assignment.marketDataCores;
+                componentName = "marketData";
+                break;
+              case ComponentType::EXECUTION:
+                targetCores = assignment.executionCores;
+                componentName = "execution";
+                break;
+              case ComponentType::STRATEGY:
+                targetCores = assignment.strategyCores;
+                componentName = "strategy";
+                break;
+              case ComponentType::RISK:
+                targetCores = assignment.riskCores;
+                componentName = "risk";
+                break;
+              case ComponentType::GENERAL:
+                targetCores = assignment.generalCores;
+                componentName = "general";
+                break;
+            }
+            
+            // Pin to appropriate core
+            if (!targetCores.empty())
+            {
+              int coreId = targetCores[0];  // Use first assigned core
+              bool pinned = performance::CpuAffinity::pinToCore(coreId);
+              
+              if (pinned && assignment.hasIsolatedCores)
+              {
+                // Check if we're using an isolated core
+                bool isIsolated = std::find(assignment.allIsolatedCores.begin(), 
+                                          assignment.allIsolatedCores.end(), coreId) 
+                                != assignment.allIsolatedCores.end();
+                
+                std::cout << "[EventBus] Thread pinned to core " << coreId;
+                if (isIsolated) std::cout << " (isolated)";
+                std::cout << " for " << componentName << " component" << std::endl;
+              }
+              
+              // Set real-time priority if enabled
+              if (config.enableRealTimePriority)
+              {
+                bool rtSet = performance::CpuAffinity::setRealTimePriority(config.realTimePriority);
+                if (rtSet)
+                {
+                  std::cout << "[EventBus] Set real-time priority " << config.realTimePriority 
+                           << " for " << componentName << " component" << std::endl;
+                }
+              }
+            }
+            else
+            {
+              std::cout << "[EventBus] Warning: No cores assigned for " << componentName 
+                       << " component, using default scheduling" << std::endl;
+            }
+          }
+          else if (_coreAssignment.has_value())
+          {
+            // Direct assignment fallback - pin to market data cores as default
+            auto& assignment = _coreAssignment.value();
+            if (!assignment.marketDataCores.empty())
+            {
+              performance::CpuAffinity::pinToCore(assignment.marketDataCores[0]);
+              performance::CpuAffinity::setRealTimePriority(90);
+            }
+          }
+
           {
             std::lock_guard<std::mutex> lk(_readyMutex);
             if (--_active == 0) _cv.notify_one();
@@ -186,6 +267,203 @@ class EventBus
     _drainOnStop = true;
   }
 
+  /**
+   * @brief Event bus component types for CPU affinity assignment
+   */
+  enum class ComponentType
+  {
+    MARKET_DATA,  // Market data processing (trade events, book updates)
+    EXECUTION,    // Order execution and fills
+    STRATEGY,     // Strategy computation and signals
+    RISK,         // Risk management and validation
+    GENERAL       // General purpose / logging / metrics
+  };
+
+  /**
+   * @brief Configuration for event bus CPU affinity
+   */
+  struct AffinityConfig
+  {
+    ComponentType componentType = ComponentType::GENERAL;
+    bool enableRealTimePriority = true;
+    int realTimePriority = 80;
+    bool enableNumaAwareness = true;
+    bool preferIsolatedCores = true;
+
+    AffinityConfig() = default;
+
+    AffinityConfig(ComponentType type, int priority = 80)
+        : componentType(type), realTimePriority(priority) {}
+  };
+
+  /**
+   * @brief Configure CPU affinity for event bus threads using enhanced isolated core functionality
+   * @param config Affinity configuration including component type and priorities
+   */
+  void setAffinityConfig(const AffinityConfig& config)
+  {
+    _affinityConfig = config;
+
+    // Generate optimal core assignment using isolated cores
+    performance::CpuAffinity::CriticalComponentConfig coreConfig;
+    coreConfig.preferIsolatedCores = config.preferIsolatedCores;
+    coreConfig.exclusiveIsolatedCores = true;
+    coreConfig.allowSharedCriticalCores = false;
+
+    if (config.enableNumaAwareness)
+    {
+      _coreAssignment = performance::CpuAffinity::getNumaAwareCoreAssignment(coreConfig);
+    }
+    else
+    {
+      _coreAssignment = performance::CpuAffinity::getRecommendedCoreAssignment(coreConfig);
+    }
+  }
+
+  /**
+   * @brief Configure CPU affinity using direct core assignment
+   * @param assignment Core assignment configuration
+   * @note For advanced use cases. Most users should use setupOptimalConfiguration() instead
+   */
+  void setCoreAssignment(const performance::CpuAffinity::CoreAssignment& assignment)
+  {
+    _coreAssignment = assignment;
+    // Set default affinity config for compatibility
+    _affinityConfig = AffinityConfig{ComponentType::GENERAL, 80};
+  }
+
+  /**
+   * @brief Get current CPU affinity configuration
+   * @return Optional core assignment
+   */
+  std::optional<performance::CpuAffinity::CoreAssignment> getCoreAssignment() const
+  {
+    return _coreAssignment;
+  }
+
+  /**
+   * @brief Get current affinity configuration
+   * @return Optional affinity configuration
+   */
+  std::optional<AffinityConfig> getAffinityConfig() const
+  {
+    return _affinityConfig;
+  }
+
+  /**
+   * @brief Setup optimal HFT configuration for this event bus
+   * @param componentType Type of component this event bus serves
+   * @param enablePerformanceOptimizations Enable CPU frequency scaling and other optimizations
+   * @return true if setup was successful
+   */
+  bool setupOptimalConfiguration(ComponentType componentType, bool enablePerformanceOptimizations = false)
+  {
+    AffinityConfig config;
+    config.componentType = componentType;
+    config.enableRealTimePriority = true;
+    config.enableNumaAwareness = true;
+    config.preferIsolatedCores = true;
+
+    // Set component-specific priorities
+    switch (componentType)
+    {
+      case ComponentType::MARKET_DATA:
+        config.realTimePriority = 90;  // Highest priority
+        break;
+      case ComponentType::EXECUTION:
+        config.realTimePriority = 85;  // Second highest
+        break;
+      case ComponentType::STRATEGY:
+        config.realTimePriority = 80;  // Third priority
+        break;
+      case ComponentType::RISK:
+        config.realTimePriority = 75;  // Fourth priority
+        break;
+      case ComponentType::GENERAL:
+        config.realTimePriority = 70;           // Lower priority
+        config.enableRealTimePriority = false;  // Don't use RT priority for general
+        break;
+    }
+
+    setAffinityConfig(config);
+
+    if (enablePerformanceOptimizations)
+    {
+      // Optionally disable frequency scaling for performance
+      performance::CpuAffinity::disableCpuFrequencyScaling();
+    }
+
+    return _coreAssignment.has_value();
+  }
+
+  /**
+   * @brief Verify that this event bus is properly configured for isolated cores
+   * @return true if using isolated cores optimally
+   */
+  bool verifyIsolatedCoreConfiguration() const
+  {
+    if (!_coreAssignment.has_value())
+    {
+      return false;
+    }
+
+    return performance::CpuAffinity::verifyCriticalCoreIsolation(_coreAssignment.value());
+  }
+
+  /**
+   * @brief Print current configuration details
+   */
+  void printConfiguration() const
+  {
+    if (_affinityConfig.has_value())
+    {
+      const auto& config = _affinityConfig.value();
+      std::cout << "[EventBus] Configuration Details:" << std::endl;
+      std::cout << "  Component Type: ";
+
+      switch (config.componentType)
+      {
+        case ComponentType::MARKET_DATA:
+          std::cout << "Market Data";
+          break;
+        case ComponentType::EXECUTION:
+          std::cout << "Execution";
+          break;
+        case ComponentType::STRATEGY:
+          std::cout << "Strategy";
+          break;
+        case ComponentType::RISK:
+          std::cout << "Risk";
+          break;
+        case ComponentType::GENERAL:
+          std::cout << "General";
+          break;
+      }
+
+      std::cout << std::endl;
+      std::cout << "  Real-time Priority: " << (config.enableRealTimePriority ? "Enabled" : "Disabled");
+      if (config.enableRealTimePriority)
+      {
+        std::cout << " (Priority: " << config.realTimePriority << ")";
+      }
+      std::cout << std::endl;
+      std::cout << "  NUMA Awareness: " << (config.enableNumaAwareness ? "Enabled" : "Disabled") << std::endl;
+      std::cout << "  Isolated Cores: " << (config.preferIsolatedCores ? "Preferred" : "Not preferred") << std::endl;
+    }
+
+    if (_coreAssignment.has_value())
+    {
+      performance::CpuAffinity::printCoreAssignment(_coreAssignment.value());
+
+      bool isolated = verifyIsolatedCoreConfiguration();
+      std::cout << "  Isolation Status: " << (isolated ? "✓ Optimal" : "⚠ Suboptimal") << std::endl;
+    }
+    else
+    {
+      std::cout << "[EventBus] No core assignment configured" << std::endl;
+    }
+  }
+
  private:
   struct Entry
   {
@@ -222,6 +500,8 @@ class EventBus
   std::mutex _readyMutex;
   std::atomic<uint64_t> _tickCounter{0};
   bool _drainOnStop = false;
+  std::optional<performance::CpuAffinity::CoreAssignment> _coreAssignment;
+  std::optional<AffinityConfig> _affinityConfig;
 };
 
 }  // namespace flox

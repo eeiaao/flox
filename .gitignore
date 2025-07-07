@@ -1,5 +1,6 @@
 build
 site
+profiling_results
 
 .vscode
 .cache

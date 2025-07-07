@@ -45,6 +45,20 @@ target_compile_options(${FLOX_SYNC} PUBLIC
   $<$<CONFIG:Release>:-O3 -march=native -flto -funroll-loops>
 )
 
+# Find and conditionally link NUMA library for CPU affinity functionality
+find_library(NUMA_LIBRARY numa)
+if(NUMA_LIBRARY)
+  target_link_libraries(${FLOX} PUBLIC ${NUMA_LIBRARY})
+  target_link_libraries(${FLOX_SYNC} PUBLIC ${NUMA_LIBRARY})
+  target_compile_definitions(${FLOX} PUBLIC FLOX_NUMA_LIBRARY_LINKED=1)
+  target_compile_definitions(${FLOX_SYNC} PUBLIC FLOX_NUMA_LIBRARY_LINKED=1)
+  message(STATUS "Found NUMA library: ${NUMA_LIBRARY} - NUMA features enabled")
+else()
+  target_compile_definitions(${FLOX} PUBLIC FLOX_NUMA_LIBRARY_LINKED=0)
+  target_compile_definitions(${FLOX_SYNC} PUBLIC FLOX_NUMA_LIBRARY_LINKED=0)
+  message(STATUS "NUMA library not found - NUMA features will be disabled")
+endif()
+
 option(ENABLE_BENCHMARK "Enable benchmarks" OFF)
 if (ENABLE_BENCHMARK)
   add_subdirectory(benchmarks)
