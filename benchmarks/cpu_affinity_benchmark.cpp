@@ -24,10 +24,11 @@ using namespace flox::performance;
 static void BM_CpuAffinity_PinToCore(benchmark::State& state)
 {
   int coreId = state.range(0);
+  auto cpuAffinity = createCpuAffinity();
 
   for (auto _ : state)
   {
-    benchmark::DoNotOptimize(CpuAffinity::pinToCore(coreId));
+    benchmark::DoNotOptimize(cpuAffinity->pinToCore(coreId));
   }
 }
 BENCHMARK(BM_CpuAffinity_PinToCore)->Range(0, 7);
@@ -52,9 +53,11 @@ BENCHMARK(BM_CpuAffinity_ThreadAffinityGuard)->Range(0, 3);
  */
 static void BM_CpuAffinity_GetCurrentAffinity(benchmark::State& state)
 {
+  auto cpuAffinity = createCpuAffinity();
+
   for (auto _ : state)
   {
-    auto affinity = CpuAffinity::getCurrentAffinity();
+    auto affinity = cpuAffinity->getCurrentAffinity();
     benchmark::DoNotOptimize(affinity);
   }
 }
@@ -300,6 +303,8 @@ static void BM_MultiThreaded_WithAffinity(benchmark::State& state)
 {
   const int numThreads = state.range(0);
   std::atomic<int> counter{0};
+  auto cpuAffinity = createCpuAffinity();
+  int numCores = cpuAffinity->getNumCores();
 
   for (auto _ : state)
   {
@@ -308,9 +313,10 @@ static void BM_MultiThreaded_WithAffinity(benchmark::State& state)
 
     for (int i = 0; i < numThreads; ++i)
     {
-      threads.emplace_back([&counter, i]()
+      threads.emplace_back([&counter, i, numCores]()
                            {
-                CpuAffinity::pinToCore(i % CpuAffinity::getNumCores());
+                auto threadCpuAffinity = createCpuAffinity();
+                threadCpuAffinity->pinToCore(i % numCores);
                 
                 for (int j = 0; j < 1000; ++j)
                 {

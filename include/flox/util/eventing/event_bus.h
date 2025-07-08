@@ -38,7 +38,7 @@ class EventBus
   using Trait = traits::EventBusTrait<Event, Queue>;
   using Allocator = PoolAllocator<Trait, 8>;
 
-  EventBus() = default;
+  EventBus() : cpuAffinity_(performance::createCpuAffinity()) {}
 
   ~EventBus()
   {
@@ -84,6 +84,9 @@ class EventBus
 
         e.thread = std::make_unique<std::thread>([this, queue, listener = std::move(listener)] mutable
                                                  {
+          // Create a local CpuAffinity instance for this thread
+          auto threadCpuAffinity = performance::createCpuAffinity();
+
           // Apply enhanced CPU affinity if configured
           if (_coreAssignment.has_value() && _affinityConfig.has_value())
           {
@@ -122,7 +125,7 @@ class EventBus
             if (!targetCores.empty())
             {
               int coreId = targetCores[0];  // Use first assigned core
-              bool pinned = performance::CpuAffinity::pinToCore(coreId);
+              bool pinned = threadCpuAffinity->pinToCore(coreId);
               
               if (pinned && assignment.hasIsolatedCores)
               {
@@ -135,7 +138,7 @@ class EventBus
               // Set real-time priority if enabled
               if (config.enableRealTimePriority)
               {
-                performance::CpuAffinity::setRealTimePriority(config.realTimePriority);
+                threadCpuAffinity->setRealTimePriority(config.realTimePriority);
               }
             }
           }
@@ -145,8 +148,8 @@ class EventBus
             auto& assignment = _coreAssignment.value();
             if (!assignment.marketDataCores.empty())
             {
-              performance::CpuAffinity::pinToCore(assignment.marketDataCores[0]);
-              performance::CpuAffinity::setRealTimePriority(90);
+              threadCpuAffinity->pinToCore(assignment.marketDataCores[0]);
+              threadCpuAffinity->setRealTimePriority(90);
             }
           }
 
@@ -291,18 +294,18 @@ class EventBus
     _affinityConfig = config;
 
     // Generate optimal core assignment using isolated cores
-    performance::CpuAffinity::CriticalComponentConfig coreConfig;
+    performance::CriticalComponentConfig coreConfig;
     coreConfig.preferIsolatedCores = config.preferIsolatedCores;
     coreConfig.exclusiveIsolatedCores = true;
     coreConfig.allowSharedCriticalCores = false;
 
     if (config.enableNumaAwareness)
     {
-      _coreAssignment = performance::CpuAffinity::getNumaAwareCoreAssignment(coreConfig);
+      _coreAssignment = cpuAffinity_->getNumaAwareCoreAssignment(coreConfig);
     }
     else
     {
-      _coreAssignment = performance::CpuAffinity::getRecommendedCoreAssignment(coreConfig);
+      _coreAssignment = cpuAffinity_->getRecommendedCoreAssignment(coreConfig);
     }
   }
 
@@ -311,7 +314,7 @@ class EventBus
    * @param assignment Core assignment configuration
    * @note For advanced use cases. Most users should use setupOptimalConfiguration() instead
    */
-  void setCoreAssignment(const performance::CpuAffinity::CoreAssignment& assignment)
+  void setCoreAssignment(const performance::CoreAssignment& assignment)
   {
     _coreAssignment = assignment;
     // Set default affinity config for compatibility
@@ -322,7 +325,7 @@ class EventBus
    * @brief Get current CPU affinity configuration
    * @return Optional core assignment
    */
-  std::optional<performance::CpuAffinity::CoreAssignment> getCoreAssignment() const
+  std::optional<performance::CoreAssignment> getCoreAssignment() const
   {
     return _coreAssignment;
   }
@@ -376,7 +379,7 @@ class EventBus
     if (enablePerformanceOptimizations)
     {
       // Optionally disable frequency scaling for performance
-      performance::CpuAffinity::disableCpuFrequencyScaling();
+      cpuAffinity_->disableCpuFrequencyScaling();
     }
 
     return _coreAssignment.has_value();
@@ -393,7 +396,7 @@ class EventBus
       return false;
     }
 
-    return performance::CpuAffinity::verifyCriticalCoreIsolation(_coreAssignment.value());
+    return cpuAffinity_->verifyCriticalCoreIsolation(_coreAssignment.value());
   }
 
  private:
@@ -424,6 +427,7 @@ class EventBus
     }
   };
 
+  std::unique_ptr<performance::CpuAffinity> cpuAffinity_;
   std::unordered_map<SubscriberId, Entry> _subs;
   mutable std::mutex _mutex;
   std::atomic<bool> _running{false};
@@ -432,7 +436,7 @@ class EventBus
   std::mutex _readyMutex;
   std::atomic<uint64_t> _tickCounter{0};
   bool _drainOnStop = false;
-  std::optional<performance::CpuAffinity::CoreAssignment> _coreAssignment;
+  std::optional<performance::CoreAssignment> _coreAssignment;
   std::optional<AffinityConfig> _affinityConfig;
 };
 

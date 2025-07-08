@@ -26,9 +26,12 @@ class CpuAffinityTest : public ::testing::Test
  protected:
   void SetUp() override
   {
+    // Create CpuAffinity instance for testing
+    cpuAffinity_ = createCpuAffinity();
+
     // Save original affinity
-    _originalAffinity = CpuAffinity::getCurrentAffinity();
-    _numCores = CpuAffinity::getNumCores();
+    _originalAffinity = cpuAffinity_->getCurrentAffinity();
+    _numCores = cpuAffinity_->getNumCores();
   }
 
   void TearDown() override
@@ -51,14 +54,14 @@ class CpuAffinityTest : public ::testing::Test
   // Helper method to check if NUMA is available on this system
   bool isNumaAvailable()
   {
-    auto topology = CpuAffinity::getNumaTopology();
+    auto topology = cpuAffinity_->getNumaTopology();
     return topology.numaAvailable && !topology.nodes.empty();
   }
 
   // Helper method to get a valid NUMA node for testing
   int getTestNumaNode()
   {
-    auto topology = CpuAffinity::getNumaTopology();
+    auto topology = cpuAffinity_->getNumaTopology();
     if (topology.numaAvailable && !topology.nodes.empty())
     {
       return topology.nodes[0].nodeId;
@@ -66,6 +69,7 @@ class CpuAffinityTest : public ::testing::Test
     return -1;
   }
 
+  std::unique_ptr<CpuAffinity> cpuAffinity_;
   std::vector<int> _originalAffinity;
   int _numCores;
 };
@@ -78,7 +82,7 @@ TEST_F(CpuAffinityTest, BasicCpuInfo)
   EXPECT_GT(_numCores, 0);
   EXPECT_LE(_numCores, 256);  // Reasonable upper bound
 
-  auto currentAffinity = CpuAffinity::getCurrentAffinity();
+  auto currentAffinity = cpuAffinity_->getCurrentAffinity();
   EXPECT_FALSE(currentAffinity.empty());
 
   // All cores should be valid
@@ -100,20 +104,20 @@ TEST_F(CpuAffinityTest, PinToCore)
   }
 
   // Pin to core 0
-  bool result = CpuAffinity::pinToCore(0);
+  bool result = cpuAffinity_->pinToCore(0);
 
 #ifdef __linux__
   EXPECT_TRUE(result);
 
-  auto affinity = CpuAffinity::getCurrentAffinity();
+  auto affinity = cpuAffinity_->getCurrentAffinity();
   EXPECT_EQ(affinity.size(), 1);
   EXPECT_EQ(affinity[0], 0);
 
   // Pin to core 1
-  result = CpuAffinity::pinToCore(1);
+  result = cpuAffinity_->pinToCore(1);
   EXPECT_TRUE(result);
 
-  affinity = CpuAffinity::getCurrentAffinity();
+  affinity = cpuAffinity_->getCurrentAffinity();
   EXPECT_EQ(affinity.size(), 1);
   EXPECT_EQ(affinity[0], 1);
 #else
@@ -127,10 +131,10 @@ TEST_F(CpuAffinityTest, PinToCore)
 TEST_F(CpuAffinityTest, PinToInvalidCore)
 {
   // Try to pin to invalid core
-  bool result = CpuAffinity::pinToCore(999);
+  bool result = cpuAffinity_->pinToCore(999);
   EXPECT_FALSE(result);
 
-  result = CpuAffinity::pinToCore(-1);
+  result = cpuAffinity_->pinToCore(-1);
   EXPECT_FALSE(result);
 }
 
@@ -146,8 +150,8 @@ TEST_F(CpuAffinityTest, ThreadAffinityGuard)
 
 #ifdef __linux__
   // Pin to core 0 first
-  CpuAffinity::pinToCore(0);
-  auto affinity = CpuAffinity::getCurrentAffinity();
+  cpuAffinity_->pinToCore(0);
+  auto affinity = cpuAffinity_->getCurrentAffinity();
   EXPECT_EQ(affinity.size(), 1);
   EXPECT_EQ(affinity[0], 0);
 
@@ -155,13 +159,13 @@ TEST_F(CpuAffinityTest, ThreadAffinityGuard)
     // Use guard to temporarily pin to core 1
     ThreadAffinityGuard guard(1);
 
-    affinity = CpuAffinity::getCurrentAffinity();
+    affinity = cpuAffinity_->getCurrentAffinity();
     EXPECT_EQ(affinity.size(), 1);
     EXPECT_EQ(affinity[0], 1);
   }
 
   // Should be restored to core 0
-  affinity = CpuAffinity::getCurrentAffinity();
+  affinity = cpuAffinity_->getCurrentAffinity();
   EXPECT_EQ(affinity.size(), 1);
   EXPECT_EQ(affinity[0], 0);
 #endif
@@ -182,14 +186,14 @@ TEST_F(CpuAffinityTest, ThreadAffinityGuardMultipleCores)
     // Use guard to pin to cores 0 and 1
     ThreadAffinityGuard guard({0, 1});
 
-    auto affinity = CpuAffinity::getCurrentAffinity();
+    auto affinity = cpuAffinity_->getCurrentAffinity();
     EXPECT_EQ(affinity.size(), 2);
     EXPECT_TRUE(std::find(affinity.begin(), affinity.end(), 0) != affinity.end());
     EXPECT_TRUE(std::find(affinity.begin(), affinity.end(), 1) != affinity.end());
   }
 
   // Should be restored to original affinity
-  auto affinity = CpuAffinity::getCurrentAffinity();
+  auto affinity = cpuAffinity_->getCurrentAffinity();
   EXPECT_EQ(affinity.size(), _originalAffinity.size());
 #endif
 }
@@ -209,12 +213,12 @@ TEST_F(CpuAffinityTest, ThreadPinning)
 
   std::thread t([&]()
                 {
-        bool result = CpuAffinity::pinToCore(1);
+        bool result = cpuAffinity_->pinToCore(1);
         threadPinned.store(result);
         
         if (result)
         {
-            auto affinity = CpuAffinity::getCurrentAffinity();
+            auto affinity = cpuAffinity_->getCurrentAffinity();
             if (affinity.size() == 1)
             {
                 threadCore.store(affinity[0]);
@@ -236,7 +240,7 @@ TEST_F(CpuAffinityTest, ThreadPinning)
  */
 TEST_F(CpuAffinityTest, RecommendedCoreAssignment)
 {
-  auto assignment = CpuAffinity::getRecommendedCoreAssignment();
+  auto assignment = cpuAffinity_->getRecommendedCoreAssignment();
 
   // Should have at least some cores assigned
   int totalAssigned = assignment.marketDataCores.size() +
@@ -269,7 +273,7 @@ TEST_F(CpuAffinityTest, RecommendedCoreAssignment)
  */
 TEST_F(CpuAffinityTest, IsolatedCores)
 {
-  auto isolatedCores = CpuAffinity::getIsolatedCores();
+  auto isolatedCores = cpuAffinity_->getIsolatedCores();
 
   // Should not throw and return valid cores
   for (int core : isolatedCores)
@@ -284,7 +288,7 @@ TEST_F(CpuAffinityTest, IsolatedCores)
  */
 TEST_F(CpuAffinityTest, CriticalComponentConfig)
 {
-  CpuAffinity::CriticalComponentConfig config;
+  performance::CriticalComponentConfig config;
 
   // Test default values
   EXPECT_TRUE(config.preferIsolatedCores);
@@ -319,10 +323,10 @@ TEST_F(CpuAffinityTest, CriticalComponentConfig)
  */
 TEST_F(CpuAffinityTest, EnhancedCoreAssignment)
 {
-  auto isolatedCores = CpuAffinity::getIsolatedCores();
+  auto isolatedCores = cpuAffinity_->getIsolatedCores();
 
   // Test with default configuration
-  auto assignment = CpuAffinity::getRecommendedCoreAssignment();
+  auto assignment = cpuAffinity_->getRecommendedCoreAssignment();
 
   EXPECT_EQ(assignment.hasIsolatedCores, !isolatedCores.empty());
   EXPECT_EQ(assignment.allIsolatedCores, isolatedCores);
@@ -345,10 +349,10 @@ TEST_F(CpuAffinityTest, EnhancedCoreAssignment)
   verifyValidCores(assignment.criticalCores);
 
   // Test with custom configuration
-  CpuAffinity::CriticalComponentConfig config;
+  performance::CriticalComponentConfig config;
   config.preferIsolatedCores = false;
 
-  auto assignment2 = CpuAffinity::getRecommendedCoreAssignment(config);
+  auto assignment2 = cpuAffinity_->getRecommendedCoreAssignment(config);
   EXPECT_EQ(assignment2.hasIsolatedCores, !isolatedCores.empty());
 
   if (!isolatedCores.empty())
@@ -372,31 +376,31 @@ TEST_F(CpuAffinityTest, EnhancedCoreAssignment)
  */
 TEST_F(CpuAffinityTest, CriticalComponentPinning)
 {
-  auto assignment = CpuAffinity::getRecommendedCoreAssignment();
+  auto assignment = cpuAffinity_->getRecommendedCoreAssignment();
 
   // Test invalid component
-  EXPECT_FALSE(CpuAffinity::pinCriticalComponent("invalid", assignment));
+  EXPECT_FALSE(cpuAffinity_->pinCriticalComponent("invalid", assignment));
 
   // Test valid components (only if they have assigned cores)
   if (!assignment.marketDataCores.empty())
   {
     // Note: This may fail without proper permissions, so we don't assert
-    CpuAffinity::pinCriticalComponent("marketData", assignment);
+    cpuAffinity_->pinCriticalComponent("marketData", assignment);
   }
 
   if (!assignment.executionCores.empty())
   {
-    CpuAffinity::pinCriticalComponent("execution", assignment);
+    cpuAffinity_->pinCriticalComponent("execution", assignment);
   }
 
   if (!assignment.strategyCores.empty())
   {
-    CpuAffinity::pinCriticalComponent("strategy", assignment);
+    cpuAffinity_->pinCriticalComponent("strategy", assignment);
   }
 
   if (!assignment.riskCores.empty())
   {
-    CpuAffinity::pinCriticalComponent("risk", assignment);
+    cpuAffinity_->pinCriticalComponent("risk", assignment);
   }
 }
 
@@ -405,10 +409,10 @@ TEST_F(CpuAffinityTest, CriticalComponentPinning)
  */
 TEST_F(CpuAffinityTest, VerifyCriticalCoreIsolation)
 {
-  auto assignment = CpuAffinity::getRecommendedCoreAssignment();
+  auto assignment = cpuAffinity_->getRecommendedCoreAssignment();
 
   // Should not throw regardless of isolation status
-  bool result = CpuAffinity::verifyCriticalCoreIsolation(assignment);
+  bool result = cpuAffinity_->verifyCriticalCoreIsolation(assignment);
 
   if (assignment.hasIsolatedCores && !assignment.criticalCores.empty())
   {
@@ -436,19 +440,19 @@ TEST_F(CpuAffinityTest, VerifyCriticalCoreIsolation)
  */
 TEST_F(CpuAffinityTest, CheckIsolatedCoreRequirements)
 {
-  auto isolatedCores = CpuAffinity::getIsolatedCores();
+  auto isolatedCores = cpuAffinity_->getIsolatedCores();
 
   // Test with different requirements
-  bool result1 = CpuAffinity::checkIsolatedCoreRequirements(1);
-  bool result2 = CpuAffinity::checkIsolatedCoreRequirements(4);
-  bool result3 = CpuAffinity::checkIsolatedCoreRequirements(100);
+  bool result1 = cpuAffinity_->checkIsolatedCoreRequirements(1);
+  bool result2 = cpuAffinity_->checkIsolatedCoreRequirements(4);
+  bool result3 = cpuAffinity_->checkIsolatedCoreRequirements(100);
 
   EXPECT_EQ(result1, isolatedCores.size() >= 1);
   EXPECT_EQ(result2, isolatedCores.size() >= 4);
   EXPECT_EQ(result3, isolatedCores.size() >= 100);
 
   // Test default parameter
-  bool resultDefault = CpuAffinity::checkIsolatedCoreRequirements();
+  bool resultDefault = cpuAffinity_->checkIsolatedCoreRequirements();
   EXPECT_EQ(resultDefault, isolatedCores.size() >= 4);
 }
 
@@ -457,8 +461,12 @@ TEST_F(CpuAffinityTest, CheckIsolatedCoreRequirements)
    */
 TEST_F(CpuAffinityTest, OptimalPerformanceConfiguration)
 {
-  // Test without frequency scaling and real-time priority changes
-  auto assignment = CpuAffinity::setupOptimalPerformanceConfiguration(false, false);
+  // Test configuration without isolated cores
+  performance::CriticalComponentConfig config1;
+  config1.preferIsolatedCores = false;
+  config1.exclusiveIsolatedCores = false;
+
+  auto assignment = cpuAffinity_->getRecommendedCoreAssignment(config1);
 
   // Should return valid assignment
   EXPECT_GE(assignment.marketDataCores.size() + assignment.executionCores.size() +
@@ -466,8 +474,12 @@ TEST_F(CpuAffinityTest, OptimalPerformanceConfiguration)
                 assignment.generalCores.size(),
             0);
 
-  // Test with frequency scaling and real-time priority (may fail without permissions)
-  auto assignment2 = CpuAffinity::setupOptimalPerformanceConfiguration(true, true);
+  // Test with isolated cores and NUMA awareness
+  performance::CriticalComponentConfig config2;
+  config2.preferIsolatedCores = true;
+  config2.exclusiveIsolatedCores = true;
+
+  auto assignment2 = cpuAffinity_->getNumaAwareCoreAssignment(config2);
   EXPECT_GE(assignment2.marketDataCores.size() + assignment2.executionCores.size() +
                 assignment2.strategyCores.size() + assignment2.riskCores.size() +
                 assignment2.generalCores.size(),
@@ -479,12 +491,12 @@ TEST_F(CpuAffinityTest, OptimalPerformanceConfiguration)
  */
 TEST_F(CpuAffinityTest, SetupAndPinCriticalComponents)
 {
-  CpuAffinity::CriticalComponentConfig config;
+  performance::CriticalComponentConfig config;
   config.preferIsolatedCores = true;
 
   // This test doesn't assert on the result since it depends on permissions
   // Just verify it doesn't crash
-  bool result = CpuAffinity::setupAndPinCriticalComponents(config);
+  bool result = cpuAffinity_->setupAndPinCriticalComponents(config);
   EXPECT_TRUE(result || !result);  // Always true, just to check it runs
 }
 
@@ -494,7 +506,7 @@ TEST_F(CpuAffinityTest, SetupAndPinCriticalComponents)
 TEST_F(CpuAffinityTest, DemonstrateIsolatedCoreUsage)
 {
   // This should not throw
-  EXPECT_NO_THROW(CpuAffinity::demonstrateIsolatedCoreUsage());
+  EXPECT_NO_THROW(cpuAffinity_->demonstrateIsolatedCoreUsage());
 }
 
 /**
@@ -502,18 +514,18 @@ TEST_F(CpuAffinityTest, DemonstrateIsolatedCoreUsage)
  */
 TEST_F(CpuAffinityTest, IsolatedCoresPriorityConfig)
 {
-  auto isolatedCores = CpuAffinity::getIsolatedCores();
+  auto isolatedCores = cpuAffinity_->getIsolatedCores();
 
   if (isolatedCores.size() >= 2)
   {
     // Test priority reordering
-    CpuAffinity::CriticalComponentConfig config;
+    performance::CriticalComponentConfig config;
     config.componentPriority["execution"] = 0;   // Highest priority
     config.componentPriority["marketData"] = 1;  // Second priority
     config.componentPriority["risk"] = 2;
     config.componentPriority["strategy"] = 3;
 
-    auto assignment = CpuAffinity::getRecommendedCoreAssignment(config);
+    auto assignment = cpuAffinity_->getRecommendedCoreAssignment(config);
 
     // If we have isolated cores, execution should get first isolated core
     if (!assignment.executionCores.empty() && !assignment.marketDataCores.empty())
@@ -534,23 +546,23 @@ TEST_F(CpuAffinityTest, IsolatedCoresPriorityConfig)
  */
 TEST_F(CpuAffinityTest, ExclusiveVsSharedIsolatedCores)
 {
-  auto isolatedCores = CpuAffinity::getIsolatedCores();
+  auto isolatedCores = cpuAffinity_->getIsolatedCores();
 
   if (isolatedCores.size() >= 1)
   {
     // Test exclusive isolated cores (default)
-    CpuAffinity::CriticalComponentConfig exclusiveConfig;
+    performance::CriticalComponentConfig exclusiveConfig;
     exclusiveConfig.exclusiveIsolatedCores = true;
     exclusiveConfig.allowSharedCriticalCores = false;
 
-    auto exclusiveAssignment = CpuAffinity::getRecommendedCoreAssignment(exclusiveConfig);
+    auto exclusiveAssignment = cpuAffinity_->getRecommendedCoreAssignment(exclusiveConfig);
 
     // Test shared isolated cores
-    CpuAffinity::CriticalComponentConfig sharedConfig;
+    performance::CriticalComponentConfig sharedConfig;
     sharedConfig.exclusiveIsolatedCores = false;
     sharedConfig.allowSharedCriticalCores = true;
 
-    auto sharedAssignment = CpuAffinity::getRecommendedCoreAssignment(sharedConfig);
+    auto sharedAssignment = cpuAffinity_->getRecommendedCoreAssignment(sharedConfig);
 
     // Shared config should potentially have isolated cores in general cores too
     if (!isolatedCores.empty())
@@ -573,14 +585,14 @@ TEST_F(CpuAffinityTest, ExclusiveVsSharedIsolatedCores)
  */
 TEST_F(CpuAffinityTest, InsufficientIsolatedCores)
 {
-  auto isolatedCores = CpuAffinity::getIsolatedCores();
+  auto isolatedCores = cpuAffinity_->getIsolatedCores();
 
   // Test with minimum requirement higher than available cores
-  CpuAffinity::CriticalComponentConfig config;
+  performance::CriticalComponentConfig config;
   config.minIsolatedForCritical = isolatedCores.size() + 10;  // More than available
   config.preferIsolatedCores = true;
 
-  auto assignment = CpuAffinity::getRecommendedCoreAssignment(config);
+  auto assignment = cpuAffinity_->getRecommendedCoreAssignment(config);
 
   // Should fall back to basic assignment
   EXPECT_EQ(assignment.hasIsolatedCores, !isolatedCores.empty());
@@ -604,22 +616,22 @@ TEST_F(CpuAffinityTest, PerformanceIsolatedCoreSimulation)
     GTEST_SKIP() << "Need at least 2 cores for performance simulation";
   }
 
-  auto isolatedCores = CpuAffinity::getIsolatedCores();
+  auto isolatedCores = cpuAffinity_->getIsolatedCores();
 
   // Simulate performance setup process
 
   // Step 1: Check system requirements
-  bool hasRequiredCores = CpuAffinity::checkIsolatedCoreRequirements(4);
+  bool hasRequiredCores = cpuAffinity_->checkIsolatedCoreRequirements(4);
 
   // Step 2: Configure based on available cores
-  CpuAffinity::CriticalComponentConfig config;
+  performance::CriticalComponentConfig config;
   config.preferIsolatedCores = true;
   config.exclusiveIsolatedCores = hasRequiredCores;
   config.allowSharedCriticalCores = !hasRequiredCores;
   config.minIsolatedForCritical = hasRequiredCores ? 4 : 1;
 
   // Step 3: Get optimal assignment
-  auto assignment = CpuAffinity::getNumaAwareCoreAssignment(config);
+  auto assignment = cpuAffinity_->getNumaAwareCoreAssignment(config);
 
   // Step 4: Verify the assignment is valid
   EXPECT_EQ(assignment.hasIsolatedCores, !isolatedCores.empty());
@@ -638,11 +650,11 @@ TEST_F(CpuAffinityTest, PerformanceIsolatedCoreSimulation)
       threadsStarted++;
       
       // Pin to assigned core
-      bool pinned = CpuAffinity::pinToCore(coreId);
+      bool pinned = cpuAffinity_->pinToCore(coreId);
       EXPECT_TRUE(pinned || !pinned);  // Don't fail test on permission issues
       
       // Set high priority (may fail without permissions)
-      CpuAffinity::setRealTimePriority(90);
+      cpuAffinity_->setRealTimePriority(90);
       
       // Simulate market data processing
       auto startTime = std::chrono::high_resolution_clock::now();
@@ -662,10 +674,10 @@ TEST_F(CpuAffinityTest, PerformanceIsolatedCoreSimulation)
                                     {
       threadsStarted++;
       
-      bool pinned = CpuAffinity::pinToCore(coreId);
+      bool pinned = cpuAffinity_->pinToCore(coreId);
       EXPECT_TRUE(pinned || !pinned);
       
-      CpuAffinity::setRealTimePriority(85);
+      cpuAffinity_->setRealTimePriority(85);
       
       auto startTime = std::chrono::high_resolution_clock::now();
       while (running && 
@@ -683,10 +695,10 @@ TEST_F(CpuAffinityTest, PerformanceIsolatedCoreSimulation)
                                     {
       threadsStarted++;
       
-      bool pinned = CpuAffinity::pinToCore(coreId);
+      bool pinned = cpuAffinity_->pinToCore(coreId);
       EXPECT_TRUE(pinned || !pinned);
       
-      CpuAffinity::setRealTimePriority(80);
+      cpuAffinity_->setRealTimePriority(80);
       
       auto startTime = std::chrono::high_resolution_clock::now();
       while (running && 
@@ -704,10 +716,10 @@ TEST_F(CpuAffinityTest, PerformanceIsolatedCoreSimulation)
                                     {
       threadsStarted++;
       
-      bool pinned = CpuAffinity::pinToCore(coreId);
+      bool pinned = cpuAffinity_->pinToCore(coreId);
       EXPECT_TRUE(pinned || !pinned);
       
-      CpuAffinity::setRealTimePriority(75);
+      cpuAffinity_->setRealTimePriority(75);
       
       auto startTime = std::chrono::high_resolution_clock::now();
       while (running && 
@@ -744,7 +756,7 @@ TEST_F(CpuAffinityTest, PerformanceIsolatedCoreSimulation)
   EXPECT_EQ(threadsCompleted.load(), (int)performanceThreads.size());
 
   // Step 6: Final verification
-  bool isolation = CpuAffinity::verifyCriticalCoreIsolation(assignment);
+  bool isolation = cpuAffinity_->verifyCriticalCoreIsolation(assignment);
   EXPECT_TRUE(isolation || !isolation);  // Don't fail test, just verify it runs
 }
 
@@ -754,7 +766,7 @@ TEST_F(CpuAffinityTest, PerformanceIsolatedCoreSimulation)
 TEST_F(CpuAffinityTest, RealTimePriority)
 {
   // This test may fail if not running as root
-  bool result = CpuAffinity::setRealTimePriority(50);
+  bool result = cpuAffinity_->setRealTimePriority(50);
 
   // Don't assert on the result since it depends on permissions
   // Just verify it doesn't crash
@@ -767,8 +779,8 @@ TEST_F(CpuAffinityTest, RealTimePriority)
 TEST_F(CpuAffinityTest, CpuFrequencyScaling)
 {
   // These tests may fail without proper permissions
-  bool disableResult = CpuAffinity::disableCpuFrequencyScaling();
-  bool enableResult = CpuAffinity::enableCpuFrequencyScaling();
+  bool disableResult = cpuAffinity_->disableCpuFrequencyScaling();
+  bool enableResult = cpuAffinity_->enableCpuFrequencyScaling();
 
   // Don't assert on the results since they depend on permissions
   // Just verify they don't crash
@@ -784,7 +796,7 @@ TEST_F(CpuAffinityTest, EventBusWithAffinity)
   TradeBus bus;
 
   // Configure CPU affinity
-  auto assignment = CpuAffinity::getRecommendedCoreAssignment();
+  auto assignment = cpuAffinity_->getRecommendedCoreAssignment();
   bus.setCoreAssignment(assignment);
 
   // Verify assignment was set
@@ -929,7 +941,7 @@ TEST_F(CpuAffinityTest, EventBusComponentTypes)
  */
 TEST_F(CpuAffinityTest, MultipleEventBusInstances)
 {
-  auto isolatedCores = CpuAffinity::getIsolatedCores();
+  auto isolatedCores = cpuAffinity_->getIsolatedCores();
 
   if (isolatedCores.size() >= 2)
   {
@@ -980,8 +992,8 @@ TEST_F(CpuAffinityTest, EventBusIsolatedCoreVerification)
  */
 TEST_F(CpuAffinityTest, EventBusIsolatedCoreIntegration)
 {
-  auto isolatedCores = CpuAffinity::getIsolatedCores();
-  bool hasRequiredCores = CpuAffinity::checkIsolatedCoreRequirements(4);
+  auto isolatedCores = cpuAffinity_->getIsolatedCores();
+  bool hasRequiredCores = cpuAffinity_->checkIsolatedCoreRequirements(4);
 
   // Test creating optimal event buses for different components
 
@@ -1052,11 +1064,11 @@ TEST_F(CpuAffinityTest, MultiThreadedAffinity)
     threads.emplace_back([&, i]()
                          {
             int targetCore = i % _numCores;
-            bool result = CpuAffinity::pinToCore(targetCore);
+            bool result = cpuAffinity_->pinToCore(targetCore);
             
             if (result)
             {
-                auto affinity = CpuAffinity::getCurrentAffinity();
+                auto affinity = cpuAffinity_->getCurrentAffinity();
                 if (affinity.size() == 1)
                 {
                     threadCores[i].store(affinity[0]);
@@ -1093,14 +1105,14 @@ TEST_F(CpuAffinityTest, StressTest)
   for (int i = 0; i < 100; ++i)
   {
     int targetCore = i % _numCores;
-    CpuAffinity::pinToCore(targetCore);
+    cpuAffinity_->pinToCore(targetCore);
 
     // Small delay to allow OS to process
     std::this_thread::sleep_for(std::chrono::microseconds(10));
   }
 
   // Should still work after stress test
-  auto affinity = CpuAffinity::getCurrentAffinity();
+  auto affinity = cpuAffinity_->getCurrentAffinity();
   EXPECT_FALSE(affinity.empty());
 }
 
@@ -1116,14 +1128,14 @@ TEST_F(CpuAffinityTest, ExceptionSafety)
 
 #ifdef __linux__
   // Pin to core 0 first
-  CpuAffinity::pinToCore(0);
+  cpuAffinity_->pinToCore(0);
 
   try
   {
     ThreadAffinityGuard guard(1);
 
     // Verify we're on core 1
-    auto affinity = CpuAffinity::getCurrentAffinity();
+    auto affinity = cpuAffinity_->getCurrentAffinity();
     EXPECT_EQ(affinity.size(), 1);
     EXPECT_EQ(affinity[0], 1);
 
@@ -1136,7 +1148,7 @@ TEST_F(CpuAffinityTest, ExceptionSafety)
   }
 
   // Should be restored to core 0
-  auto affinity = CpuAffinity::getCurrentAffinity();
+  auto affinity = cpuAffinity_->getCurrentAffinity();
   EXPECT_EQ(affinity.size(), 1);
   EXPECT_EQ(affinity[0], 0);
 #endif
@@ -1147,7 +1159,7 @@ TEST_F(CpuAffinityTest, ExceptionSafety)
  */
 TEST_F(CpuAffinityTest, NumaTopology)
 {
-  auto topology = CpuAffinity::getNumaTopology();
+  auto topology = cpuAffinity_->getNumaTopology();
 
   // Basic validation
   EXPECT_GE(topology.numNodes, 0);
@@ -1201,7 +1213,7 @@ TEST_F(CpuAffinityTest, NumaTopology)
  */
 TEST_F(CpuAffinityTest, NumaNodeForCore)
 {
-  auto topology = CpuAffinity::getNumaTopology();
+  auto topology = cpuAffinity_->getNumaTopology();
 
   if (!topology.numaAvailable)
   {
@@ -1213,7 +1225,7 @@ TEST_F(CpuAffinityTest, NumaNodeForCore)
   {
     for (int core : node.cpuCores)
     {
-      int numaNode = CpuAffinity::getNumaNodeForCore(core);
+      int numaNode = cpuAffinity_->getNumaNodeForCore(core);
       // Note: The mapping might not be perfect due to different methods
       // but it should return a valid node ID or -1
       EXPECT_TRUE(numaNode == -1 || numaNode >= 0);
@@ -1221,7 +1233,7 @@ TEST_F(CpuAffinityTest, NumaNodeForCore)
   }
 
   // Test invalid core
-  int invalidNode = CpuAffinity::getNumaNodeForCore(999);
+  int invalidNode = cpuAffinity_->getNumaNodeForCore(999);
   EXPECT_EQ(invalidNode, -1);
 }
 
@@ -1230,7 +1242,7 @@ TEST_F(CpuAffinityTest, NumaNodeForCore)
  */
 TEST_F(CpuAffinityTest, PinToNumaNode)
 {
-  auto topology = CpuAffinity::getNumaTopology();
+  auto topology = cpuAffinity_->getNumaTopology();
 
   if (!topology.numaAvailable || topology.nodes.empty())
   {
@@ -1240,11 +1252,11 @@ TEST_F(CpuAffinityTest, PinToNumaNode)
 #ifdef __linux__
   // Pin to first NUMA node
   int nodeId = topology.nodes[0].nodeId;
-  bool result = CpuAffinity::pinToNumaNode(nodeId);
+  bool result = cpuAffinity_->pinToNumaNode(nodeId);
   EXPECT_TRUE(result);
 
   // Check that we're pinned to cores in that node
-  auto affinity = CpuAffinity::getCurrentAffinity();
+  auto affinity = cpuAffinity_->getCurrentAffinity();
   EXPECT_FALSE(affinity.empty());
 
   // All pinned cores should be in the target NUMA node
@@ -1255,10 +1267,10 @@ TEST_F(CpuAffinityTest, PinToNumaNode)
   }
 
   // Test invalid node
-  result = CpuAffinity::pinToNumaNode(999);
+  result = cpuAffinity_->pinToNumaNode(999);
   EXPECT_FALSE(result);
 #else
-  bool result = CpuAffinity::pinToNumaNode(0);
+  bool result = cpuAffinity_->pinToNumaNode(0);
   EXPECT_FALSE(result);  // Should fail on non-Linux platforms
 #endif
 }
@@ -1268,7 +1280,7 @@ TEST_F(CpuAffinityTest, PinToNumaNode)
  */
 TEST_F(CpuAffinityTest, ThreadNumaPinning)
 {
-  auto topology = CpuAffinity::getNumaTopology();
+  auto topology = cpuAffinity_->getNumaTopology();
 
   if (!topology.numaAvailable || topology.nodes.empty())
   {
@@ -1283,12 +1295,12 @@ TEST_F(CpuAffinityTest, ThreadNumaPinning)
 
   std::thread t([&]()
                 {
-        bool result = CpuAffinity::pinToNumaNode(nodeId);
+        bool result = cpuAffinity_->pinToNumaNode(nodeId);
         threadPinned.store(result);
         
         if (result)
         {
-            auto affinity = CpuAffinity::getCurrentAffinity();
+            auto affinity = cpuAffinity_->getCurrentAffinity();
             int coresInNode = 0;
             for (int core : affinity)
             {
@@ -1315,7 +1327,7 @@ TEST_F(CpuAffinityTest, ThreadNumaPinning)
  */
 TEST_F(CpuAffinityTest, MemoryPolicy)
 {
-  auto topology = CpuAffinity::getNumaTopology();
+  auto topology = cpuAffinity_->getNumaTopology();
 
   if (!topology.numaAvailable || topology.nodes.empty())
   {
@@ -1324,14 +1336,14 @@ TEST_F(CpuAffinityTest, MemoryPolicy)
 
 #ifdef __linux__
   int nodeId = topology.nodes[0].nodeId;
-  bool result = CpuAffinity::setMemoryPolicy(nodeId);
+  bool result = cpuAffinity_->setMemoryPolicy(nodeId);
   EXPECT_TRUE(result);
 
   // Test invalid node
-  result = CpuAffinity::setMemoryPolicy(999);
+  result = cpuAffinity_->setMemoryPolicy(999);
   EXPECT_FALSE(result);
 #else
-  bool result = CpuAffinity::setMemoryPolicy(0);
+  bool result = cpuAffinity_->setMemoryPolicy(0);
   EXPECT_FALSE(result);  // Should fail on non-Linux platforms
 #endif
 }
@@ -1341,8 +1353,8 @@ TEST_F(CpuAffinityTest, MemoryPolicy)
  */
 TEST_F(CpuAffinityTest, NumaAwareCoreAssignment)
 {
-  auto assignment = CpuAffinity::getNumaAwareCoreAssignment();
-  auto topology = CpuAffinity::getNumaTopology();
+  auto assignment = cpuAffinity_->getNumaAwareCoreAssignment();
+  auto topology = cpuAffinity_->getNumaTopology();
 
   // Basic validation
   EXPECT_TRUE(assignment.marketDataCores.size() <= static_cast<size_t>(_numCores));
@@ -1373,8 +1385,8 @@ TEST_F(CpuAffinityTest, NumaAwareCoreAssignment)
     // For systems with sufficient cores, market data and execution should be on same node
     if (!assignment.marketDataCores.empty() && !assignment.executionCores.empty())
     {
-      int marketDataNode = CpuAffinity::getNumaNodeForCore(assignment.marketDataCores[0]);
-      int executionNode = CpuAffinity::getNumaNodeForCore(assignment.executionCores[0]);
+      int marketDataNode = cpuAffinity_->getNumaNodeForCore(assignment.marketDataCores[0]);
+      int executionNode = cpuAffinity_->getNumaNodeForCore(assignment.executionCores[0]);
 
       // If both return valid nodes, they should ideally be the same
       if (marketDataNode >= 0 && executionNode >= 0)
@@ -1393,7 +1405,7 @@ TEST_F(CpuAffinityTest, NumaAwareCoreAssignment)
  */
 TEST_F(CpuAffinityTest, NumaAffinityGuard)
 {
-  auto topology = CpuAffinity::getNumaTopology();
+  auto topology = cpuAffinity_->getNumaTopology();
 
   if (!topology.numaAvailable || topology.nodes.empty())
   {
@@ -1404,8 +1416,8 @@ TEST_F(CpuAffinityTest, NumaAffinityGuard)
   // Pin to core 0 first
   if (_numCores >= 1)
   {
-    CpuAffinity::pinToCore(0);
-    auto affinity = CpuAffinity::getCurrentAffinity();
+    cpuAffinity_->pinToCore(0);
+    auto affinity = cpuAffinity_->getCurrentAffinity();
     EXPECT_EQ(affinity.size(), 1);
     EXPECT_EQ(affinity[0], 0);
   }
@@ -1415,9 +1427,9 @@ TEST_F(CpuAffinityTest, NumaAffinityGuard)
 
   {
     // Use NUMA guard to temporarily pin to NUMA node
-    NumaAffinityGuard guard(nodeId);
+    NumaAffinityGuard guard(*cpuAffinity_, nodeId);
 
-    auto affinity = CpuAffinity::getCurrentAffinity();
+    auto affinity = cpuAffinity_->getCurrentAffinity();
     EXPECT_FALSE(affinity.empty());
 
     // All cores should be from the target NUMA node
@@ -1430,7 +1442,7 @@ TEST_F(CpuAffinityTest, NumaAffinityGuard)
   // Should be restored to previous state (core 0)
   if (_numCores >= 1)
   {
-    auto affinity = CpuAffinity::getCurrentAffinity();
+    auto affinity = cpuAffinity_->getCurrentAffinity();
     EXPECT_EQ(affinity.size(), 1);
     EXPECT_EQ(affinity[0], 0);
   }
@@ -1442,7 +1454,7 @@ TEST_F(CpuAffinityTest, NumaAffinityGuard)
  */
 TEST_F(CpuAffinityTest, NumaAffinityGuardSpecificCore)
 {
-  auto topology = CpuAffinity::getNumaTopology();
+  auto topology = cpuAffinity_->getNumaTopology();
 
   if (!topology.numaAvailable || topology.nodes.empty() || _numCores < 2)
   {
@@ -1462,15 +1474,15 @@ TEST_F(CpuAffinityTest, NumaAffinityGuardSpecificCore)
 
   {
     // Use NUMA guard to pin to specific core and set memory policy
-    NumaAffinityGuard guard(targetCore, nodeId);
+    NumaAffinityGuard guard(*cpuAffinity_, targetCore, nodeId);
 
-    auto affinity = CpuAffinity::getCurrentAffinity();
+    auto affinity = cpuAffinity_->getCurrentAffinity();
     EXPECT_EQ(affinity.size(), 1);
     EXPECT_EQ(affinity[0], targetCore);
   }
 
   // Should be restored to original affinity
-  auto affinity = CpuAffinity::getCurrentAffinity();
+  auto affinity = cpuAffinity_->getCurrentAffinity();
   EXPECT_EQ(affinity.size(), _originalAffinity.size());
 #endif
 }
@@ -1480,7 +1492,7 @@ TEST_F(CpuAffinityTest, NumaAffinityGuardSpecificCore)
  */
 TEST_F(CpuAffinityTest, NumaMultiThreaded)
 {
-  auto topology = CpuAffinity::getNumaTopology();
+  auto topology = cpuAffinity_->getNumaTopology();
 
   if (!topology.numaAvailable || topology.nodes.empty())
   {
@@ -1500,10 +1512,10 @@ TEST_F(CpuAffinityTest, NumaMultiThreaded)
         int nodeId = topology.nodes[i % topology.nodes.size()].nodeId;
         
         // Use NUMA affinity guard
-        NumaAffinityGuard guard(nodeId);
+        NumaAffinityGuard guard(*cpuAffinity_, nodeId);
         
         // Verify pinning worked
-        auto affinity = CpuAffinity::getCurrentAffinity();
+        auto affinity = cpuAffinity_->getCurrentAffinity();
         if (!affinity.empty())
         {
             const auto& expectedCores = topology.nodes[i % topology.nodes.size()].cpuCores;
@@ -1554,10 +1566,10 @@ TEST_F(CpuAffinityTest, ConditionalNumaGuardUsage)
 
     {
       // Use NUMA guard for optimal memory locality
-      NumaAffinityGuard numaGuard(testNode);
+      NumaAffinityGuard numaGuard(*cpuAffinity_, testNode);
 
       // Verify we're pinned to the NUMA node
-      auto affinity = CpuAffinity::getCurrentAffinity();
+      auto affinity = cpuAffinity_->getCurrentAffinity();
       EXPECT_FALSE(affinity.empty());
 
       // Simulate memory-intensive work that benefits from NUMA locality
@@ -1574,7 +1586,7 @@ TEST_F(CpuAffinityTest, ConditionalNumaGuardUsage)
       ThreadAffinityGuard cpuGuard(0);  // Pin to core 0
 
       // Verify regular CPU pinning works
-      auto affinity = CpuAffinity::getCurrentAffinity();
+      auto affinity = cpuAffinity_->getCurrentAffinity();
       EXPECT_EQ(affinity.size(), 1);
       EXPECT_EQ(affinity[0], 0);
 
@@ -1600,18 +1612,18 @@ TEST_F(CpuAffinityTest, MixedGuardUsage)
   {
     ThreadAffinityGuard cpuGuard(1);
 
-    auto affinity = CpuAffinity::getCurrentAffinity();
+    auto affinity = cpuAffinity_->getCurrentAffinity();
     EXPECT_EQ(affinity.size(), 1);
     EXPECT_EQ(affinity[0], 1);
 
     // Conditionally add NUMA optimizations if available
     if (isNumaAvailable())
     {
-      int nodeId = CpuAffinity::getNumaNodeForCore(1);
+      int nodeId = cpuAffinity_->getNumaNodeForCore(1);
       if (nodeId >= 0)
       {
         // Set memory policy for the NUMA node containing core 1
-        bool memPolicySet = CpuAffinity::setMemoryPolicy(nodeId);
+        bool memPolicySet = cpuAffinity_->setMemoryPolicy(nodeId);
         EXPECT_TRUE(memPolicySet || !memPolicySet);  // Don't assert - just verify it doesn't crash
 
         // Enhanced with NUMA memory policy

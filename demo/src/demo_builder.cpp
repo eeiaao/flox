@@ -46,7 +46,12 @@ Engine DemoBuilder::build()
   using namespace performance;
 
   // Set up optimal performance configuration with isolated cores
-  auto assignment = CpuAffinity::setupOptimalPerformanceConfiguration(true, true);
+  performance::CriticalComponentConfig config;
+  config.preferIsolatedCores = true;
+  config.exclusiveIsolatedCores = true;
+
+  auto cpuAffinity = createCpuAffinity();
+  auto assignment = cpuAffinity->getNumaAwareCoreAssignment(config);
 
   std::cout << "[DemoBuilder] ✓ CPU affinity configured for high-performance workload:" << std::endl;
   std::cout << "  - Market Data cores: " << assignment.marketDataCores.size() << std::endl;
