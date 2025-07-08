@@ -32,9 +32,10 @@ using CandleBusRef = EventBusRef<CandleEvent, CandleBus::Queue>;
 inline std::unique_ptr<CandleBus> createOptimalCandleBus(bool enablePerformanceOptimizations = false)
 {
   auto bus = std::make_unique<CandleBus>();
+#if FLOX_CPU_AFFINITY_ENABLED
   bool success = bus->setupOptimalConfiguration(CandleBus::ComponentType::STRATEGY,
                                                 enablePerformanceOptimizations);
-
+#endif
   return bus;
 }
 
@@ -46,8 +47,12 @@ inline std::unique_ptr<CandleBus> createOptimalCandleBus(bool enablePerformanceO
  */
 inline bool configureCandleBusForPerformance(CandleBus& bus, bool enablePerformanceOptimizations = false)
 {
+#if FLOX_CPU_AFFINITY_ENABLED
   return bus.setupOptimalConfiguration(CandleBus::ComponentType::STRATEGY,
                                        enablePerformanceOptimizations);
+#else
+  return true;
+#endif
 }
 
 }  // namespace flox

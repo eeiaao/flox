@@ -33,9 +33,10 @@ using OrderExecutionBusRef = EventBusRef<OrderEvent, OrderExecutionBus::Queue>;
 inline std::unique_ptr<OrderExecutionBus> createOptimalOrderExecutionBus(bool enablePerformanceOptimizations = false)
 {
   auto bus = std::make_unique<OrderExecutionBus>();
+#if FLOX_CPU_AFFINITY_ENABLED
   bus->setupOptimalConfiguration(OrderExecutionBus::ComponentType::EXECUTION,
                                  enablePerformanceOptimizations);
-
+#endif
   return bus;
 }
 
@@ -47,8 +48,12 @@ inline std::unique_ptr<OrderExecutionBus> createOptimalOrderExecutionBus(bool en
  */
 inline bool configureOrderExecutionBusForPerformance(OrderExecutionBus& bus, bool enablePerformanceOptimizations = false)
 {
+#if FLOX_CPU_AFFINITY_ENABLED
   return bus.setupOptimalConfiguration(OrderExecutionBus::ComponentType::EXECUTION,
                                        enablePerformanceOptimizations);
+#else
+  return true;
+#endif
 }
 
 }  // namespace flox

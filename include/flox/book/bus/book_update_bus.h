@@ -32,8 +32,10 @@ inline std::unique_ptr<BookUpdateBus>
 createOptimalBookUpdateBus(bool enablePerformanceOptimizations = false)
 {
   auto bus = std::make_unique<BookUpdateBus>();
+#if FLOX_CPU_AFFINITY_ENABLED
   bool success = bus->setupOptimalConfiguration(BookUpdateBus::ComponentType::MARKET_DATA,
                                                 enablePerformanceOptimizations);
+#endif
   return bus;
 }
 
@@ -45,8 +47,12 @@ createOptimalBookUpdateBus(bool enablePerformanceOptimizations = false)
  */
 inline bool configureBookUpdateBusForPerformance(BookUpdateBus& bus, bool enablePerformanceOptimizations = false)
 {
+#if FLOX_CPU_AFFINITY_ENABLED
   return bus.setupOptimalConfiguration(BookUpdateBus::ComponentType::MARKET_DATA,
                                        enablePerformanceOptimizations);
+#else
+  return true;
+#endif
 }
 
 }  // namespace flox

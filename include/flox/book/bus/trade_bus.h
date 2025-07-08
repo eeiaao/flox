@@ -32,9 +32,10 @@ using TradeBusRef = EventBusRef<TradeEvent, TradeBus::Queue>;
 inline std::unique_ptr<TradeBus> createOptimalTradeBus(bool enablePerformanceOptimizations = false)
 {
   auto bus = std::make_unique<TradeBus>();
+#if FLOX_CPU_AFFINITY_ENABLED
   bus->setupOptimalConfiguration(TradeBus::ComponentType::MARKET_DATA,
                                  enablePerformanceOptimizations);
-
+#endif
   return bus;
 }
 
@@ -46,9 +47,13 @@ inline std::unique_ptr<TradeBus> createOptimalTradeBus(bool enablePerformanceOpt
  */
 inline bool configureTradeBusForPerformance(TradeBus& bus, bool enablePerformanceOptimizations = false)
 {
+#if FLOX_CPU_AFFINITY_ENABLED
   bool success = bus.setupOptimalConfiguration(TradeBus::ComponentType::MARKET_DATA,
                                                enablePerformanceOptimizations);
   return success;
+#else
+  return true;
+#endif
 }
 
 }  // namespace flox

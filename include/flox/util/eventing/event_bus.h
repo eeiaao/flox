@@ -22,7 +22,9 @@
 #include "flox/engine/tick_barrier.h"
 #include "flox/util/concurrency/spsc_queue.h"
 #include "flox/util/eventing/event_bus_component.h"
+#if FLOX_CPU_AFFINITY_ENABLED
 #include "flox/util/performance/cpu_affinity.h"
+#endif
 
 namespace flox
 {
@@ -38,7 +40,12 @@ class EventBus
   using Trait = traits::EventBusTrait<Event, Queue>;
   using Allocator = PoolAllocator<Trait, 8>;
 
-  EventBus() : cpuAffinity_(performance::createCpuAffinity()) {}
+  EventBus()
+#if FLOX_CPU_AFFINITY_ENABLED
+      : cpuAffinity_(performance::createCpuAffinity())
+#endif
+  {
+  }
 
   ~EventBus()
   {
@@ -84,6 +91,7 @@ class EventBus
 
         e.thread = std::make_unique<std::thread>([this, queue, listener = std::move(listener)] mutable
                                                  {
+#if FLOX_CPU_AFFINITY_ENABLED
           // Create a local CpuAffinity instance for this thread
           auto threadCpuAffinity = performance::createCpuAffinity();
 
@@ -152,6 +160,7 @@ class EventBus
               threadCpuAffinity->setRealTimePriority(90);
             }
           }
+#endif
 
           {
             std::lock_guard<std::mutex> lk(_readyMutex);
@@ -256,6 +265,7 @@ class EventBus
     _drainOnStop = true;
   }
 
+#if FLOX_CPU_AFFINITY_ENABLED
   /**
    * @brief Event bus component types for CPU affinity assignment
    */
@@ -284,7 +294,9 @@ class EventBus
     AffinityConfig(ComponentType type, int priority = 80)
         : componentType(type), realTimePriority(priority) {}
   };
+#endif
 
+#if FLOX_CPU_AFFINITY_ENABLED
   /**
    * @brief Configure CPU affinity for event bus threads using enhanced isolated core functionality
    * @param config Affinity configuration including component type and priorities
@@ -398,6 +410,7 @@ class EventBus
 
     return cpuAffinity_->verifyCriticalCoreIsolation(_coreAssignment.value());
   }
+#endif
 
  private:
   struct Entry
@@ -427,7 +440,11 @@ class EventBus
     }
   };
 
+#if FLOX_CPU_AFFINITY_ENABLED
   std::unique_ptr<performance::CpuAffinity> cpuAffinity_;
+  std::optional<performance::CoreAssignment> _coreAssignment;
+  std::optional<AffinityConfig> _affinityConfig;
+#endif
   std::unordered_map<SubscriberId, Entry> _subs;
   mutable std::mutex _mutex;
   std::atomic<bool> _running{false};
@@ -436,8 +453,6 @@ class EventBus
   std::mutex _readyMutex;
   std::atomic<uint64_t> _tickCounter{0};
   bool _drainOnStop = false;
-  std::optional<performance::CoreAssignment> _coreAssignment;
-  std::optional<AffinityConfig> _affinityConfig;
 };
 
 }  // namespace flox

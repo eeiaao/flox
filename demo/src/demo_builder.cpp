@@ -42,6 +42,7 @@ Engine DemoBuilder::build()
   auto execBus = make<OrderExecutionBus>();
   auto candleBus = make<CandleBus>();
 
+#if FLOX_CPU_AFFINITY_ENABLED
   // Configure CPU affinity for optimal performance
   using namespace performance;
 
@@ -59,6 +60,9 @@ Engine DemoBuilder::build()
   std::cout << "  - Strategy cores: " << assignment.strategyCores.size() << std::endl;
   std::cout << "  - Risk cores: " << assignment.riskCores.size() << std::endl;
   std::cout << "  - Using isolated cores: " << (assignment.hasIsolatedCores ? "Yes" : "No") << std::endl;
+#else
+  std::cout << "[DemoBuilder] ✓ CPU affinity disabled (ENABLE_CPU_AFFINITY=OFF)" << std::endl;
+#endif
 
   buses.push_back(bookUpdateBus.as<traits::SubsystemTrait>());
   buses.push_back(tradeBus.as<traits::SubsystemTrait>());
