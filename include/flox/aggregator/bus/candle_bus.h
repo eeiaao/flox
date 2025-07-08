@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <memory>
 #include "flox/aggregator/events/candle_event.h"
 #include "flox/util/eventing/event_bus.h"
 
@@ -22,5 +23,36 @@ using CandleBus = EventBus<CandleEvent, AsyncPolicy<CandleEvent>>;
 #endif
 
 using CandleBusRef = EventBusRef<CandleEvent, CandleBus::Queue>;
+
+/**
+ * @brief Create and configure a CandleBus with optimal isolated core settings
+ * @param enablePerformanceOptimizations Enable CPU frequency scaling optimizations
+ * @return Configured CandleBus instance
+ */
+inline std::unique_ptr<CandleBus> createOptimalCandleBus(bool enablePerformanceOptimizations = false)
+{
+  auto bus = std::make_unique<CandleBus>();
+#if FLOX_CPU_AFFINITY_ENABLED
+  bool success = bus->setupOptimalConfiguration(CandleBus::ComponentType::STRATEGY,
+                                                enablePerformanceOptimizations);
+#endif
+  return bus;
+}
+
+/**
+ * @brief Configure an existing CandleBus for optimal performance
+ * @param bus CandleBus instance to configure
+ * @param enablePerformanceOptimizations Enable CPU frequency scaling optimizations
+ * @return true if configuration was successful
+ */
+inline bool configureCandleBusForPerformance(CandleBus& bus, bool enablePerformanceOptimizations = false)
+{
+#if FLOX_CPU_AFFINITY_ENABLED
+  return bus.setupOptimalConfiguration(CandleBus::ComponentType::STRATEGY,
+                                       enablePerformanceOptimizations);
+#else
+  return true;
+#endif
+}
 
 }  // namespace flox
