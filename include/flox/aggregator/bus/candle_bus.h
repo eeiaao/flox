@@ -21,6 +21,4 @@ using CandleBus = EventBus<CandleEvent, SyncPolicy<CandleEvent>>;
 using CandleBus = EventBus<CandleEvent, AsyncPolicy<CandleEvent>>;
 #endif
 
-using CandleBusRef = EventBusRef<CandleEvent, CandleBus::Queue>;
-
 }  // namespace flox

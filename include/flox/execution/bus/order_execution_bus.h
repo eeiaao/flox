@@ -11,7 +11,6 @@
 
 #include "flox/execution/events/order_event.h"
 #include "flox/util/eventing/event_bus.h"
-#include "flox/util/eventing/event_bus_component.h"
 
 namespace flox
 {
@@ -21,7 +20,5 @@ using OrderExecutionBus = EventBus<OrderEvent, SyncPolicy<OrderEvent> >;
 #else
 using OrderExecutionBus = EventBus<OrderEvent, AsyncPolicy<OrderEvent> >;
 #endif
-
-using OrderExecutionBusRef = EventBusRef<OrderEvent, OrderExecutionBus::Queue>;
 
 }  // namespace flox

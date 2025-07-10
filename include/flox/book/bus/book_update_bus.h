@@ -11,6 +11,7 @@
 
 #include "flox/book/events/book_update_event.h"
 #include "flox/util/eventing/event_bus.h"
+#include "flox/util/memory/pool.h"
 
 namespace flox
 {
@@ -20,7 +21,5 @@ using BookUpdateBus = EventBus<pool::Handle<BookUpdateEvent>, SyncPolicy<pool::H
 #else
 using BookUpdateBus = EventBus<pool::Handle<BookUpdateEvent>, AsyncPolicy<pool::Handle<BookUpdateEvent>>>;
 #endif
-
-using BookUpdateBusRef = EventBusRef<pool::Handle<BookUpdateEvent>, BookUpdateBus::Queue>;
 
 }  // namespace flox

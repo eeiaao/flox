@@ -21,6 +21,4 @@ using TradeBus = EventBus<TradeEvent, SyncPolicy<TradeEvent>>;
 using TradeBus = EventBus<TradeEvent, AsyncPolicy<TradeEvent>>;
 #endif
 
-using TradeBusRef = EventBusRef<TradeEvent, TradeBus::Queue>;
-
 }  // namespace flox
