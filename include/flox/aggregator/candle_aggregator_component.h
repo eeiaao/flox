@@ -64,9 +64,8 @@ struct CandleAggregatorTrait
     requires concepts::CandleAggregator<T>
   static constexpr VTable makeVTable()
   {
-    static constexpr auto mds = MarketDataSubscriberTrait::makeVTable<T>();
-    static constexpr auto ss = SubsystemTrait::makeVTable<T>();
-
+    static auto mds = MarketDataSubscriberTrait::makeVTable<T>();
+    static auto ss = SubsystemTrait::makeVTable<T>();
     return {
         .mds = &mds,
         .subsystem = &ss,

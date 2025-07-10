@@ -58,7 +58,7 @@ struct PositionManagerTrait
     requires concepts::PositionManager<T>
   static constexpr VTable makeVTable()
   {
-    static constexpr auto oel = OrderExecutionListenerTrait::makeVTable<T>();
+    static auto oel = OrderExecutionListenerTrait::makeVTable<T>();
     return {
         .oel = &oel,
         .getPosition = meta::wrap<&T::getPosition>(),

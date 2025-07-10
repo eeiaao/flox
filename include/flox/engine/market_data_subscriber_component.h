@@ -13,7 +13,6 @@
 
 #include "flox/engine/subscriber_component.h"
 #include "flox/util/base/ref.h"
-#include "flox/util/meta/meta.h"
 
 namespace flox
 {
@@ -63,7 +62,7 @@ struct MarketDataSubscriberTrait
     requires concepts::MarketDataSubscriber<T>
   static constexpr VTable makeVTable()
   {
-    static constexpr auto sub = SubscriberTrait::makeVTable<T>();
+    static auto sub = SubscriberTrait::makeVTable<T>();
     return {
         .subscriber = &sub,
         .onBookUpdate = meta::wrap<&T::onBookUpdate>(),

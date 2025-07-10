@@ -52,8 +52,8 @@ struct StrategyTrait
     requires concepts::Strategy<T>
   static constexpr VTable makeVTable()
   {
-    static constexpr auto subsystem = SubsystemTrait::makeVTable<T>();
-    static constexpr auto mds = MarketDataSubscriberTrait::makeVTable<T>();
+    static auto subsystem = SubsystemTrait::makeVTable<T>();
+    static auto mds = MarketDataSubscriberTrait::makeVTable<T>();
     return {
         .subsystem = &subsystem,
         .mds = &mds,
