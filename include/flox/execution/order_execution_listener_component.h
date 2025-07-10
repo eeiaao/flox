@@ -76,8 +76,8 @@ struct OrderExecutionListenerTrait
     requires concepts::OrderExecutionListener<T>
   static constexpr VTable makeVTable()
   {
-    static constexpr auto sub = SubscriberTrait::makeVTable<T>();
-    static constexpr auto sys = SubsystemTrait::makeVTable<T>();
+    static auto sub = SubscriberTrait::makeVTable<T>();
+    static auto sys = SubsystemTrait::makeVTable<T>();
 
     return {
         .subscriber = &sub,
